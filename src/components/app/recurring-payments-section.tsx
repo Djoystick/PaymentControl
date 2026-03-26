@@ -159,6 +159,22 @@ const resolveResponsiblePayerDisplayName = (
   return "Assigned member is no longer in this family workspace";
 };
 
+const isCycleToggleDisabled = (
+  payment: RecurringPaymentPayload,
+  isFamilyWorkspace: boolean,
+  isSaving: boolean,
+): boolean => {
+  if (isSaving || payment.status === "archived") {
+    return true;
+  }
+
+  if (isFamilyWorkspace) {
+    return payment.paymentScope !== "shared";
+  }
+
+  return payment.isSubscription && payment.isPaused;
+};
+
 const WEEKLY_TO_MONTHLY_FACTOR = 52 / 12;
 const SUBSCRIPTIONS_UPCOMING_WINDOW_DAYS = 7;
 
@@ -675,7 +691,7 @@ export function RecurringPaymentsSection({
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">Recurring Payments</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 8L
+          Phase 9B.1
         </span>
       </div>
       {workspace && (
@@ -701,6 +717,9 @@ export function RecurringPaymentsSection({
               </p>
               <p className="mt-1 text-xs text-app-text-muted">
                 If no member is selected, the card shows: Who pays: Not assigned yet.
+              </p>
+              <p className="mt-1 text-xs text-app-text-muted">
+                Shared usage in this phase: create/edit and mark paid/undo paid are available for family recurring payments.
               </p>
             </div>
           )}
@@ -1420,12 +1439,11 @@ export function RecurringPaymentsSection({
                           ? handleMarkUnpaid(payment.id)
                           : handleMarkPaid(payment.id)
                       }
-                      disabled={
-                        isSaving ||
-                        payment.status === "archived" ||
-                        isFamilyWorkspace ||
-                        (payment.isSubscription && payment.isPaused)
-                      }
+                      disabled={isCycleToggleDisabled(
+                        payment,
+                        isFamilyWorkspace,
+                        isSaving,
+                      )}
                       className="rounded-lg border border-app-border px-2 py-1 text-xs text-app-text disabled:opacity-60"
                     >
                       {payment.currentCycle.state === "paid" ? "Undo paid" : "Mark paid"}

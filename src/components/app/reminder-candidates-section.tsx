@@ -18,6 +18,7 @@ import type {
   ReminderDeliveryReadinessPayload,
   ReminderDispatchAttemptPayload,
   ReminderDispatchSummaryPayload,
+  WorkspaceResponsiblePayerOptionPayload,
 } from "@/lib/payments/types";
 
 type ReminderCandidatesSectionProps = {
@@ -57,6 +58,24 @@ const formatDateTime = (value: string): string => {
   return parsed.toLocaleString();
 };
 
+const resolveResponsiblePayerDisplayName = (
+  responsibleProfileId: string | null,
+  responsiblePayerOptions: WorkspaceResponsiblePayerOptionPayload[],
+): string => {
+  if (!responsibleProfileId) {
+    return "Not assigned yet";
+  }
+
+  const responsible = responsiblePayerOptions.find(
+    (option) => option.profileId === responsibleProfileId,
+  );
+  if (responsible) {
+    return responsible.displayName;
+  }
+
+  return "Assigned member is no longer in this family workspace";
+};
+
 const dispatchStatusMeta: Record<
   ReminderDispatchAttemptPayload["dispatchStatus"],
   {
@@ -77,6 +96,9 @@ export function ReminderCandidatesSection({
   const isPersonalWorkspace = workspace?.kind === "personal";
   const [candidates, setCandidates] = useState<ReminderCandidatePayload[]>([]);
   const [familyPayments, setFamilyPayments] = useState<RecurringPaymentPayload[]>([]);
+  const [responsiblePayerOptions, setResponsiblePayerOptions] = useState<
+    WorkspaceResponsiblePayerOptionPayload[]
+  >([]);
   const [today, setToday] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingReadiness, setIsLoadingReadiness] = useState(false);
@@ -142,6 +164,9 @@ export function ReminderCandidatesSection({
     const remindersEnabledCount = sharedActivePayments.filter(
       (payment) => payment.remindersEnabled,
     ).length;
+    const whoPaysAssignedCount = sharedActivePayments.filter(
+      (payment) => Boolean(payment.responsibleProfileId),
+    ).length;
     const remindersOffCount = sharedActivePayments.length - remindersEnabledCount;
     const dueTodayUnpaidCount = sharedActivePayments.filter(
       (payment) =>
@@ -173,6 +198,8 @@ export function ReminderCandidatesSection({
       sharedActivePaymentsCount: sharedActivePayments.length,
       remindersEnabledCount,
       remindersOffCount,
+      whoPaysAssignedCount,
+      whoPaysUnassignedCount: sharedActivePayments.length - whoPaysAssignedCount,
       dueTodayUnpaidCount,
       overdueUnpaidCount,
       attentionItems,
@@ -239,8 +266,10 @@ export function ReminderCandidatesSection({
 
       setToday(toUtcDateKey(new Date()));
       setFamilyPayments(result.payments);
+      setResponsiblePayerOptions(result.responsiblePayerOptions);
     } catch {
       setFeedback("Failed to load family reminder visibility.");
+      setResponsiblePayerOptions([]);
     } finally {
       setIsLoading(false);
     }
@@ -406,7 +435,7 @@ export function ReminderCandidatesSection({
                 </p>
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-5">
+              <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-6">
                 <div className="rounded-xl bg-app-surface-soft p-2">
                   <p className="text-[11px] text-app-text-muted">Shared payments</p>
                   <p className="text-base font-semibold text-app-text">
@@ -423,6 +452,12 @@ export function ReminderCandidatesSection({
                   <p className="text-[11px] text-app-text-muted">Reminders off</p>
                   <p className="text-base font-semibold text-app-text">
                     {familyVisibilitySummary.remindersOffCount}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-app-surface-soft p-2">
+                  <p className="text-[11px] text-app-text-muted">Who pays missing</p>
+                  <p className="text-base font-semibold text-app-text">
+                    {familyVisibilitySummary.whoPaysUnassignedCount}
                   </p>
                 </div>
                 <div className="rounded-xl bg-app-surface-soft p-2">
@@ -469,7 +504,11 @@ export function ReminderCandidatesSection({
                             <span className="font-medium">{payment.title}</span>{" "}
                             <span className="text-app-text-muted">
                               | due {formatDueDate(payment.currentCycle.dueDate)} | reminders{" "}
-                              {payment.remindersEnabled ? "on" : "off"}
+                              {payment.remindersEnabled ? "on" : "off"} | who pays{" "}
+                              {resolveResponsiblePayerDisplayName(
+                                payment.responsibleProfileId,
+                                responsiblePayerOptions,
+                              )}
                             </span>
                           </li>
                         ))}

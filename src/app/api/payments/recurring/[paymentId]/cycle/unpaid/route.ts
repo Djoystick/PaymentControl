@@ -67,7 +67,9 @@ export async function POST(request: Request, context: RouteContext) {
     body = {};
   }
 
-  const scopeResult = await resolvePaymentsScope(body.initData);
+  const scopeResult = await resolvePaymentsScope(body.initData, {
+    allowFamilyWorkspace: true,
+  });
   if (!scopeResult.ok) {
     return jsonError(scopeResult.error.code, scopeResult.error.message);
   }
@@ -101,4 +103,3 @@ export async function POST(request: Request, context: RouteContext) {
     workspace: scopeResult.workspace,
   });
 }
-

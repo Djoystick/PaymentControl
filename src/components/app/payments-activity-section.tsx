@@ -6,7 +6,10 @@ import {
   PAYMENTS_CHANGED_EVENT,
   listRecurringPayments,
 } from "@/lib/payments/client";
-import type { RecurringPaymentPayload } from "@/lib/payments/types";
+import type {
+  RecurringPaymentPayload,
+  WorkspaceResponsiblePayerOptionPayload,
+} from "@/lib/payments/types";
 
 type PaymentsActivitySectionProps = {
   workspace: WorkspaceSummaryPayload | null;
@@ -18,6 +21,7 @@ type ActivityItem = {
   paymentId: string;
   title: string;
   paymentScope: RecurringPaymentPayload["paymentScope"];
+  responsibleProfileId: string | null;
   timestamp: string;
   kind: "created" | "updated" | "archived" | "paid_cycle";
   label: string;
@@ -30,6 +34,24 @@ const formatDateTime = (value: string): string => {
   }
 
   return parsed.toLocaleString();
+};
+
+const resolveResponsiblePayerDisplayName = (
+  responsibleProfileId: string | null,
+  responsiblePayerOptions: WorkspaceResponsiblePayerOptionPayload[],
+): string => {
+  if (!responsibleProfileId) {
+    return "Not assigned yet";
+  }
+
+  const responsible = responsiblePayerOptions.find(
+    (option) => option.profileId === responsibleProfileId,
+  );
+  if (responsible) {
+    return responsible.displayName;
+  }
+
+  return "Assigned member is no longer in this family workspace";
 };
 
 const buildActivityItems = (
@@ -48,6 +70,7 @@ const buildActivityItems = (
       paymentId: payment.id,
       title: payment.title,
       paymentScope: payment.paymentScope,
+      responsibleProfileId: payment.responsibleProfileId,
       timestamp: payment.createdAt,
       kind: "created",
       label: "Created",
@@ -60,6 +83,7 @@ const buildActivityItems = (
         paymentId: payment.id,
         title: payment.title,
         paymentScope: payment.paymentScope,
+        responsibleProfileId: payment.responsibleProfileId,
         timestamp: payment.updatedAt,
         kind: isArchived ? "archived" : "updated",
         label: isArchived ? "Archived" : "Updated",
@@ -72,6 +96,7 @@ const buildActivityItems = (
         paymentId: payment.id,
         title: payment.title,
         paymentScope: payment.paymentScope,
+        responsibleProfileId: payment.responsibleProfileId,
         timestamp: payment.currentCycle.paidAt,
         kind: "paid_cycle",
         label: "Marked paid",
@@ -102,6 +127,9 @@ export function PaymentsActivitySection({
   initData,
 }: PaymentsActivitySectionProps) {
   const [payments, setPayments] = useState<RecurringPaymentPayload[]>([]);
+  const [responsiblePayerOptions, setResponsiblePayerOptions] = useState<
+    WorkspaceResponsiblePayerOptionPayload[]
+  >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -135,6 +163,24 @@ export function PaymentsActivitySection({
     [isFamilyWorkspace, payments],
   );
 
+  const sharedWhoPaysSummary = useMemo(() => {
+    if (!isFamilyWorkspace) {
+      return null;
+    }
+
+    const sharedPayments = payments.filter(
+      (payment) => payment.paymentScope === "shared" && payment.status === "active",
+    );
+    const assignedCount = sharedPayments.filter(
+      (payment) => Boolean(payment.responsibleProfileId),
+    ).length;
+
+    return {
+      assignedCount,
+      unassignedCount: sharedPayments.length - assignedCount,
+    };
+  }, [isFamilyWorkspace, payments]);
+
   const loadActivity = useCallback(async () => {
     if (workspaceUnavailable) {
       return;
@@ -146,12 +192,15 @@ export function PaymentsActivitySection({
       const result = await listRecurringPayments(initData);
       if (!result.ok) {
         setFeedback(result.error.message);
+        setResponsiblePayerOptions([]);
         return;
       }
 
       setPayments(result.payments);
+      setResponsiblePayerOptions(result.responsiblePayerOptions);
     } catch {
       setFeedback("Failed to load recent activity.");
+      setResponsiblePayerOptions([]);
     } finally {
       setIsLoading(false);
     }
@@ -205,6 +254,12 @@ export function PaymentsActivitySection({
               Payments in scope: {scopedPaymentsCount} | Recent items shown:{" "}
               {activityItems.length}
             </p>
+            {isFamilyWorkspace && sharedWhoPaysSummary && (
+              <p className="mt-1 text-xs text-app-text-muted">
+                Who pays assigned: {sharedWhoPaysSummary.assignedCount} | Not assigned:{" "}
+                {sharedWhoPaysSummary.unassignedCount}
+              </p>
+            )}
           </div>
 
           <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
@@ -230,6 +285,12 @@ export function PaymentsActivitySection({
                     <span className="text-app-text-muted">
                       | {formatDateTime(item.timestamp)}
                       {isFamilyWorkspace ? " | shared" : ""}
+                      {isFamilyWorkspace
+                        ? ` | who pays ${resolveResponsiblePayerDisplayName(
+                            item.responsibleProfileId,
+                            responsiblePayerOptions,
+                          )}`
+                        : ""}
                     </span>
                   </li>
                 ))}
