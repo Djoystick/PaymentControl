@@ -46,11 +46,14 @@ const DashboardBucket = ({
       ) : (
         <ul className="mt-2 space-y-1.5">
           {items.map((item) => (
-            <li key={item.id} className="text-xs text-app-text">
-              <span className="font-medium">{item.title}</span>{" "}
-              <span className="text-app-text-muted">
-                {formatAmount(item)} | due {formatDueDate(item.dueDate)}
-              </span>
+            <li
+              key={item.id}
+              className="rounded-xl bg-app-surface px-2 py-1.5 text-xs text-app-text"
+            >
+              <p className="font-medium">{item.title}</p>
+              <p className="text-app-text-muted">
+                {formatAmount(item)} - due {formatDueDate(item.dueDate)}
+              </p>
             </li>
           ))}
         </ul>
@@ -135,7 +138,7 @@ export function PaymentsDashboardSection({
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">Dashboard</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 8M
+          Phase 10A
         </span>
       </div>
 
@@ -153,8 +156,8 @@ export function PaymentsDashboardSection({
             </p>
             <p className="mt-1 text-sm text-app-text-muted">
               {isFamilyWorkspace
-                ? "Read-only home overview for shared payments in the current family workspace."
-                : "Read-only overview for recurring payments in your personal workspace."}
+                ? "Home summary for shared payments in the current family workspace."
+                : "Home summary for recurring payments in your personal workspace."}
             </p>
           </div>
 
@@ -224,8 +227,8 @@ export function PaymentsDashboardSection({
                 No shared payments yet
               </p>
               <p className="mt-1 text-xs text-app-text-muted">
-                No shared payments yet in this family workspace. Add your first shared
-                payment in the recurring section below.
+                Add your first shared payment in the recurring section to start
+                family tracking here.
               </p>
             </div>
           )}
@@ -267,7 +270,7 @@ export function PaymentsDashboardSection({
               disabled={isLoading}
               className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
             >
-              {isFamilyWorkspace ? "Refresh family overview" : "Refresh dashboard"}
+              {isFamilyWorkspace ? "Refresh family section" : "Refresh dashboard"}
             </button>
             {isLoading && (
               <p className="text-xs text-app-text-muted">

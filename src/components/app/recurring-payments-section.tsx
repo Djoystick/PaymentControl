@@ -693,7 +693,7 @@ export function RecurringPaymentsSection({
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">Recurring Payments</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 9C
+          Phase 10A
         </span>
       </div>
       {workspace && (
@@ -715,13 +715,14 @@ export function RecurringPaymentsSection({
               </p>
               <p className="mt-1 text-xs text-app-text-muted">
                 Payments created here are shared inside this family workspace.
-                {" "}Who pays means the household member responsible for each payment.
+                Who pays means the household member responsible for each payment.
               </p>
               <p className="mt-1 text-xs text-app-text-muted">
                 If no member is selected, the card shows: Who pays: Not assigned yet.
               </p>
               <p className="mt-1 text-xs text-app-text-muted">
-                Shared usage in this phase: create/edit and mark paid/undo paid are available for family recurring payments.
+                Create, edit, Mark paid and Undo paid are available for shared payments
+                in this context.
               </p>
             </div>
           )}
@@ -861,9 +862,9 @@ export function RecurringPaymentsSection({
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               Subscriptions Summary
             </p>
-            <p className="mt-1 text-sm text-app-text">
-              Active: <span className="font-semibold">{subscriptionSummary.activeSubscriptionsCount}</span>
-              {" | "}
+              <p className="mt-1 text-sm text-app-text">
+                Active: <span className="font-semibold">{subscriptionSummary.activeSubscriptionsCount}</span>
+              {" - "}
               Unpaid this cycle:{" "}
               <span className="font-semibold">{subscriptionSummary.unpaidSubscriptionsCount}</span>
             </p>
@@ -1300,14 +1301,14 @@ export function RecurringPaymentsSection({
                 Cancel edit
               </button>
             )}
-            <button
-              type="button"
-              onClick={loadPayments}
-              disabled={isLoading}
-              className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text"
-            >
-              Refresh
-            </button>
+              <button
+                type="button"
+                onClick={loadPayments}
+                disabled={isLoading}
+                className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text"
+              >
+              Refresh section
+              </button>
             <button
               type="button"
               onClick={resetForm}
@@ -1380,139 +1381,133 @@ export function RecurringPaymentsSection({
                     className="rounded-2xl border border-app-border bg-app-surface-soft p-3"
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-app-text">{payment.title}</p>
-                      <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] font-semibold text-app-text">
-                        {payment.paymentScope === "shared" ? "Family shared" : "Personal"}
-                      </span>
-                      {payment.isSubscription && (
-                        <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] font-semibold text-app-text">
-                          Subscription
-                        </span>
-                      )}
-                      {payment.isSubscription && payment.isPaused && (
-                        <span className="rounded-full border border-app-border bg-app-surface px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
-                          Paused
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-app-text-muted">
-                      {formatAmount(payment)} | {payment.category}
-                    </p>
-                    <p className="text-sm text-app-text-muted">
-                      {payment.cadence === "weekly"
-                        ? `Weekly, weekday ${payment.dueDay}`
-                        : `Monthly, day ${payment.dueDay}`}{" "}
-                      | {payment.isRequired ? "Required" : "Optional"} |{" "}
-                      status: {payment.status}
-                    </p>
-                    <p className="text-sm text-app-text-muted">
-                      Context:{" "}
-                      {payment.paymentScope === "shared"
-                        ? "Family shared payment"
-                        : "Personal payment"}
-                    </p>
-                    {payment.paymentScope === "shared" && (
-                      <p className="text-sm text-app-text-muted">
-                        Who pays:{" "}
-                        {responsiblePayerName}
-                      </p>
-                    )}
-                    <p className="text-sm text-app-text-muted">
-                      Current cycle: {payment.currentCycle.state} | Due{" "}
-                      {formatDueDate(payment.currentCycle.dueDate)}
-                      {payment.currentCycle.paidAt ? " | Paid this cycle" : ""}
-                    </p>
-                    {payment.paymentScope === "shared" &&
-                      payment.currentCycle.state === "paid" && (
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold text-app-text">{payment.title}</p>
+                          <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] font-semibold text-app-text">
+                            {payment.paymentScope === "shared" ? "Family shared" : "Personal"}
+                          </span>
+                          {payment.isSubscription && (
+                            <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] font-semibold text-app-text">
+                              Subscription
+                            </span>
+                          )}
+                          {payment.isSubscription && payment.isPaused && (
+                            <span className="rounded-full border border-app-border bg-app-surface px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
+                              Paused
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-app-text-muted">
-                          Paid by: {paidByName ?? "Not captured"}
+                          {formatAmount(payment)} - {payment.category}
                         </p>
-                      )}
-                    {payment.paymentScope === "shared" &&
-                      payment.currentCycle.state === "paid" &&
-                      hasEconomicsMismatch && (
-                        <p className="text-xs font-medium text-amber-700">
-                          Economics hint: {paidByName ?? "Another member"} covered this
-                          cycle, while responsibility is on{" "}
-                          {responsiblePayerName ?? "another member"}.
+                        <p className="text-sm text-app-text-muted">
+                          {payment.cadence === "weekly"
+                            ? `Weekly, weekday ${payment.dueDay}`
+                            : `Monthly, day ${payment.dueDay}`}
+                          . {payment.isRequired ? "Required" : "Optional"}. Status: {payment.status}.
                         </p>
-                      )}
-                    {payment.paymentScope === "shared" &&
-                      payment.currentCycle.state === "paid" &&
-                      !hasEconomicsMismatch &&
-                      payment.responsibleProfileId &&
-                      payment.currentCycle.paidByProfileId &&
-                      payment.responsibleProfileId ===
-                        payment.currentCycle.paidByProfileId && (
-                        <p className="text-xs font-medium text-emerald-700">
-                          Economics: aligned (responsible payer paid this cycle).
+                        {payment.paymentScope === "shared" ? (
+                          <p className="text-sm text-app-text-muted">
+                            Who pays: {responsiblePayerName}
+                          </p>
+                        ) : (
+                          <p className="text-sm text-app-text-muted">Personal payment</p>
+                        )}
+                        <p className="text-sm text-app-text-muted">
+                          Current cycle: {payment.currentCycle.state}. Due{" "}
+                          {formatDueDate(payment.currentCycle.dueDate)}
+                          {payment.currentCycle.paidAt ? ". Paid this cycle." : "."}
                         </p>
-                      )}
-                    <p className="text-xs text-app-text-muted">
-                      Reminders:{" "}
-                      {payment.remindersEnabled
-                        ? `on (before ${payment.remindDaysBefore}d, due day ${payment.remindOnDueDay ? "yes" : "no"}, overdue ${payment.remindOnOverdue ? "yes" : "no"})`
-                        : "off"}
-                    </p>
-                    {payment.notes && (
-                      <p className="mt-1 text-xs text-app-text-muted">
-                        {payment.notes}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => startEdit(payment)}
-                      disabled={isSaving || payment.status === "archived"}
-                      className="rounded-lg border border-app-border px-2 py-1 text-xs text-app-text disabled:opacity-60"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleArchive(payment.id)}
-                      disabled={
-                        isSaving || payment.status === "archived" || isFamilyWorkspace
-                      }
-                      className="rounded-lg border border-app-border px-2 py-1 text-xs text-app-text disabled:opacity-60"
-                    >
-                      Archive
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        payment.currentCycle.state === "paid"
-                          ? handleMarkUnpaid(payment.id)
-                          : handleMarkPaid(payment.id)
-                      }
-                      disabled={isCycleToggleDisabled(
-                        payment,
-                        isFamilyWorkspace,
-                        isSaving,
-                      )}
-                      className="rounded-lg border border-app-border px-2 py-1 text-xs text-app-text disabled:opacity-60"
-                    >
-                      {payment.currentCycle.state === "paid" ? "Undo paid" : "Mark paid"}
-                    </button>
-                    {payment.isSubscription && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handlePauseResume(payment.id, !payment.isPaused)
-                        }
-                        disabled={
-                          isSaving || payment.status === "archived" || isFamilyWorkspace
-                        }
-                        className="rounded-lg border border-app-border px-2 py-1 text-xs text-app-text disabled:opacity-60"
-                      >
-                        {payment.isPaused ? "Resume" : "Pause"}
-                      </button>
-                    )}
-                  </div>
-                </div>
+                        {payment.paymentScope === "shared" &&
+                          payment.currentCycle.state === "paid" && (
+                            <p className="text-sm text-app-text-muted">
+                              Paid by: {paidByName ?? "Not captured"}
+                            </p>
+                          )}
+                        {payment.paymentScope === "shared" &&
+                          payment.currentCycle.state === "paid" &&
+                          hasEconomicsMismatch && (
+                            <p className="text-xs font-medium text-amber-700">
+                              Economics hint: {paidByName ?? "Another member"} covered this
+                              cycle, while responsibility is on{" "}
+                              {responsiblePayerName ?? "another member"}.
+                            </p>
+                          )}
+                        {payment.paymentScope === "shared" &&
+                          payment.currentCycle.state === "paid" &&
+                          !hasEconomicsMismatch &&
+                          payment.responsibleProfileId &&
+                          payment.currentCycle.paidByProfileId &&
+                          payment.responsibleProfileId ===
+                            payment.currentCycle.paidByProfileId && (
+                            <p className="text-xs font-medium text-emerald-700">
+                              Economics: aligned (responsible payer paid this cycle).
+                            </p>
+                          )}
+                        <p className="text-xs text-app-text-muted">
+                          Reminders:{" "}
+                          {payment.remindersEnabled
+                            ? `on (before ${payment.remindDaysBefore}d, due day ${payment.remindOnDueDay ? "yes" : "no"}, overdue ${payment.remindOnOverdue ? "yes" : "no"})`
+                            : "off"}
+                        </p>
+                        {payment.notes && (
+                          <p className="mt-1 text-xs text-app-text-muted">
+                            {payment.notes}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => startEdit(payment)}
+                          disabled={isSaving || payment.status === "archived"}
+                          className="rounded-lg border border-app-border px-2 py-1 text-xs text-app-text disabled:opacity-60"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleArchive(payment.id)}
+                          disabled={
+                            isSaving || payment.status === "archived" || isFamilyWorkspace
+                          }
+                          className="rounded-lg border border-app-border px-2 py-1 text-xs text-app-text disabled:opacity-60"
+                        >
+                          Archive
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            payment.currentCycle.state === "paid"
+                              ? handleMarkUnpaid(payment.id)
+                              : handleMarkPaid(payment.id)
+                          }
+                          disabled={isCycleToggleDisabled(
+                            payment,
+                            isFamilyWorkspace,
+                            isSaving,
+                          )}
+                          className="rounded-lg border border-app-border px-2 py-1 text-xs text-app-text disabled:opacity-60"
+                        >
+                          {payment.currentCycle.state === "paid" ? "Undo paid" : "Mark paid"}
+                        </button>
+                        {payment.isSubscription && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handlePauseResume(payment.id, !payment.isPaused)
+                            }
+                            disabled={
+                              isSaving || payment.status === "archived" || isFamilyWorkspace
+                            }
+                            className="rounded-lg border border-app-border px-2 py-1 text-xs text-app-text disabled:opacity-60"
+                          >
+                            {payment.isPaused ? "Resume" : "Pause"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </article>
                 );
               })()

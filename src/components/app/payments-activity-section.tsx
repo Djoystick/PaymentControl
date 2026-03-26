@@ -249,7 +249,7 @@ export function PaymentsActivitySection({
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">Activity</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 8O
+          Phase 10A
         </span>
       </div>
 
@@ -262,27 +262,27 @@ export function PaymentsActivitySection({
           <div className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {isFamilyWorkspace
-                ? "Family workspace activity (read-only)"
-                : "Personal workspace activity (read-only)"}
+                ? "Family workspace activity"
+                : "Personal workspace activity"}
             </p>
             <p className="mt-1 text-sm text-app-text-muted">
               {isFamilyWorkspace
-                ? "Read-only recent activity for shared payments in the current family workspace."
+                ? "Recent shared payment events for the current family workspace."
                 : "Recent payment activity for your personal workspace."}
             </p>
             <p className="mt-2 text-xs text-app-text-muted">
-              Payments in scope: {scopedPaymentsCount} | Recent items shown:{" "}
-              {activityItems.length}
+              Payments in scope: {scopedPaymentsCount}. Recent items shown:{" "}
+              {activityItems.length}.
             </p>
             {isFamilyWorkspace && sharedWhoPaysSummary && (
               <p className="mt-1 text-xs text-app-text-muted">
-                Who pays assigned: {sharedWhoPaysSummary.assignedCount} | Not assigned:{" "}
-                {sharedWhoPaysSummary.unassignedCount}
+                Who pays assigned: {sharedWhoPaysSummary.assignedCount}. Not assigned:{" "}
+                {sharedWhoPaysSummary.unassignedCount}.
               </p>
             )}
             {isFamilyWorkspace && (
               <p className="mt-1 text-xs text-app-text-muted">
-                Paid-cycle mismatch hints: {paidByMismatchCount}
+                Paid-cycle mismatch hints: {paidByMismatchCount}.
               </p>
             )}
           </div>
@@ -325,18 +325,23 @@ export function PaymentsActivitySection({
                     return (
                       <li
                         key={item.id}
-                        className="rounded-xl bg-app-surface px-2 py-1 text-xs text-app-text"
+                        className="rounded-xl bg-app-surface px-2 py-1.5 text-xs text-app-text"
                       >
-                        <span className="font-semibold">{item.label}</span>{" "}
-                        <span className="font-medium">{item.title}</span>{" "}
-                        <span className="text-app-text-muted">
-                          | {formatDateTime(item.timestamp)}
-                          {isFamilyWorkspace ? " | shared" : ""}
-                          {isFamilyWorkspace ? ` | who pays ${responsiblePayerName}` : ""}
-                          {isFamilyWorkspace && item.kind === "paid_cycle"
-                            ? ` | paid by ${paidByName ?? "not captured"}`
-                            : ""}
-                        </span>
+                        <p>
+                          <span className="font-semibold">{item.label}</span>{" "}
+                          <span className="font-medium">{item.title}</span>
+                        </p>
+                        <p className="text-app-text-muted">
+                          {formatDateTime(item.timestamp)}
+                        </p>
+                        {isFamilyWorkspace && (
+                          <p className="text-app-text-muted">
+                            Scope: shared payment. Who pays: {responsiblePayerName}
+                            {item.kind === "paid_cycle"
+                              ? `. Paid by: ${paidByName ?? "not captured"}`
+                              : "."}
+                          </p>
+                        )}
                         {hasPaidMismatch && (
                           <p className="mt-1 text-[11px] font-medium text-amber-700">
                             Economics hint: {paidByName ?? "Another member"} paid, while
@@ -358,7 +363,7 @@ export function PaymentsActivitySection({
               disabled={isLoading}
               className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
             >
-              {isFamilyWorkspace ? "Refresh family activity" : "Refresh activity"}
+              {isFamilyWorkspace ? "Refresh family section" : "Refresh activity"}
             </button>
             {isLoading && (
               <p className="text-xs text-app-text-muted">

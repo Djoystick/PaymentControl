@@ -127,12 +127,12 @@ export function ProfileScenariosPlaceholder() {
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold text-app-text">Profile</h2>
           <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-            Phase 8L
+            Phase 10A
           </span>
         </div>
         <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-            Auth state
+            Session
           </p>
           <p className="mt-1 text-sm font-semibold text-app-text">{sourceLabel}</p>
           <p className="mt-1 text-sm text-app-text-muted">
@@ -161,8 +161,8 @@ export function ProfileScenariosPlaceholder() {
                 {workspace.title}
               </p>
               <p className="mt-1 text-sm text-app-text-muted">
-                Kind: {workspace.kind} | Role: {workspace.memberRole} | Members:{" "}
-                {workspace.memberCount}
+                Kind: {workspace.kind}. Role: {workspace.memberRole}. Members:{" "}
+                {workspace.memberCount}.
               </p>
             </>
           ) : (
@@ -176,8 +176,8 @@ export function ProfileScenariosPlaceholder() {
                 Workspace switch
               </p>
               <p className="text-xs text-app-text-muted">
-                Active app context is controlled here. Personal workspace = Single
-                context, Family workspace = Family context.
+                Active app context is controlled here. Personal workspace means
+                Single context, family workspace means Family context.
               </p>
               <div className="space-y-1">
                 {workspaces.map((workspaceOption) => (
@@ -208,7 +208,7 @@ export function ProfileScenariosPlaceholder() {
           {isFamilyWorkspace ? (
             <div className="mt-3 space-y-2">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                Family invite management
+                Family invite
               </p>
               <p className="text-xs text-app-text-muted">
                 Invites below are for this family workspace household.
@@ -303,7 +303,7 @@ export function ProfileScenariosPlaceholder() {
                   {inviteTokenInput.trim()
                     ? maskInviteToken(inviteTokenInput)
                     : "empty"}
-                  {" | "}Normalized:{" "}
+                  {". "}Normalized:{" "}
                   {normalizedInviteToken
                     ? maskInviteToken(normalizedInviteToken)
                     : "not detected"}
@@ -338,23 +338,23 @@ export function ProfileScenariosPlaceholder() {
                       {inviteAcceptDiagnostic.message}
                     </p>
                     <p className="mt-1 text-app-text-muted">
-                      Code: {inviteAcceptDiagnostic.code} | Attempted:{" "}
+                      Code: {inviteAcceptDiagnostic.code}. Attempted:{" "}
                       {new Date(inviteAcceptDiagnostic.attemptedAt).toLocaleString()}
                     </p>
                     <p className="mt-1 text-app-text-muted">
-                      Raw token: {inviteAcceptDiagnostic.rawTokenPreview} | Normalized:{" "}
+                      Raw token: {inviteAcceptDiagnostic.rawTokenPreview}. Normalized:{" "}
                       {inviteAcceptDiagnostic.normalizedTokenPreview}
                     </p>
                     {inviteAcceptDiagnostic.status === "success" && (
                       <>
                         <p className="mt-1 text-app-text-muted">
                           Joined workspace:{" "}
-                          {inviteAcceptDiagnostic.workspaceTitle ?? "unknown"} | Invite status:{" "}
+                          {inviteAcceptDiagnostic.workspaceTitle ?? "unknown"}. Invite status:{" "}
                           {inviteAcceptDiagnostic.inviteStatus ?? "unknown"}
                         </p>
                         <p className="mt-1 text-app-text-muted">
                           Workspace list updated:{" "}
-                          {inviteAcceptDiagnostic.workspaceAdded ? "yes" : "no"} | Household members:{" "}
+                          {inviteAcceptDiagnostic.workspaceAdded ? "yes" : "no"}. Household members:{" "}
                           {inviteAcceptDiagnostic.memberCount ?? "unknown"}
                         </p>
                         <p className="mt-1 text-app-text-muted">

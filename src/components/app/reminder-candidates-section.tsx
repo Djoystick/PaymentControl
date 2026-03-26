@@ -417,7 +417,7 @@ export function ReminderCandidatesSection({
           {isFamilyWorkspace ? "Reminder Visibility" : "Reminder Candidates"}
         </h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 8N
+          Phase 10A
         </span>
       </div>
 
@@ -431,15 +431,15 @@ export function ReminderCandidatesSection({
             <>
               <div className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                  Family reminder visibility (read-only)
+                  Family reminder visibility
                 </p>
                 <p className="mt-1 text-sm text-app-text-muted">
-                  Read-only reminder visibility for shared payments in the current
-                  family workspace.
+                  Reminder summary for shared payments in the current family
+                  workspace.
                 </p>
                 <p className="mt-1 text-xs text-app-text-muted">
-                  Dispatch and test-send actions remain in personal reminder flow for
-                  now.
+                  Dispatch and test-send actions are still available in personal
+                  reminder flow.
                 </p>
               </div>
 
@@ -490,7 +490,7 @@ export function ReminderCandidatesSection({
 
               <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
                 <p className="text-xs text-app-text-muted">
-                  Visibility date: {today || "not loaded"}
+                  Visibility date: {today || "not loaded"}.
                 </p>
                 {familyVisibilitySummary.sharedActivePaymentsCount === 0 ? (
                   <p className="mt-2 text-sm text-app-text-muted">
@@ -513,17 +513,19 @@ export function ReminderCandidatesSection({
                         {familyVisibilitySummary.attentionItems.map((payment) => (
                           <li
                             key={`family-reminder-${payment.id}`}
-                            className="text-xs text-app-text"
+                            className="rounded-xl bg-app-surface px-2 py-1.5 text-xs text-app-text"
                           >
-                            <span className="font-medium">{payment.title}</span>{" "}
-                            <span className="text-app-text-muted">
-                              | due {formatDueDate(payment.currentCycle.dueDate)} | reminders{" "}
-                              {payment.remindersEnabled ? "on" : "off"} | who pays{" "}
+                            <p className="font-medium">{payment.title}</p>
+                            <p className="text-app-text-muted">
+                              Due {formatDueDate(payment.currentCycle.dueDate)}.
+                              Reminders {payment.remindersEnabled ? "on" : "off"}.
+                              Who pays{" "}
                               {resolveResponsiblePayerDisplayName(
                                 payment.responsibleProfileId,
                                 responsiblePayerOptions,
                               )}
-                            </span>
+                              .
+                            </p>
                           </li>
                         ))}
                       </ul>
@@ -543,7 +545,7 @@ export function ReminderCandidatesSection({
                   disabled={isLoading}
                   className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
                 >
-                  Refresh family reminders
+                  Refresh family section
                 </button>
                 {isLoading && (
                   <p className="text-xs text-app-text-muted">
@@ -574,20 +576,20 @@ export function ReminderCandidatesSection({
               Delivery Readiness
             </p>
             <p className="mt-1 text-xs text-app-text-muted">
-              Bot configured: {readiness?.botConfigured ? "yes" : "no"} | Recipient
-              resolved: {readiness?.recipientResolved ? "yes" : "no"} | Delivery ready:{" "}
-              {readiness?.deliveryReady ? "yes" : "no"}
+              Bot configured: {readiness?.botConfigured ? "yes" : "no"}. Recipient
+              resolved: {readiness?.recipientResolved ? "yes" : "no"}. Delivery ready:{" "}
+              {readiness?.deliveryReady ? "yes" : "no"}.
             </p>
             <p className="mt-1 text-xs text-app-text-muted">
-              Source: {readiness?.recipientSource ?? "unknown"} | Binding:{" "}
+              Source: {readiness?.recipientSource ?? "unknown"}. Binding:{" "}
               {readiness?.bindingStatus ?? "unknown"}
               {readiness?.bindingVerifiedAt
-                ? ` | Verified at ${new Date(readiness.bindingVerifiedAt).toLocaleString()}`
+                ? `. Verified at ${new Date(readiness.bindingVerifiedAt).toLocaleString()}`
                 : ""}
             </p>
             <p className="mt-1 text-xs text-app-text-muted">
-              Diagnostic source: {readiness?.recipientDiagnosticSource ?? "unknown"} |
-              Type: {readiness?.recipientType ?? "unknown"} | Preview:{" "}
+              Diagnostic source: {readiness?.recipientDiagnosticSource ?? "unknown"}.
+              Type: {readiness?.recipientType ?? "unknown"}. Preview:{" "}
               {readiness?.recipientPreview ?? "none"}
             </p>
             <p className="mt-1 text-xs text-app-text-muted">
@@ -603,7 +605,7 @@ export function ReminderCandidatesSection({
             </p>
             <p className="mt-1 text-xs text-app-text-muted">
               Status: {readiness?.code ?? "unknown"}
-              {readiness?.message ? ` | ${readiness.message}` : ""}
+              {readiness?.message ? `. ${readiness.message}` : ""}
             </p>
             {readiness?.deliveryReady && !readiness.lastErrorCode && (
               <p className="mt-1 text-xs text-emerald-700">
@@ -619,7 +621,7 @@ export function ReminderCandidatesSection({
             {readiness?.lastErrorCode && (
               <p className="mt-1 text-xs text-app-text-muted">
                 Last error: {readiness.lastErrorCode}
-                {readiness.lastErrorMessage ? ` | ${readiness.lastErrorMessage}` : ""}
+                {readiness.lastErrorMessage ? `. ${readiness.lastErrorMessage}` : ""}
               </p>
             )}
           </div>
@@ -699,7 +701,7 @@ export function ReminderCandidatesSection({
                   <li key={`${candidate.paymentId}-${candidate.reason}`} className="text-sm">
                     <span className="font-medium text-app-text">{candidate.title}</span>{" "}
                     <span className="text-app-text-muted">
-                      | {reasonLabel[candidate.reason]} | due{" "}
+                      - {reasonLabel[candidate.reason]}, due{" "}
                       {formatDueDate(candidate.dueDate)}
                     </span>
                   </li>
@@ -715,7 +717,7 @@ export function ReminderCandidatesSection({
               disabled={isLoading || isDispatching || isTestSending || isVerifyingBinding}
               className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
             >
-              Refresh reminders
+              Refresh candidates
             </button>
             <button
               type="button"
@@ -725,7 +727,7 @@ export function ReminderCandidatesSection({
               }
               className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
             >
-              Refresh readiness
+              Refresh delivery status
             </button>
             <button
               type="button"
@@ -849,16 +851,23 @@ export function ReminderCandidatesSection({
                   return (
                     <li
                       key={attempt.id}
-                      className="rounded-xl bg-app-surface px-2 py-1 text-xs text-app-text"
+                      className="rounded-xl bg-app-surface px-2 py-1.5 text-xs text-app-text"
                     >
-                      <span className={`font-semibold ${statusMeta.className}`}>
-                        {statusMeta.label}
-                      </span>{" "}
-                      | {reasonLabel[attempt.reminderReason]} | due{" "}
-                      {formatDueDate(attempt.cycleDueDate)} |{" "}
-                      {formatDateTime(attempt.createdAt)}
-                      {attempt.errorCode ? ` | ${attempt.errorCode}` : " | ok"}
-                      {attempt.errorMessage ? ` | ${attempt.errorMessage}` : ""}
+                      <p>
+                        <span className={`font-semibold ${statusMeta.className}`}>
+                          {statusMeta.label}
+                        </span>{" "}
+                        {reasonLabel[attempt.reminderReason]}
+                      </p>
+                      <p className="text-app-text-muted">
+                        Due {formatDueDate(attempt.cycleDueDate)}.{" "}
+                        {formatDateTime(attempt.createdAt)}.
+                      </p>
+                      <p className="text-app-text-muted">
+                        {attempt.errorCode
+                          ? `${attempt.errorCode}${attempt.errorMessage ? `. ${attempt.errorMessage}` : ""}`
+                          : "ok"}
+                      </p>
                     </li>
                   );
                 })}
