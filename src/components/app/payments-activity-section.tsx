@@ -22,6 +22,7 @@ type ActivityItem = {
   title: string;
   paymentScope: RecurringPaymentPayload["paymentScope"];
   responsibleProfileId: string | null;
+  paidByProfileId: string | null;
   timestamp: string;
   kind: "created" | "updated" | "archived" | "paid_cycle";
   label: string;
@@ -71,6 +72,7 @@ const buildActivityItems = (
       title: payment.title,
       paymentScope: payment.paymentScope,
       responsibleProfileId: payment.responsibleProfileId,
+      paidByProfileId: null,
       timestamp: payment.createdAt,
       kind: "created",
       label: "Created",
@@ -84,6 +86,7 @@ const buildActivityItems = (
         title: payment.title,
         paymentScope: payment.paymentScope,
         responsibleProfileId: payment.responsibleProfileId,
+        paidByProfileId: null,
         timestamp: payment.updatedAt,
         kind: isArchived ? "archived" : "updated",
         label: isArchived ? "Archived" : "Updated",
@@ -97,6 +100,7 @@ const buildActivityItems = (
         title: payment.title,
         paymentScope: payment.paymentScope,
         responsibleProfileId: payment.responsibleProfileId,
+        paidByProfileId: payment.currentCycle.paidByProfileId,
         timestamp: payment.currentCycle.paidAt,
         kind: "paid_cycle",
         label: "Marked paid",
@@ -181,6 +185,22 @@ export function PaymentsActivitySection({
     };
   }, [isFamilyWorkspace, payments]);
 
+  const paidByMismatchCount = useMemo(() => {
+    if (!isFamilyWorkspace) {
+      return 0;
+    }
+
+    return payments.filter((payment) => {
+      return (
+        payment.paymentScope === "shared" &&
+        payment.currentCycle.state === "paid" &&
+        Boolean(payment.responsibleProfileId) &&
+        Boolean(payment.currentCycle.paidByProfileId) &&
+        payment.responsibleProfileId !== payment.currentCycle.paidByProfileId
+      );
+    }).length;
+  }, [isFamilyWorkspace, payments]);
+
   const loadActivity = useCallback(async () => {
     if (workspaceUnavailable) {
       return;
@@ -260,6 +280,11 @@ export function PaymentsActivitySection({
                 {sharedWhoPaysSummary.unassignedCount}
               </p>
             )}
+            {isFamilyWorkspace && (
+              <p className="mt-1 text-xs text-app-text-muted">
+                Paid-cycle mismatch hints: {paidByMismatchCount}
+              </p>
+            )}
           </div>
 
           <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
@@ -276,23 +301,51 @@ export function PaymentsActivitySection({
             ) : (
               <ul className="space-y-1.5">
                 {activityItems.map((item) => (
-                  <li
-                    key={item.id}
-                    className="rounded-xl bg-app-surface px-2 py-1 text-xs text-app-text"
-                  >
-                    <span className="font-semibold">{item.label}</span>{" "}
-                    <span className="font-medium">{item.title}</span>{" "}
-                    <span className="text-app-text-muted">
-                      | {formatDateTime(item.timestamp)}
-                      {isFamilyWorkspace ? " | shared" : ""}
-                      {isFamilyWorkspace
-                        ? ` | who pays ${resolveResponsiblePayerDisplayName(
-                            item.responsibleProfileId,
+                  (() => {
+                    const responsiblePayerName = isFamilyWorkspace
+                      ? resolveResponsiblePayerDisplayName(
+                          item.responsibleProfileId,
+                          responsiblePayerOptions,
+                        )
+                      : null;
+                    const paidByName =
+                      isFamilyWorkspace && item.paidByProfileId
+                        ? resolveResponsiblePayerDisplayName(
+                            item.paidByProfileId,
                             responsiblePayerOptions,
-                          )}`
-                        : ""}
-                    </span>
-                  </li>
+                          )
+                        : null;
+                    const hasPaidMismatch =
+                      isFamilyWorkspace &&
+                      item.kind === "paid_cycle" &&
+                      Boolean(item.responsibleProfileId) &&
+                      Boolean(item.paidByProfileId) &&
+                      item.responsibleProfileId !== item.paidByProfileId;
+
+                    return (
+                      <li
+                        key={item.id}
+                        className="rounded-xl bg-app-surface px-2 py-1 text-xs text-app-text"
+                      >
+                        <span className="font-semibold">{item.label}</span>{" "}
+                        <span className="font-medium">{item.title}</span>{" "}
+                        <span className="text-app-text-muted">
+                          | {formatDateTime(item.timestamp)}
+                          {isFamilyWorkspace ? " | shared" : ""}
+                          {isFamilyWorkspace ? ` | who pays ${responsiblePayerName}` : ""}
+                          {isFamilyWorkspace && item.kind === "paid_cycle"
+                            ? ` | paid by ${paidByName ?? "not captured"}`
+                            : ""}
+                        </span>
+                        {hasPaidMismatch && (
+                          <p className="mt-1 text-[11px] font-medium text-amber-700">
+                            Economics hint: {paidByName ?? "Another member"} paid, while
+                            responsibility is on {responsiblePayerName ?? "another member"}.
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })()
                 ))}
               </ul>
             )}

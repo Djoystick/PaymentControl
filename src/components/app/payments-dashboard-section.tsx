@@ -159,7 +159,11 @@ export function PaymentsDashboardSection({
           </div>
 
           {dashboard && (
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+            <div
+              className={`grid grid-cols-2 gap-2 ${
+                isFamilyWorkspace ? "md:grid-cols-6" : "md:grid-cols-5"
+              }`}
+            >
               <div className="rounded-xl bg-app-surface-soft p-2">
                 <p className="text-[11px] text-app-text-muted">
                   {isFamilyWorkspace ? "Shared due today" : "Due today"}
@@ -201,6 +205,16 @@ export function PaymentsDashboardSection({
                   {dashboard.summary.unpaidThisCycleCount}
                 </p>
               </div>
+              {isFamilyWorkspace && (
+                <div className="rounded-xl bg-app-surface-soft p-2">
+                  <p className="text-[11px] text-app-text-muted">
+                    Paid mismatch hints
+                  </p>
+                  <p className="text-base font-semibold text-app-text">
+                    {dashboard.summary.paidByMismatchCount}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

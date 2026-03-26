@@ -691,7 +691,7 @@ export function RecurringPaymentsSection({
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">Recurring Payments</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 9B.1
+          Phase 9C
         </span>
       </div>
       {workspace && (
@@ -1349,12 +1349,36 @@ export function RecurringPaymentsSection({
               </p>
             )}
             {visiblePayments.map((payment) => (
-              <article
-                key={payment.id}
-                className="rounded-2xl border border-app-border bg-app-surface-soft p-3"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
+              (() => {
+                const responsiblePayerName =
+                  payment.paymentScope === "shared"
+                    ? resolveResponsiblePayerDisplayName(
+                        payment.responsibleProfileId,
+                        responsiblePayerOptions,
+                      )
+                    : null;
+                const paidByName =
+                  payment.paymentScope === "shared" &&
+                  payment.currentCycle.paidByProfileId
+                    ? resolveResponsiblePayerDisplayName(
+                        payment.currentCycle.paidByProfileId,
+                        responsiblePayerOptions,
+                      )
+                    : null;
+                const hasEconomicsMismatch =
+                  payment.paymentScope === "shared" &&
+                  payment.currentCycle.state === "paid" &&
+                  Boolean(payment.responsibleProfileId) &&
+                  Boolean(payment.currentCycle.paidByProfileId) &&
+                  payment.responsibleProfileId !== payment.currentCycle.paidByProfileId;
+
+                return (
+                  <article
+                    key={payment.id}
+                    className="rounded-2xl border border-app-border bg-app-surface-soft p-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
                     <div className="flex items-center gap-2">
                       <p className="font-semibold text-app-text">{payment.title}</p>
                       <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] font-semibold text-app-text">
@@ -1390,10 +1414,7 @@ export function RecurringPaymentsSection({
                     {payment.paymentScope === "shared" && (
                       <p className="text-sm text-app-text-muted">
                         Who pays:{" "}
-                        {resolveResponsiblePayerDisplayName(
-                          payment.responsibleProfileId,
-                          responsiblePayerOptions,
-                        )}
+                        {responsiblePayerName}
                       </p>
                     )}
                     <p className="text-sm text-app-text-muted">
@@ -1401,6 +1422,32 @@ export function RecurringPaymentsSection({
                       {formatDueDate(payment.currentCycle.dueDate)}
                       {payment.currentCycle.paidAt ? " | Paid this cycle" : ""}
                     </p>
+                    {payment.paymentScope === "shared" &&
+                      payment.currentCycle.state === "paid" && (
+                        <p className="text-sm text-app-text-muted">
+                          Paid by: {paidByName ?? "Not captured"}
+                        </p>
+                      )}
+                    {payment.paymentScope === "shared" &&
+                      payment.currentCycle.state === "paid" &&
+                      hasEconomicsMismatch && (
+                        <p className="text-xs font-medium text-amber-700">
+                          Economics hint: {paidByName ?? "Another member"} covered this
+                          cycle, while responsibility is on{" "}
+                          {responsiblePayerName ?? "another member"}.
+                        </p>
+                      )}
+                    {payment.paymentScope === "shared" &&
+                      payment.currentCycle.state === "paid" &&
+                      !hasEconomicsMismatch &&
+                      payment.responsibleProfileId &&
+                      payment.currentCycle.paidByProfileId &&
+                      payment.responsibleProfileId ===
+                        payment.currentCycle.paidByProfileId && (
+                        <p className="text-xs font-medium text-emerald-700">
+                          Economics: aligned (responsible payer paid this cycle).
+                        </p>
+                      )}
                     <p className="text-xs text-app-text-muted">
                       Reminders:{" "}
                       {payment.remindersEnabled
@@ -1464,7 +1511,9 @@ export function RecurringPaymentsSection({
                     )}
                   </div>
                 </div>
-              </article>
+                  </article>
+                );
+              })()
             ))}
           </div>
         </>

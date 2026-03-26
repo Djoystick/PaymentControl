@@ -62,10 +62,19 @@ export const buildPaymentsDashboard = (
 
   let paidThisCycleCount = 0;
   let unpaidThisCycleCount = 0;
+  let paidByMismatchCount = 0;
 
   for (const payment of active) {
     if (payment.currentCycle.state === "paid") {
       paidThisCycleCount += 1;
+      if (
+        payment.paymentScope === "shared" &&
+        payment.responsibleProfileId &&
+        payment.currentCycle.paidByProfileId &&
+        payment.responsibleProfileId !== payment.currentCycle.paidByProfileId
+      ) {
+        paidByMismatchCount += 1;
+      }
     } else {
       unpaidThisCycleCount += 1;
 
@@ -93,6 +102,7 @@ export const buildPaymentsDashboard = (
       overdueCount: overdue.length,
       paidThisCycleCount,
       unpaidThisCycleCount,
+      paidByMismatchCount,
       upcomingWindowDays: DASHBOARD_UPCOMING_WINDOW_DAYS,
     },
     dueToday,
@@ -100,4 +110,3 @@ export const buildPaymentsDashboard = (
     overdue,
   };
 };
-

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { PaymentApiError, PaymentMutateResponse } from "@/lib/payments/types";
 import { isSupabaseServerConfigured } from "@/lib/config/server-env";
 import { resolvePaymentsScope } from "@/lib/payments/context";
+import { readCurrentAppContext } from "@/lib/app-context/service";
 import { setCurrentCycleStateForPayment } from "@/lib/payments/repository";
 
 type MarkPaidBody = {
@@ -74,10 +75,16 @@ export async function POST(request: Request, context: RouteContext) {
     return jsonError(scopeResult.error.code, scopeResult.error.message);
   }
 
+  const contextResult = await readCurrentAppContext(body.initData);
+  if (!contextResult.ok) {
+    return jsonError(contextResult.error.code, contextResult.error.message);
+  }
+
   const markResult = await setCurrentCycleStateForPayment(
     scopeResult.workspace.id,
     paymentId,
     "paid",
+    scopeResult.workspace.kind === "family" ? contextResult.profile.id : null,
   );
   if (!markResult.ok) {
     if (markResult.reason === "NOT_FOUND") {

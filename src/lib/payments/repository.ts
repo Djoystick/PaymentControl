@@ -47,6 +47,7 @@ type RecurringPaymentCycleRow = {
   due_date: string;
   payment_state: RecurringPaymentCycleState;
   paid_at: string | null;
+  paid_by_profile_id: string | null;
 };
 
 type ReminderDispatchAttemptRow = {
@@ -206,6 +207,7 @@ const toPaymentPayload = (
       dueDate: cycle.dueDate,
       state: "unpaid",
       paidAt: null,
+      paidByProfileId: null,
     },
   };
 };
@@ -213,7 +215,7 @@ const toPaymentPayload = (
 const selection =
   "id, workspace_id, title, amount, currency, category, cadence, due_day, status, responsible_profile_id, is_required, is_subscription, is_paused, reminders_enabled, remind_days_before, remind_on_due_day, remind_on_overdue, notes, created_at, updated_at";
 const cycleSelection =
-  "recurring_payment_id, cycle_key, due_date, payment_state, paid_at";
+  "recurring_payment_id, cycle_key, due_date, payment_state, paid_at, paid_by_profile_id";
 
 const makeCycleMapKey = (paymentId: string, cycleKey: string): string =>
   `${paymentId}:${cycleKey}`;
@@ -242,6 +244,7 @@ const applyCurrentCycleRows = (
         dueDate: row.due_date,
         state: row.payment_state,
         paidAt: row.paid_at,
+        paidByProfileId: row.paid_by_profile_id,
       },
     };
   });
@@ -482,6 +485,7 @@ export const setCurrentCycleStateForPayment = async (
   workspaceId: string,
   paymentId: string,
   nextState: RecurringPaymentCycleState,
+  paidByProfileId: string | null = null,
 ): Promise<SetCurrentCycleStateResult> => {
   const payment = await getRecurringPaymentByWorkspaceAndId(workspaceId, paymentId);
   if (!payment) {
@@ -514,6 +518,7 @@ export const setCurrentCycleStateForPayment = async (
       due_date: payment.currentCycle.dueDate,
       payment_state: nextState,
       paid_at: nextState === "paid" ? now : null,
+      paid_by_profile_id: nextState === "paid" ? paidByProfileId : null,
       updated_at: now,
     },
     {

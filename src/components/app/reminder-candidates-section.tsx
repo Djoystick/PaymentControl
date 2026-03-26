@@ -168,6 +168,13 @@ export function ReminderCandidatesSection({
       (payment) => Boolean(payment.responsibleProfileId),
     ).length;
     const remindersOffCount = sharedActivePayments.length - remindersEnabledCount;
+    const paidByMismatchCount = sharedActivePayments.filter(
+      (payment) =>
+        payment.currentCycle.state === "paid" &&
+        Boolean(payment.responsibleProfileId) &&
+        Boolean(payment.currentCycle.paidByProfileId) &&
+        payment.responsibleProfileId !== payment.currentCycle.paidByProfileId,
+    ).length;
     const dueTodayUnpaidCount = sharedActivePayments.filter(
       (payment) =>
         payment.currentCycle.state === "unpaid" &&
@@ -198,6 +205,7 @@ export function ReminderCandidatesSection({
       sharedActivePaymentsCount: sharedActivePayments.length,
       remindersEnabledCount,
       remindersOffCount,
+      paidByMismatchCount,
       whoPaysAssignedCount,
       whoPaysUnassignedCount: sharedActivePayments.length - whoPaysAssignedCount,
       dueTodayUnpaidCount,
@@ -473,6 +481,12 @@ export function ReminderCandidatesSection({
                   </p>
                 </div>
               </div>
+              <p className="mt-2 text-xs text-app-text-muted">
+                Paid-cycle economics mismatch hints:{" "}
+                <span className="font-semibold text-app-text">
+                  {familyVisibilitySummary.paidByMismatchCount}
+                </span>
+              </p>
 
               <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
                 <p className="text-xs text-app-text-muted">

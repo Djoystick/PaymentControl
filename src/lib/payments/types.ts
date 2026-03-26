@@ -39,6 +39,7 @@ export type PaymentCurrentCyclePayload = {
   dueDate: string;
   state: RecurringPaymentCycleState;
   paidAt: string | null;
+  paidByProfileId: string | null;
 };
 
 export type DashboardPaymentItemPayload = {
@@ -57,6 +58,7 @@ export type PaymentsDashboardSummaryPayload = {
   overdueCount: number;
   paidThisCycleCount: number;
   unpaidThisCycleCount: number;
+  paidByMismatchCount: number;
   upcomingWindowDays: number;
 };
 
