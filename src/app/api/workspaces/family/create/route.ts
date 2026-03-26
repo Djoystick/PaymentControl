@@ -1,0 +1,70 @@
+import { NextResponse } from "next/server";
+import {
+  createFamilyWorkspaceInContext,
+} from "@/lib/app-context/service";
+import type {
+  FamilyWorkspaceCreateError,
+  FamilyWorkspaceCreateResponse,
+} from "@/lib/auth/types";
+import { isSupabaseServerConfigured } from "@/lib/config/server-env";
+
+type CreateFamilyWorkspaceBody = {
+  initData?: string;
+  title?: string;
+};
+
+const codeToStatus: Record<FamilyWorkspaceCreateError["error"]["code"], number> = {
+  TELEGRAM_INIT_DATA_MISSING: 400,
+  TELEGRAM_INIT_DATA_INVALID: 401,
+  TELEGRAM_INIT_DATA_EXPIRED: 401,
+  TELEGRAM_USER_INVALID: 401,
+  TELEGRAM_BOT_TOKEN_MISSING: 503,
+  SUPABASE_NOT_CONFIGURED: 503,
+  PROFILE_UPSERT_FAILED: 500,
+  WORKSPACE_ENSURE_FAILED: 500,
+  APP_CONTEXT_NOT_INITIALIZED: 409,
+  WORKSPACE_TITLE_INVALID: 400,
+  WORKSPACE_CREATE_FAILED: 500,
+  WORKSPACE_LIST_FAILED: 500,
+};
+
+const jsonError = (
+  status: number,
+  code: FamilyWorkspaceCreateError["error"]["code"],
+  message: string,
+) => {
+  const payload: FamilyWorkspaceCreateError = {
+    ok: false,
+    error: { code, message },
+  };
+
+  return NextResponse.json<FamilyWorkspaceCreateResponse>(payload, { status });
+};
+
+export async function POST(request: Request) {
+  if (!isSupabaseServerConfigured) {
+    return jsonError(
+      503,
+      "SUPABASE_NOT_CONFIGURED",
+      "Supabase server configuration is missing.",
+    );
+  }
+
+  let body: CreateFamilyWorkspaceBody = {};
+  try {
+    body = (await request.json()) as CreateFamilyWorkspaceBody;
+  } catch {
+    body = {};
+  }
+
+  const result = await createFamilyWorkspaceInContext(body.initData, body.title ?? "");
+  if (!result.ok) {
+    return jsonError(
+      codeToStatus[result.error.code] ?? 400,
+      result.error.code,
+      result.error.message,
+    );
+  }
+
+  return NextResponse.json<FamilyWorkspaceCreateResponse>(result);
+}

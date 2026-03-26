@@ -1,0 +1,43 @@
+const readEnvValue = (value: string | undefined): string => {
+  return value?.trim() ?? "";
+};
+
+const normalizeTelegramBotUsername = (value: string): string => {
+  const raw = value.trim();
+  if (!raw) {
+    return "";
+  }
+
+  let candidate = raw;
+  if (candidate.startsWith("http://") || candidate.startsWith("https://")) {
+    try {
+      const parsed = new URL(candidate);
+      candidate = parsed.pathname.split("/").filter(Boolean)[0] ?? "";
+    } catch {
+      candidate = raw;
+    }
+  } else if (candidate.includes("t.me/")) {
+    candidate = candidate.split("t.me/").pop() ?? candidate;
+  }
+
+  candidate = candidate.split(/[/?#]/)[0] ?? candidate;
+  candidate = candidate.replace(/^@+/, "").trim();
+  return candidate;
+};
+
+export const clientEnv = {
+  appName: readEnvValue(process.env.NEXT_PUBLIC_APP_NAME) || "Payment Control",
+  appStage: readEnvValue(process.env.NEXT_PUBLIC_APP_STAGE) || "local",
+  apiBaseUrl: readEnvValue(process.env.NEXT_PUBLIC_API_BASE_URL) || "/api",
+  telegramBotUsername: normalizeTelegramBotUsername(
+    readEnvValue(process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME),
+  ),
+  supabaseUrl: readEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL),
+  supabaseAnonKey: readEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+} as const;
+
+export const isTelegramConfigPresent = Boolean(clientEnv.telegramBotUsername);
+
+export const isSupabaseClientConfigured = Boolean(
+  clientEnv.supabaseUrl && clientEnv.supabaseAnonKey,
+);
