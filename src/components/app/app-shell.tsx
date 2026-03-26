@@ -67,7 +67,7 @@ export function AppShell({ children }: AppShellProps) {
         </p>
       </header>
 
-      <main className="relative z-0 mt-4 flex-1 space-y-4 pb-24">{children}</main>
+      <main className="relative z-0 mt-4 flex-1 space-y-3 pb-24">{children}</main>
 
       <footer className="sticky bottom-2 z-40 mt-4 rounded-3xl border border-app-border bg-app-surface p-2 shadow-sm [padding-bottom:calc(env(safe-area-inset-bottom)+0.5rem)]">
         <div className="grid grid-cols-3 gap-2 text-xs font-medium">

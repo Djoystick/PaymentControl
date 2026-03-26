@@ -27,33 +27,38 @@ export function LandingScreen() {
     <>
       <section
         id="home-section"
-        className="rounded-3xl border border-app-border bg-app-surface p-4 shadow-sm"
+        className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm"
       >
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-app-text-muted">
-          Start Screen
+          Home
         </p>
-        <h2 className="mt-2 text-xl font-semibold tracking-tight text-app-text">
-          Phase 6F delivery UX cleanup
+        <h2 className="mt-1 text-lg font-semibold tracking-tight text-app-text">
+          Payment Control overview
         </h2>
         <p className="mt-2 text-sm text-app-text-muted">
-          This pass keeps working reminder delivery as-is and polishes onboarding,
-          phase labeling, and success-state readability.
+          Working personal and family foundations are active in this runtime.
+          Use the blocks below for daily tracking and quick status checks.
         </p>
-        <ul className="mt-4 space-y-2 text-sm">
-          {foundationSteps.map((step) => (
-            <li
-              key={step}
-              className="rounded-xl bg-app-surface-soft px-3 py-2 text-app-text"
-            >
-              {step}
-            </li>
-          ))}
-        </ul>
+        <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft px-3 py-2">
+          <summary className="cursor-pointer text-sm font-semibold text-app-text">
+            Foundation steps (compact view)
+          </summary>
+          <ul className="mt-2 space-y-1.5 text-sm">
+            {foundationSteps.map((step) => (
+              <li
+                key={step}
+                className="rounded-xl bg-app-surface px-2 py-1.5 text-app-text"
+              >
+                {step}
+              </li>
+            ))}
+          </ul>
+        </details>
       </section>
 
-      <section className="rounded-3xl border border-app-border bg-app-surface p-4 shadow-sm">
+      <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
         <h2 className="text-base font-semibold text-app-text">Bootstrap status</h2>
-        <div className="mt-3 grid grid-cols-1 gap-2 text-sm">
+        <div className="mt-2 grid grid-cols-1 gap-2 text-sm">
           <div className="rounded-xl bg-app-surface-soft px-3 py-2 text-app-text">
             Telegram integration surface:{" "}
             <span className="font-semibold">

@@ -119,15 +119,24 @@ export function ProfileScenariosPlaceholder() {
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
+      <PaymentsDashboardSection workspace={workspace} initData={initData} />
+      <ReminderCandidatesSection workspace={workspace} initData={initData} />
+      <RecurringPaymentsSection
+        workspace={workspace}
+        initData={initData}
+        currentFamilyInvite={currentFamilyInvite}
+      />
+      <PaymentsActivitySection workspace={workspace} initData={initData} />
+
       <section
         id="profile-section"
-        className="rounded-3xl border border-app-border bg-app-surface p-4 shadow-sm"
+        className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm"
       >
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold text-app-text">Profile</h2>
           <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-            Phase 10A
+            Phase 10B
           </span>
         </div>
         <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
@@ -322,12 +331,15 @@ export function ProfileScenariosPlaceholder() {
                   Accept invite
                 </button>
                 {inviteAcceptDiagnostic && (
-                  <div className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-xs text-app-text">
+                  <details className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-xs text-app-text">
+                    <summary className="cursor-pointer font-semibold text-app-text">
+                      Accept invite diagnostic
+                    </summary>
                     <p
                       className={
                         inviteAcceptDiagnostic.status === "success"
-                          ? "font-semibold text-emerald-700"
-                          : "font-semibold text-rose-700"
+                          ? "mt-2 font-semibold text-emerald-700"
+                          : "mt-2 font-semibold text-rose-700"
                       }
                     >
                       {inviteAcceptDiagnostic.status === "success"
@@ -377,16 +389,19 @@ export function ProfileScenariosPlaceholder() {
                     >
                       Refresh context
                     </button>
-                  </div>
+                  </details>
                 )}
               </div>
             </div>
           )}
         </div>
-        <div className="space-y-3">
-          <div className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
+        <details className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
+          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+            Scenario cards
+          </summary>
+          <div className="mt-2 rounded-2xl border border-app-border bg-app-surface px-3 py-2">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              Scenario cards (read-only)
+              Scenario cards (informational)
             </p>
             <p className="mt-1 text-xs text-app-text-muted">
               Cards below are informational in this phase. To change active context,
@@ -399,10 +414,11 @@ export function ProfileScenariosPlaceholder() {
               </p>
             )}
           </div>
+          <div className="mt-2 space-y-2">
           {scenarioCards.map((scenario) => (
             <article
               key={scenario.key}
-              className="rounded-2xl border border-app-border bg-app-surface-soft p-3"
+              className="rounded-2xl border border-app-border bg-app-surface px-3 py-2"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -418,7 +434,8 @@ export function ProfileScenariosPlaceholder() {
               </p>
             </article>
           ))}
-        </div>
+          </div>
+        </details>
         <p className="mt-3 text-xs text-app-text-muted">
           Context switching is workspace-driven in this phase. Scenario cards no
           longer act as a separate switch.
@@ -427,15 +444,6 @@ export function ProfileScenariosPlaceholder() {
           <p className="mt-2 text-xs font-medium text-app-text">{actionMessage}</p>
         )}
       </section>
-
-      <PaymentsDashboardSection workspace={workspace} initData={initData} />
-      <PaymentsActivitySection workspace={workspace} initData={initData} />
-      <ReminderCandidatesSection workspace={workspace} initData={initData} />
-      <RecurringPaymentsSection
-        workspace={workspace}
-        initData={initData}
-        currentFamilyInvite={currentFamilyInvite}
-      />
     </div>
   );
 }

@@ -689,11 +689,11 @@ export function RecurringPaymentsSection({
   };
 
   return (
-    <section className="rounded-3xl border border-app-border bg-app-surface p-4 shadow-sm">
+    <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">Recurring Payments</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 10A
+          Phase 10B
         </span>
       </div>
       {workspace && (
@@ -858,7 +858,13 @@ export function RecurringPaymentsSection({
             </div>
           </div>
 
-          <div className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+          <details className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+              Subscription insights - active {subscriptionSummary.activeSubscriptionsCount}, unpaid {subscriptionSummary.unpaidSubscriptionsCount}
+            </summary>
+
+            <div className="mt-2 space-y-2">
+          <div className="rounded-2xl border border-app-border bg-app-surface p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               Subscriptions Summary
             </p>
@@ -884,7 +890,7 @@ export function RecurringPaymentsSection({
             )}
           </div>
 
-          <div className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+          <div className="rounded-2xl border border-app-border bg-app-surface p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               Subscription Health
             </p>
@@ -932,7 +938,7 @@ export function RecurringPaymentsSection({
             </div>
           </div>
 
-          <div className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+          <div className="rounded-2xl border border-app-border bg-app-surface p-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                 Subscription Renewals
@@ -1022,7 +1028,7 @@ export function RecurringPaymentsSection({
             </div>
           </div>
 
-          <div className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+          <div className="rounded-2xl border border-app-border bg-app-surface p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               Subscription Cost Pressure
             </p>
@@ -1051,7 +1057,7 @@ export function RecurringPaymentsSection({
             </div>
           </div>
 
-          <div className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+          <div className="rounded-2xl border border-app-border bg-app-surface p-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                 Paused Subscriptions
@@ -1101,6 +1107,8 @@ export function RecurringPaymentsSection({
               )}
             </div>
           </div>
+            </div>
+          </details>
 
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <input
