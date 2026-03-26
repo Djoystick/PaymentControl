@@ -84,6 +84,7 @@ export async function POST(request: Request, context: RouteContext) {
     scopeResult.workspace.id,
     paymentId,
     "paid",
+    scopeResult.workspace.kind === "family" ? "shared" : "personal",
     scopeResult.workspace.kind === "family" ? contextResult.profile.id : null,
   );
   if (!markResult.ok) {

@@ -620,6 +620,7 @@ export function RecurringPaymentsSection({
       setPayments((current) => replacePaymentInList(current, result.payment));
       setFeedback("Current cycle marked as paid.");
       emitPaymentsChanged();
+      void loadPayments();
     } catch {
       setFeedback("Failed to mark current cycle as paid.");
     } finally {
@@ -645,6 +646,7 @@ export function RecurringPaymentsSection({
       setPayments((current) => replacePaymentInList(current, result.payment));
       setFeedback("Current cycle marked as unpaid.");
       emitPaymentsChanged();
+      void loadPayments();
     } catch {
       setFeedback("Failed to mark current cycle as unpaid.");
     } finally {

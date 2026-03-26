@@ -461,6 +461,7 @@ export const archiveRecurringPaymentForWorkspace = async (
 const getRecurringPaymentByWorkspaceAndId = async (
   workspaceId: string,
   paymentId: string,
+  paymentScope: RecurringPaymentScope = "personal",
 ): Promise<RecurringPaymentPayload | null> => {
   const supabase = createSupabaseServerClient();
   if (!supabase) {
@@ -478,16 +479,21 @@ const getRecurringPaymentByWorkspaceAndId = async (
     return null;
   }
 
-  return attachSingleCurrentCycleState(toPaymentPayload(data));
+  return attachSingleCurrentCycleState(toPaymentPayload(data, paymentScope));
 };
 
 export const setCurrentCycleStateForPayment = async (
   workspaceId: string,
   paymentId: string,
   nextState: RecurringPaymentCycleState,
+  paymentScope: RecurringPaymentScope = "personal",
   paidByProfileId: string | null = null,
 ): Promise<SetCurrentCycleStateResult> => {
-  const payment = await getRecurringPaymentByWorkspaceAndId(workspaceId, paymentId);
+  const payment = await getRecurringPaymentByWorkspaceAndId(
+    workspaceId,
+    paymentId,
+    paymentScope,
+  );
   if (!payment) {
     return {
       ok: false,
@@ -532,7 +538,11 @@ export const setCurrentCycleStateForPayment = async (
     };
   }
 
-  const refreshed = await getRecurringPaymentByWorkspaceAndId(workspaceId, paymentId);
+  const refreshed = await getRecurringPaymentByWorkspaceAndId(
+    workspaceId,
+    paymentId,
+    paymentScope,
+  );
   if (!refreshed) {
     return {
       ok: false,

@@ -78,6 +78,7 @@ export async function POST(request: Request, context: RouteContext) {
     scopeResult.workspace.id,
     paymentId,
     "unpaid",
+    scopeResult.workspace.kind === "family" ? "shared" : "personal",
   );
   if (!markResult.ok) {
     if (markResult.reason === "NOT_FOUND") {
