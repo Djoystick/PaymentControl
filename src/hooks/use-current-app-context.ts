@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   acceptFamilyInvite as acceptFamilyInviteRequest,
+  claimGiftPremiumCampaign as claimGiftPremiumCampaignRequest,
   bootstrapTelegramAuth,
   createFamilyInvite as createFamilyInviteRequest,
   createFamilyWorkspace as createFamilyWorkspaceRequest,
@@ -16,6 +17,7 @@ import type {
   FamilyInviteAcceptResponse,
   FamilyWorkspaceInvitePayload,
   FamilyWorkspaceInviteStatus,
+  GiftPremiumClaimResultPayload,
   PremiumEntitlementStatePayload,
   ProfilePayload,
   SelectedScenario,
@@ -83,6 +85,7 @@ type UseCurrentAppContextResult = {
   stateLabel: string;
   isLoading: boolean;
   isLoadingPremium: boolean;
+  isClaimingGiftPremium: boolean;
   isSavingScenario: boolean;
   isSavingWorkspace: boolean;
   isSavingInvite: boolean;
@@ -92,12 +95,14 @@ type UseCurrentAppContextResult = {
   workspaces: WorkspaceSummaryPayload[];
   currentFamilyInvite: FamilyWorkspaceInvitePayload | null;
   premiumEntitlement: PremiumEntitlementStatePayload | null;
+  giftPremiumClaimResult: GiftPremiumClaimResultPayload | null;
   inviteAcceptDiagnostic: InviteAcceptDiagnostic | null;
   refreshContext: () => Promise<void>;
   changeScenario: (scenario: SelectedScenario) => Promise<void>;
   createFamilyWorkspace: (title: string) => Promise<void>;
   switchWorkspace: (workspaceId: string) => Promise<void>;
   createInvite: () => Promise<void>;
+  claimGiftPremium: (campaignCode: string) => Promise<boolean>;
   acceptInvite: (inviteToken: string) => Promise<boolean>;
   clearInviteAcceptDiagnostic: () => void;
 };
@@ -111,6 +116,8 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
     useState<FamilyWorkspaceInvitePayload | null>(null);
   const [premiumEntitlement, setPremiumEntitlement] =
     useState<PremiumEntitlementStatePayload | null>(null);
+  const [giftPremiumClaimResult, setGiftPremiumClaimResult] =
+    useState<GiftPremiumClaimResultPayload | null>(null);
   const [inviteAcceptDiagnostic, setInviteAcceptDiagnostic] =
     useState<InviteAcceptDiagnostic | null>(null);
   const [stateLabel, setStateLabel] = useState("Loading current context...");
@@ -119,6 +126,7 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
   const [isSavingWorkspace, setIsSavingWorkspace] = useState(false);
   const [isSavingInvite, setIsSavingInvite] = useState(false);
   const [isLoadingPremium, setIsLoadingPremium] = useState(false);
+  const [isClaimingGiftPremium, setIsClaimingGiftPremium] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [initData, setInitData] = useState("");
 
@@ -442,6 +450,48 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
     }
   }, [initData, isSavingInvite, loadCurrentContext, profile, workspace]);
 
+  const claimGiftPremium = useCallback(
+    async (campaignCode: string) => {
+      if (!profile || isClaimingGiftPremium) {
+        return false;
+      }
+
+      const normalizedCode = campaignCode.trim();
+      if (!normalizedCode) {
+        setActionMessage("Gift campaign code is required.");
+        return false;
+      }
+
+      setIsClaimingGiftPremium(true);
+      setActionMessage(null);
+      try {
+        const claimResult = await claimGiftPremiumCampaignRequest(
+          initData,
+          normalizedCode,
+        );
+        if (!claimResult.ok) {
+          setActionMessage(claimResult.error.message);
+          return false;
+        }
+
+        setGiftPremiumClaimResult(claimResult.result);
+        setActionMessage(claimResult.result.message);
+
+        if (claimResult.result.entitlementGranted) {
+          await loadPremiumEntitlement(initData);
+        }
+
+        return claimResult.result.entitlementGranted;
+      } catch {
+        setActionMessage("Gift premium claim request failed.");
+        return false;
+      } finally {
+        setIsClaimingGiftPremium(false);
+      }
+    },
+    [initData, isClaimingGiftPremium, loadPremiumEntitlement, profile],
+  );
+
   const acceptInvite = useCallback(
     async (inviteToken: string) => {
       if (!profile || isSavingInvite) {
@@ -590,10 +640,12 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
     workspaces,
     currentFamilyInvite,
     premiumEntitlement,
+    giftPremiumClaimResult,
     inviteAcceptDiagnostic,
     stateLabel,
     isLoading,
     isLoadingPremium,
+    isClaimingGiftPremium,
     isSavingScenario,
     isSavingWorkspace,
     isSavingInvite,
@@ -605,6 +657,7 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
     createFamilyWorkspace,
     switchWorkspace,
     createInvite,
+    claimGiftPremium,
     acceptInvite,
     clearInviteAcceptDiagnostic,
   };
