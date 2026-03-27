@@ -102,6 +102,7 @@ git push origin <ваша-ветка>
 - `TELEGRAM_INIT_DATA_MAX_AGE_SEC` = `86400`
 - `REMINDER_SCHEDULED_DISPATCH_SECRET` = `<длинный случайный секрет>`
 - `CRON_SECRET` = `<длинный случайный секрет>`
+- `PREMIUM_ADMIN_TELEGRAM_USER_IDS` = `<числовые Telegram user id через запятую, которым разрешен owner-only premium admin>`
 - `ALLOW_DEV_TELEGRAM_AUTH_FALLBACK` = `false`
 
 Локальные fallback-переменные (`DEV_TELEGRAM_*`) в production обычно не задавайте.
@@ -149,6 +150,7 @@ git push origin <ваша-ветка>
 - `20260326081000_phase8d_family_responsibility.sql`
 - `20260327090000_phase9c_family_shared_economics_foundation.sql`
 - `20260327110000_phase13a_premium_entitlements_foundation.sql`
+- `20260327120000_phase13b_gift_premium_campaign_foundation.sql`
 5. Для каждого файла:
 - скопируйте SQL;
 - вставьте в SQL Editor;
@@ -166,6 +168,8 @@ git push origin <ваша-ветка>
 - `telegram_recipient_bindings`
 - `family_workspace_invites`
 - `premium_entitlements`
+- `premium_gift_campaigns`
+- `premium_gift_campaign_claims`
 
 Если таблицы не появились:
 - вернитесь в `SQL Editor`;

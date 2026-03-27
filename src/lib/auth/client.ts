@@ -7,6 +7,14 @@ import type {
   FamilyInviteCreateResponse,
   FamilyInviteReadResponse,
   FamilyWorkspaceCreateResponse,
+  PremiumAdminCampaignCreateResponse,
+  PremiumAdminCampaignDeactivateResponse,
+  PremiumAdminCampaignListResponse,
+  PremiumAdminGrantResponse,
+  PremiumAdminRevokeResponse,
+  PremiumAdminSessionResponse,
+  PremiumAdminTargetResolveResponse,
+  GiftPremiumClaimResponse,
   PremiumEntitlementReadResponse,
   ScenarioUpdateResponse,
   SelectedScenario,
@@ -124,5 +132,104 @@ export const readPremiumEntitlement = async (
 ): Promise<PremiumEntitlementReadResponse> => {
   return postJson<PremiumEntitlementReadResponse>("/api/premium/entitlement", "POST", {
     initData,
+  });
+};
+
+export const claimGiftPremiumCampaign = async (
+  initData: string,
+  campaignCode: string,
+): Promise<GiftPremiumClaimResponse> => {
+  return postJson<GiftPremiumClaimResponse>("/api/premium/gift-campaigns/claim", "POST", {
+    initData,
+    campaignCode,
+  });
+};
+
+export const readPremiumAdminSession = async (
+  initData: string,
+): Promise<PremiumAdminSessionResponse> => {
+  return postJson<PremiumAdminSessionResponse>("/api/premium/admin", "POST", {
+    initData,
+    action: "session",
+  });
+};
+
+export const resolvePremiumAdminTarget = async (
+  initData: string,
+  targetTelegramUserId: string,
+): Promise<PremiumAdminTargetResolveResponse> => {
+  return postJson<PremiumAdminTargetResolveResponse>("/api/premium/admin", "POST", {
+    initData,
+    action: "resolve_target",
+    targetTelegramUserId,
+  });
+};
+
+export const grantPremiumByAdmin = async (params: {
+  initData: string;
+  targetTelegramUserId: string;
+  durationDays: number | null;
+  note?: string;
+}): Promise<PremiumAdminGrantResponse> => {
+  return postJson<PremiumAdminGrantResponse>("/api/premium/admin", "POST", {
+    initData: params.initData,
+    action: "grant_premium",
+    targetTelegramUserId: params.targetTelegramUserId,
+    durationDays: params.durationDays,
+    note: params.note ?? "",
+  });
+};
+
+export const revokePremiumByAdmin = async (params: {
+  initData: string;
+  targetTelegramUserId: string;
+  note?: string;
+}): Promise<PremiumAdminRevokeResponse> => {
+  return postJson<PremiumAdminRevokeResponse>("/api/premium/admin", "POST", {
+    initData: params.initData,
+    action: "revoke_premium",
+    targetTelegramUserId: params.targetTelegramUserId,
+    note: params.note ?? "",
+  });
+};
+
+export const createPremiumGiftCampaignByAdmin = async (params: {
+  initData: string;
+  campaignCode: string;
+  campaignTitle: string;
+  totalQuota: number;
+  campaignDurationDays: number;
+  startsAt?: string;
+  endsAt?: string;
+}): Promise<PremiumAdminCampaignCreateResponse> => {
+  return postJson<PremiumAdminCampaignCreateResponse>("/api/premium/admin", "POST", {
+    initData: params.initData,
+    action: "create_campaign",
+    campaignCode: params.campaignCode,
+    campaignTitle: params.campaignTitle,
+    totalQuota: params.totalQuota,
+    campaignDurationDays: params.campaignDurationDays,
+    startsAt: params.startsAt ?? "",
+    endsAt: params.endsAt ?? "",
+  });
+};
+
+export const listPremiumGiftCampaignsByAdmin = async (
+  initData: string,
+): Promise<PremiumAdminCampaignListResponse> => {
+  return postJson<PremiumAdminCampaignListResponse>("/api/premium/admin", "POST", {
+    initData,
+    action: "list_campaigns",
+  });
+};
+
+export const deactivatePremiumGiftCampaignByAdmin = async (
+  initData: string,
+  campaignId: string,
+): Promise<PremiumAdminCampaignDeactivateResponse> => {
+  return postJson<PremiumAdminCampaignDeactivateResponse>("/api/premium/admin", "POST", {
+    initData,
+    action: "deactivate_campaign",
+    campaignId,
   });
 };

@@ -118,6 +118,17 @@ Phase 8C keeps accepted subscriptions/reminders foundations intact, preserves Ph
   - active window fields (`starts_at` / `ends_at`)
   - read endpoint (`POST /api/premium/entitlement`)
   - compact read-only premium status surface in Profile
+- Added gift premium campaign foundation (quota + claim tracking):
+  - campaign model (`premium_gift_campaigns`)
+  - claim/activation tracking model (`premium_gift_campaign_claims`)
+  - quota-aware claim function (`claim_premium_gift_campaign`)
+  - entitlement grant on successful claim (`entitlement_source = gift_campaign`)
+  - verification-only claim surface in Profile (non-public, non-marketing)
+- Added owner-only premium admin console foundation (internal operations):
+  - server-side allowlist gate by Telegram numeric user id
+  - manual premium grant/revoke by target Telegram user id
+  - gift campaign create/list/deactivate operations
+  - compact owner-only admin section in Profile (hidden for non-admin users)
 - Added improved Telegram chat-not-found mapping:
   - `TELEGRAM_CHAT_NOT_FOUND_BOT_NOT_STARTED_INFERENCE`
   - `TELEGRAM_CHAT_NOT_FOUND_STALE_BINDING_INFERENCE`
@@ -138,8 +149,10 @@ Phase 8C keeps accepted subscriptions/reminders foundations intact, preserves Ph
 - Full notification center
 - Family/shared reminder flows
 - Premium paywall activation
+- Public promo/deep-link campaign rollout
 - Localization overhaul
 - Large auth/profile/workspace refactor
+- Public campaign management dashboard
 - Worker/queue/retry orchestration framework
 - family responsibility / "who pays" model
 - shared balances/splits/family economics
@@ -168,6 +181,8 @@ Phase 8C keeps accepted subscriptions/reminders foundations intact, preserves Ph
 - `POST /api/workspaces/family/invites/current`
 - `POST /api/workspaces/family/invites/accept`
 - `POST /api/premium/entitlement`
+- `POST /api/premium/gift-campaigns/claim`
+- `POST /api/premium/admin`
 - `POST /api/internal/reminders/scheduled-dispatch`
 - `GET /api/internal/reminders/scheduled-dispatch`
 
@@ -187,6 +202,7 @@ Apply migrations in order (`YYYYMMDDHHMMSS_name.sql`):
 12. `supabase/migrations/20260326081000_phase8d_family_responsibility.sql`
 13. `supabase/migrations/20260327090000_phase9c_family_shared_economics_foundation.sql`
 14. `supabase/migrations/20260327110000_phase13a_premium_entitlements_foundation.sql`
+15. `supabase/migrations/20260327120000_phase13b_gift_premium_campaign_foundation.sql`
 
 ## Env Notes
 Server:
@@ -194,6 +210,7 @@ Server:
 - `TELEGRAM_BOT_API_BASE_URL` (default `https://api.telegram.org`)
 - `CRON_SECRET` (recommended for Vercel cron auth)
 - `REMINDER_SCHEDULED_DISPATCH_SECRET` (optional compatibility secret for manual/internal POST trigger)
+- `PREMIUM_ADMIN_TELEGRAM_USER_IDS` (comma-separated Telegram numeric user ids allowed to use owner-only premium admin operations)
 
 Client:
 - `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` (used for onboarding link)

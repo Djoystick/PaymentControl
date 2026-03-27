@@ -21,6 +21,7 @@ import { PaymentsDashboardSection } from "@/components/app/payments-dashboard-se
 import { PaymentsActivitySection } from "@/components/app/payments-activity-section";
 import { ReminderCandidatesSection } from "@/components/app/reminder-candidates-section";
 import { RecurringPaymentsSection } from "@/components/app/recurring-payments-section";
+import { PremiumAdminConsole } from "@/components/app/premium-admin-console";
 
 const scenarioCards: Array<{
   key: SelectedScenario;
@@ -91,6 +92,7 @@ function ProfileScenariosContent() {
     stateLabel,
     isLoading,
     isLoadingPremium,
+    isClaimingGiftPremium,
     isSavingWorkspace,
     isSavingInvite,
     actionMessage,
@@ -99,16 +101,19 @@ function ProfileScenariosContent() {
     workspaces,
     currentFamilyInvite,
     premiumEntitlement,
+    giftPremiumClaimResult,
     inviteAcceptDiagnostic,
     refreshContext,
     createFamilyWorkspace,
     switchWorkspace,
     createInvite,
+    claimGiftPremium,
     acceptInvite,
     clearInviteAcceptDiagnostic,
   } = useCurrentAppContext();
   const [familyWorkspaceTitle, setFamilyWorkspaceTitle] = useState("Family Workspace");
   const [inviteTokenInput, setInviteTokenInput] = useState("");
+  const [giftCampaignCodeInput, setGiftCampaignCodeInput] = useState("");
   const [isOnboardingFlagCompleted, setIsOnboardingFlagCompleted] = useState<
     boolean | null
   >(() => readOnboardingFlagState());
@@ -161,6 +166,33 @@ function ProfileScenariosContent() {
       ? tr("Workspace entitlement")
       : tr("Personal entitlement")
     : null;
+  const giftClaimStatusLabel = (() => {
+    if (!giftPremiumClaimResult) {
+      return null;
+    }
+
+    if (giftPremiumClaimResult.status === "granted") {
+      return tr("Gift claim granted");
+    }
+
+    if (giftPremiumClaimResult.status === "rejected_invalid_code") {
+      return tr("Gift claim rejected: invalid code");
+    }
+
+    if (giftPremiumClaimResult.status === "rejected_inactive_campaign") {
+      return tr("Gift claim rejected: campaign inactive");
+    }
+
+    if (giftPremiumClaimResult.status === "rejected_outside_window") {
+      return tr("Gift claim rejected: outside campaign window");
+    }
+
+    if (giftPremiumClaimResult.status === "rejected_quota_exhausted") {
+      return tr("Gift claim rejected: quota exhausted");
+    }
+
+    return tr("Gift claim rejected: already claimed");
+  })();
   useEffect(() => {
     const syncOnboardingFlagState = () => {
       setIsOnboardingFlagCompleted(readOnboardingFlagState());
@@ -350,6 +382,53 @@ function ProfileScenariosContent() {
           </>
         )}
       </div>
+      <PremiumAdminConsole initData={initData} />
+      <details className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          {tr("Gift premium claim (verification)")}
+        </summary>
+        <p className="mt-2 text-xs text-app-text-muted">
+          {tr(
+            "This is a compact foundation check surface. It is not a public promo page.",
+          )}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            value={giftCampaignCodeInput}
+            onChange={(event) => setGiftCampaignCodeInput(event.target.value)}
+            placeholder={tr("Gift campaign code")}
+            className="min-w-[180px] flex-1 rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => void claimGiftPremium(giftCampaignCodeInput)}
+            disabled={isClaimingGiftPremium || !giftCampaignCodeInput.trim()}
+            className="rounded-xl border border-app-border bg-white px-3 py-2 text-xs font-semibold text-app-text disabled:opacity-60"
+          >
+            {isClaimingGiftPremium ? tr("Claiming...") : tr("Claim gift premium")}
+          </button>
+        </div>
+        {giftPremiumClaimResult && (
+          <div className="mt-2 rounded-xl border border-app-border bg-white px-3 py-2 text-xs text-app-text-muted">
+            <p className="font-semibold text-app-text">
+              {giftClaimStatusLabel ?? tr("Gift claim status")}
+            </p>
+            <p className="mt-1">
+              {tr("Quota used")}: {giftPremiumClaimResult.quotaUsed} /{" "}
+              {giftPremiumClaimResult.quotaTotal}
+            </p>
+            <p className="mt-1">
+              {tr("Claim id")}: {giftPremiumClaimResult.claimId}
+            </p>
+            {giftPremiumClaimResult.entitlementId && (
+              <p className="mt-1">
+                {tr("Entitlement id")}: {giftPremiumClaimResult.entitlementId}
+              </p>
+            )}
+          </div>
+        )}
+      </details>
       <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           {tr("Workspace state")}

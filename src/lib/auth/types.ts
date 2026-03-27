@@ -309,3 +309,156 @@ export type PremiumEntitlementReadError = {
 export type PremiumEntitlementReadResponse =
   | PremiumEntitlementReadSuccess
   | PremiumEntitlementReadError;
+
+export type GiftPremiumCampaignStatus = "draft" | "active" | "paused" | "ended";
+
+export type GiftPremiumClaimStatus =
+  | "granted"
+  | "rejected_invalid_code"
+  | "rejected_inactive_campaign"
+  | "rejected_outside_window"
+  | "rejected_quota_exhausted"
+  | "rejected_already_claimed";
+
+export type GiftPremiumClaimResultPayload = {
+  claimId: string;
+  campaignId: string | null;
+  entitlementId: string | null;
+  status: GiftPremiumClaimStatus;
+  entitlementGranted: boolean;
+  quotaTotal: number;
+  quotaUsed: number;
+  message: string;
+};
+
+export type GiftPremiumClaimSuccess = {
+  ok: true;
+  result: GiftPremiumClaimResultPayload;
+};
+
+export type GiftPremiumClaimErrorCode =
+  | CurrentAppContextErrorCode
+  | "GIFT_PREMIUM_CLAIM_FAILED";
+
+export type GiftPremiumClaimError = {
+  ok: false;
+  error: {
+    code: GiftPremiumClaimErrorCode;
+    message: string;
+  };
+};
+
+export type GiftPremiumClaimResponse =
+  | GiftPremiumClaimSuccess
+  | GiftPremiumClaimError;
+
+export type PremiumAdminErrorCode =
+  | CurrentAppContextErrorCode
+  | "PREMIUM_ADMIN_FORBIDDEN"
+  | "PREMIUM_ADMIN_INVALID_TARGET_TELEGRAM_ID"
+  | "PREMIUM_ADMIN_TARGET_NOT_FOUND"
+  | "PREMIUM_ADMIN_INVALID_INPUT"
+  | "PREMIUM_ADMIN_CAMPAIGN_NOT_FOUND"
+  | "PREMIUM_ADMIN_CAMPAIGN_FOUNDATION_NOT_READY"
+  | "PREMIUM_ADMIN_ACTION_FAILED";
+
+export type PremiumAdminTargetPayload = {
+  profileId: string;
+  telegramUserId: string;
+  username: string | null;
+  firstName: string;
+  lastName: string | null;
+  activeWorkspaceId: string | null;
+  premium: PremiumEntitlementStatePayload;
+};
+
+export type PremiumAdminCampaignPayload = {
+  id: string;
+  code: string;
+  title: string;
+  status: GiftPremiumCampaignStatus;
+  totalQuota: number;
+  quotaUsed: number;
+  claimsTotal: number;
+  premiumDurationDays: number;
+  startsAt: string | null;
+  endsAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PremiumAdminSessionSuccess = {
+  ok: true;
+  session: {
+    isAdmin: boolean;
+    adminTelegramUserId: string | null;
+  };
+};
+
+export type PremiumAdminTargetResolveSuccess = {
+  ok: true;
+  target: PremiumAdminTargetPayload;
+};
+
+export type PremiumAdminGrantSuccess = {
+  ok: true;
+  target: PremiumAdminTargetPayload;
+  entitlementId: string;
+};
+
+export type PremiumAdminRevokeSuccess = {
+  ok: true;
+  target: PremiumAdminTargetPayload;
+  revokedCount: number;
+};
+
+export type PremiumAdminCampaignCreateSuccess = {
+  ok: true;
+  campaign: PremiumAdminCampaignPayload;
+};
+
+export type PremiumAdminCampaignListSuccess = {
+  ok: true;
+  campaigns: PremiumAdminCampaignPayload[];
+};
+
+export type PremiumAdminCampaignDeactivateSuccess = {
+  ok: true;
+  campaign: PremiumAdminCampaignPayload;
+};
+
+export type PremiumAdminError = {
+  ok: false;
+  error: {
+    code: PremiumAdminErrorCode;
+    message: string;
+  };
+};
+
+export type PremiumAdminSessionResponse =
+  | PremiumAdminSessionSuccess
+  | PremiumAdminError;
+
+export type PremiumAdminTargetResolveResponse =
+  | PremiumAdminTargetResolveSuccess
+  | PremiumAdminError;
+
+export type PremiumAdminGrantResponse =
+  | PremiumAdminGrantSuccess
+  | PremiumAdminError;
+
+export type PremiumAdminRevokeResponse =
+  | PremiumAdminRevokeSuccess
+  | PremiumAdminError;
+
+export type PremiumAdminCampaignCreateResponse =
+  | PremiumAdminCampaignCreateSuccess
+  | PremiumAdminError;
+
+export type PremiumAdminCampaignListResponse =
+  | PremiumAdminCampaignListSuccess
+  | PremiumAdminError;
+
+export type PremiumAdminCampaignDeactivateResponse =
+  | PremiumAdminCampaignDeactivateSuccess
+  | PremiumAdminError;

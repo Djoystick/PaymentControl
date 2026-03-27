@@ -19,6 +19,7 @@ export const serverEnv = {
     "REMINDER_SCHEDULED_DISPATCH_SECRET",
   ),
   cronSecret: readServerEnv("CRON_SECRET"),
+  premiumAdminTelegramUserIds: readServerEnv("PREMIUM_ADMIN_TELEGRAM_USER_IDS"),
   telegramInitDataMaxAgeSec: readServerEnv("TELEGRAM_INIT_DATA_MAX_AGE_SEC"),
   allowDevTelegramAuthFallback: readServerBool(
     "ALLOW_DEV_TELEGRAM_AUTH_FALLBACK",
