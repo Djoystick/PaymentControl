@@ -3,6 +3,7 @@ import type { RecurringPaymentCadence } from "@/lib/payments/types";
 export type StarterPaymentTemplate = {
   id: string;
   label: string;
+  scenario: "personal" | "family";
   title: string;
   category: string;
   cadence: RecurringPaymentCadence;
@@ -17,10 +18,11 @@ export type StarterPaymentTemplate = {
   notes: string;
 };
 
-export const starterPaymentTemplates: StarterPaymentTemplate[] = [
+export const personalStarterPaymentTemplates: StarterPaymentTemplate[] = [
   {
     id: "internet",
     label: "Internet",
+    scenario: "personal",
     title: "Home Internet",
     category: "Internet",
     cadence: "monthly",
@@ -37,6 +39,7 @@ export const starterPaymentTemplates: StarterPaymentTemplate[] = [
   {
     id: "mobile",
     label: "Mobile",
+    scenario: "personal",
     title: "Mobile Plan",
     category: "Mobile",
     cadence: "monthly",
@@ -53,6 +56,7 @@ export const starterPaymentTemplates: StarterPaymentTemplate[] = [
   {
     id: "rent",
     label: "Rent",
+    scenario: "personal",
     title: "Apartment Rent",
     category: "Housing",
     cadence: "monthly",
@@ -69,6 +73,7 @@ export const starterPaymentTemplates: StarterPaymentTemplate[] = [
   {
     id: "utilities",
     label: "Utilities",
+    scenario: "personal",
     title: "Utilities Bill",
     category: "Utilities",
     cadence: "monthly",
@@ -83,40 +88,9 @@ export const starterPaymentTemplates: StarterPaymentTemplate[] = [
     notes: "",
   },
   {
-    id: "water",
-    label: "Water",
-    title: "Water Bill",
-    category: "Utilities",
-    cadence: "monthly",
-    currency: "USD",
-    dueDay: 18,
-    isRequired: true,
-    isSubscription: false,
-    remindersEnabled: true,
-    remindDaysBefore: 1,
-    remindOnDueDay: true,
-    remindOnOverdue: true,
-    notes: "",
-  },
-  {
-    id: "electricity",
-    label: "Electricity",
-    title: "Electricity Bill",
-    category: "Utilities",
-    cadence: "monthly",
-    currency: "USD",
-    dueDay: 20,
-    isRequired: true,
-    isSubscription: false,
-    remindersEnabled: true,
-    remindDaysBefore: 1,
-    remindOnDueDay: true,
-    remindOnOverdue: true,
-    notes: "",
-  },
-  {
     id: "gym",
     label: "Gym",
+    scenario: "personal",
     title: "Gym Membership",
     category: "Health",
     cadence: "monthly",
@@ -133,6 +107,7 @@ export const starterPaymentTemplates: StarterPaymentTemplate[] = [
   {
     id: "streaming",
     label: "Streaming",
+    scenario: "personal",
     title: "Streaming Service",
     category: "Entertainment",
     cadence: "monthly",
@@ -149,6 +124,7 @@ export const starterPaymentTemplates: StarterPaymentTemplate[] = [
   {
     id: "loan",
     label: "Loan",
+    scenario: "personal",
     title: "Loan Payment",
     category: "Debt",
     cadence: "monthly",
@@ -165,6 +141,7 @@ export const starterPaymentTemplates: StarterPaymentTemplate[] = [
   {
     id: "insurance",
     label: "Insurance",
+    scenario: "personal",
     title: "Insurance Premium",
     category: "Insurance",
     cadence: "monthly",
@@ -178,4 +155,114 @@ export const starterPaymentTemplates: StarterPaymentTemplate[] = [
     remindOnOverdue: true,
     notes: "",
   },
+];
+
+export const familyStarterPaymentTemplates: StarterPaymentTemplate[] = [
+  {
+    id: "shared-rent",
+    label: "Shared rent",
+    scenario: "family",
+    title: "Family Rent",
+    category: "Housing",
+    cadence: "monthly",
+    currency: "USD",
+    dueDay: 1,
+    isRequired: true,
+    isSubscription: false,
+    remindersEnabled: true,
+    remindDaysBefore: 3,
+    remindOnDueDay: true,
+    remindOnOverdue: true,
+    notes: "",
+  },
+  {
+    id: "groceries",
+    label: "Groceries",
+    scenario: "family",
+    title: "Family Groceries",
+    category: "Food",
+    cadence: "weekly",
+    currency: "USD",
+    dueDay: 6,
+    isRequired: true,
+    isSubscription: false,
+    remindersEnabled: true,
+    remindDaysBefore: 1,
+    remindOnDueDay: true,
+    remindOnOverdue: true,
+    notes: "",
+  },
+  {
+    id: "school",
+    label: "School",
+    scenario: "family",
+    title: "School Fee",
+    category: "Education",
+    cadence: "monthly",
+    currency: "USD",
+    dueDay: 8,
+    isRequired: true,
+    isSubscription: false,
+    remindersEnabled: true,
+    remindDaysBefore: 3,
+    remindOnDueDay: true,
+    remindOnOverdue: true,
+    notes: "",
+  },
+  {
+    id: "shared-internet",
+    label: "Home internet",
+    scenario: "family",
+    title: "Shared Internet",
+    category: "Internet",
+    cadence: "monthly",
+    currency: "USD",
+    dueDay: 5,
+    isRequired: true,
+    isSubscription: true,
+    remindersEnabled: true,
+    remindDaysBefore: 1,
+    remindOnDueDay: true,
+    remindOnOverdue: true,
+    notes: "",
+  },
+  {
+    id: "shared-streaming",
+    label: "Family streaming",
+    scenario: "family",
+    title: "Family Streaming",
+    category: "Entertainment",
+    cadence: "monthly",
+    currency: "USD",
+    dueDay: 12,
+    isRequired: false,
+    isSubscription: true,
+    remindersEnabled: false,
+    remindDaysBefore: 1,
+    remindOnDueDay: true,
+    remindOnOverdue: false,
+    notes: "",
+  },
+  {
+    id: "electricity",
+    label: "Electricity",
+    scenario: "family",
+    title: "Electricity Bill",
+    category: "Utilities",
+    cadence: "monthly",
+    currency: "USD",
+    dueDay: 20,
+    isRequired: true,
+    isSubscription: false,
+    remindersEnabled: true,
+    remindDaysBefore: 1,
+    remindOnDueDay: true,
+    remindOnOverdue: true,
+    notes: "",
+  },
+];
+
+export const starterPaymentTemplates: StarterPaymentTemplate[] = [
+  ...personalStarterPaymentTemplates,
+  ...familyStarterPaymentTemplates,
 ];

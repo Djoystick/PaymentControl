@@ -19,9 +19,9 @@ import { LocalizationProvider, useLocalization } from "@/lib/i18n/localization";
 import { LandingScreen } from "@/components/app/landing-screen";
 import { PaymentsDashboardSection } from "@/components/app/payments-dashboard-section";
 import { PaymentsActivitySection } from "@/components/app/payments-activity-section";
-import { ReminderCandidatesSection } from "@/components/app/reminder-candidates-section";
 import { RecurringPaymentsSection } from "@/components/app/recurring-payments-section";
 import { PremiumAdminConsole } from "@/components/app/premium-admin-console";
+import { HelpPopover } from "@/components/app/help-popover";
 
 const inviteStatusLabels: Record<FamilyWorkspaceInviteStatus, string> = {
   active: "Active",
@@ -67,14 +67,12 @@ function ProfileScenariosContent() {
     profile,
     workspace,
     source,
-    stateLabel,
     isLoading,
     isLoadingPremium,
     isClaimingGiftPremium,
     isSavingWorkspace,
     isSavingInvite,
     actionMessage,
-    isTelegramContext,
     initData,
     workspaces,
     premiumEntitlement,
@@ -223,17 +221,6 @@ function ProfileScenariosContent() {
         workspace={workspace}
         initData={initData}
       />
-      <details className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
-        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-          {tr("Reminder operations and visibility")}
-        </summary>
-        <p className="mt-1 text-xs text-app-text-muted">
-          {tr("Open this block for delivery readiness, diagnostics, and reminder candidates.")}
-        </p>
-        <div className="mt-2">
-          <ReminderCandidatesSection workspace={workspace} initData={initData} />
-        </div>
-      </details>
     </div>
   );
 
@@ -248,7 +235,7 @@ function ProfileScenariosContent() {
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">{tr("Profile")}</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          {tr("Phase 14A")}
+          {tr("Phase 14A.1")}
         </span>
       </div>
       <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
@@ -264,9 +251,9 @@ function ProfileScenariosContent() {
           {tr("Session")}
         </p>
         <p className="mt-1 text-sm font-semibold text-app-text">{sourceLabel}</p>
-        <p className="mt-1 text-sm text-app-text-muted">
-          {isLoading ? tr("Loading current app context...") : tr(stateLabel)}
-        </p>
+        {!isLoading && (
+          <p className="mt-1 text-xs text-app-text-muted">{tr("Context ready")}</p>
+        )}
         <div className="mt-2 flex items-center gap-2">
           <p className="text-xs font-semibold text-app-text-muted">{tr("Language")}:</p>
           <button
@@ -298,7 +285,7 @@ function ProfileScenariosContent() {
             {profile.username ? ` (@${profile.username})` : ""}
           </p>
         )}
-        <div className="mt-2">
+        <div className="mt-2 flex items-center gap-2">
           <button
             type="button"
             onClick={replayOnboarding}
@@ -306,38 +293,31 @@ function ProfileScenariosContent() {
           >
             {tr("Show onboarding again")}
           </button>
+          <HelpPopover
+            buttonLabel={tr("Open onboarding help")}
+            title={tr("Onboarding verification notes")}
+          >
+            <p>
+              {tr("Local onboarding flag")}:{" "}
+              {isOnboardingFlagCompleted === null
+                ? tr("unknown (storage unavailable)")
+                : isOnboardingFlagCompleted
+                  ? tr("completed")
+                  : tr("not completed")}
+              .
+            </p>
+            <p>
+              {tr(
+                "Show onboarding again is replay-only. It does not prove true first-run behavior.",
+              )}
+            </p>
+            <p>
+              {tr(
+                "True first-run check requires a clean Telegram profile/device storage state and first open of Mini App.",
+              )}
+            </p>
+          </HelpPopover>
         </div>
-        <details className="mt-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-xs text-app-text">
-          <summary className="cursor-pointer font-semibold text-app-text">
-            {tr("Onboarding verification notes")}
-          </summary>
-          <p className="mt-2 text-app-text-muted">
-            {tr("Local onboarding flag")}:{" "}
-            {isOnboardingFlagCompleted === null
-              ? tr("unknown (storage unavailable)")
-              : isOnboardingFlagCompleted
-                ? tr("completed")
-                : tr("not completed")}
-            .
-          </p>
-          <p className="mt-1 text-app-text-muted">
-            {tr(
-              "Show onboarding again is replay-only. It does not prove true first-run behavior.",
-            )}
-          </p>
-          <p className="mt-1 text-app-text-muted">
-            {tr(
-              "True first-run check requires a clean Telegram profile/device storage state and first open of Mini App.",
-            )}
-          </p>
-        </details>
-        {!profile && !isLoading && !isTelegramContext && (
-          <p className="mt-2 text-xs text-app-text-muted">
-            {tr(
-              "Open this app in Telegram to verify identity, or enable explicit dev fallback for local testing.",
-            )}
-          </p>
-        )}
       </div>
       <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
