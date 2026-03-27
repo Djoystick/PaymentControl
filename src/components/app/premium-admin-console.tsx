@@ -15,6 +15,7 @@ import type {
   PremiumAdminTargetPayload,
 } from "@/lib/auth/types";
 import { useLocalization } from "@/lib/i18n/localization";
+import { AppIcon } from "@/components/app/app-icon";
 
 type PremiumAdminConsoleProps = {
   initData: string;
@@ -315,7 +316,8 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
 
   return (
     <details className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-      <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+      <summary className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+        <AppIcon name="premium" className="h-3.5 w-3.5" />
         {tr("Owner premium admin")}
       </summary>
       <p className="mt-2 text-xs text-app-text-muted">

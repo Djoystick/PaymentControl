@@ -1,5 +1,6 @@
 import { clientEnv } from "@/lib/config/client-env";
 import { useLocalization } from "@/lib/i18n/localization";
+import { AppIcon } from "@/components/app/app-icon";
 
 export function LandingScreen() {
   const { tr } = useLocalization();
@@ -7,7 +8,8 @@ export function LandingScreen() {
   return (
     <div className="space-y-3">
       <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-app-text-muted">
+        <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-app-text-muted">
+          <AppIcon name="home" className="h-3.5 w-3.5" />
           {tr("Telegram Mini App")}
         </p>
         <h1 className="mt-1 text-xl font-semibold tracking-tight text-app-text">
@@ -17,12 +19,13 @@ export function LandingScreen() {
           {tr("Foundation for recurring payments and household tracking")}
         </p>
         <p className="mt-2 inline-flex rounded-full bg-app-warm px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-app-text">
-          {tr("Phase 14A")}
+          {tr("Phase 16A")}
         </p>
       </section>
 
       <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-app-text-muted">
+        <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-app-text-muted">
+          <AppIcon name="theme" className="h-3.5 w-3.5" />
           {tr("Home")}
         </p>
         <h2 className="mt-1 text-lg font-semibold tracking-tight text-app-text">

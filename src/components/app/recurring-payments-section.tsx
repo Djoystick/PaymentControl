@@ -28,6 +28,7 @@ import type {
 } from "@/lib/payments/types";
 import { ReminderCandidatesSection } from "@/components/app/reminder-candidates-section";
 import { HelpPopover } from "@/components/app/help-popover";
+import { AppIcon } from "@/components/app/app-icon";
 
 type RecurringPaymentsSectionProps = {
   workspace: WorkspaceSummaryPayload | null;
@@ -906,14 +907,18 @@ export function RecurringPaymentsSection({
   return (
     <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-app-text">{tr("Recurring Payments")}</h2>
+        <h2 className="inline-flex items-center gap-2 text-base font-semibold text-app-text">
+          <AppIcon name="reminders" className="h-4 w-4" />
+          {tr("Recurring Payments")}
+        </h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          {tr("Phase 14A.1")}
+          {tr("Phase 16A")}
         </span>
       </div>
       {workspace && (
         <div className="mb-3 flex items-center gap-2 text-xs text-app-text-muted">
-          <p>
+          <p className="inline-flex items-center gap-1">
+            <AppIcon name="workspace" className="h-3.5 w-3.5" />
             {tr("Workspace")}: {workspace.title} ({tr(workspace.kind)})
           </p>
           <HelpPopover
@@ -1703,23 +1708,25 @@ export function RecurringPaymentsSection({
               <button
                 type="button"
                 onClick={() => setPaymentListView("payments")}
-                className={`rounded-xl border px-3 py-1 text-xs font-semibold ${
+                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1 text-xs font-semibold ${
                   paymentListView === "payments"
                     ? "border-app-accent bg-app-accent text-white"
                     : "border-app-border bg-white text-app-text"
                 }`}
               >
+                <AppIcon name="payments" className="h-3.5 w-3.5" />
                 {tr("Payments")} ({paymentsCount})
               </button>
               <button
                 type="button"
                 onClick={() => setPaymentListView("subscriptions")}
-                className={`rounded-xl border px-3 py-1 text-xs font-semibold ${
+                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1 text-xs font-semibold ${
                   paymentListView === "subscriptions"
                     ? "border-app-accent bg-app-accent text-white"
                     : "border-app-border bg-white text-app-text"
                 }`}
               >
+                <AppIcon name="subscriptions" className="h-3.5 w-3.5" />
                 {tr("Subscriptions")} ({subscriptionsCount})
               </button>
               <p className="text-xs text-app-text-muted">

@@ -7,6 +7,7 @@ import {
   listRecurringPayments,
 } from "@/lib/payments/client";
 import { useLocalization } from "@/lib/i18n/localization";
+import { AppIcon } from "@/components/app/app-icon";
 import type {
   RecurringPaymentPayload,
   WorkspaceResponsiblePayerOptionPayload,
@@ -249,9 +250,12 @@ export function PaymentsActivitySection({
   return (
     <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-app-text">{tr("History")}</h2>
+        <h2 className="inline-flex items-center gap-2 text-base font-semibold text-app-text">
+          <AppIcon name="history" className="h-4 w-4" />
+          {tr("History")}
+        </h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          {tr("Phase 14A")}
+          {tr("Phase 16A")}
         </span>
       </div>
 

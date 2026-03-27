@@ -27,9 +27,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      data-theme="light"
       className={`${manrope.variable} ${jetBrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col bg-app-bg text-app-text">
         <TelegramMiniAppProvider>{children}</TelegramMiniAppProvider>
       </body>
     </html>

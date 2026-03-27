@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AppIcon } from "@/components/app/app-icon";
 
 type HelpPopoverProps = {
   buttonLabel: string;
@@ -126,15 +127,15 @@ export function HelpPopover({ buttonLabel, title, children }: HelpPopoverProps) 
           });
         }}
         aria-label={buttonLabel}
-        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-app-border bg-white text-[11px] font-semibold text-app-text"
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-app-border bg-app-surface-elevated text-app-text"
       >
-        ?
+        <AppIcon name="help" className="h-3.5 w-3.5" />
       </button>
 
       {isOpen && (
         <div
           ref={popoverRef}
-          className={`fixed z-[70] max-w-[calc(100vw-20px)] rounded-xl border border-app-border bg-white p-3 text-left text-xs text-app-text shadow-[0_10px_24px_rgba(19,32,20,0.14)] ${
+          className={`fixed z-[70] max-w-[calc(100vw-20px)] rounded-xl border border-app-border bg-app-surface-elevated p-3 text-left text-xs text-app-text shadow-[0_10px_24px_var(--app-frame-shadow)] ${
             popoverStyle ? "" : "invisible"
           }`}
           style={

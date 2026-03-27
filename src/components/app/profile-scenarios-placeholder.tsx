@@ -23,6 +23,8 @@ import { PaymentsActivitySection } from "@/components/app/payments-activity-sect
 import { RecurringPaymentsSection } from "@/components/app/recurring-payments-section";
 import { PremiumAdminConsole } from "@/components/app/premium-admin-console";
 import { HelpPopover } from "@/components/app/help-popover";
+import { AppIcon } from "@/components/app/app-icon";
+import { ThemeProvider, useTheme } from "@/lib/theme/theme-context";
 
 const inviteStatusLabels: Record<FamilyWorkspaceInviteStatus, string> = {
   active: "Active",
@@ -53,6 +55,7 @@ const formatDateTime = (value: string | null, noExpiryLabel = "No expiry"): stri
 
 function ProfileScenariosContent() {
   const { tr, language, setLanguage } = useLocalization();
+  const { theme, setTheme } = useTheme();
   const readOnboardingFlagState = (): boolean | null => {
     if (typeof window === "undefined") {
       return null;
@@ -326,13 +329,17 @@ function ProfileScenariosContent() {
   const profileScreen = (
     <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-app-text">{tr("Profile")}</h2>
+        <h2 className="inline-flex items-center gap-2 text-base font-semibold text-app-text">
+          <AppIcon name="profile" className="h-4 w-4" />
+          {tr("Profile")}
+        </h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          {tr("Phase 14A.1")}
+          {tr("Phase 16A")}
         </span>
       </div>
       <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+        <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          <AppIcon name="home" className="h-3.5 w-3.5" />
           {tr("Quick start")}
         </p>
         <p className="mt-1 text-sm text-app-text">
@@ -340,7 +347,8 @@ function ProfileScenariosContent() {
         </p>
       </div>
       <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+        <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          <AppIcon name="workspace" className="h-3.5 w-3.5" />
           {tr("Session")}
         </p>
         <p className="mt-1 text-sm font-semibold text-app-text">{sourceLabel}</p>
@@ -348,7 +356,10 @@ function ProfileScenariosContent() {
           <p className="mt-1 text-xs text-app-text-muted">{tr("Context ready")}</p>
         )}
         <div className="mt-2 flex items-center gap-2">
-          <p className="text-xs font-semibold text-app-text-muted">{tr("Language")}:</p>
+          <p className="inline-flex items-center gap-1 text-xs font-semibold text-app-text-muted">
+            <AppIcon name="language" className="h-3.5 w-3.5" />
+            {tr("Language")}:
+          </p>
           <button
             type="button"
             onClick={() => setLanguage("ru")}
@@ -370,6 +381,36 @@ function ProfileScenariosContent() {
             }`}
           >
             {tr("English")}
+          </button>
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          <p className="inline-flex items-center gap-1 text-xs font-semibold text-app-text-muted">
+            <AppIcon name="theme" className="h-3.5 w-3.5" />
+            {tr("Theme")}:
+          </p>
+          <button
+            type="button"
+            onClick={() => setTheme("light")}
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+              theme === "light"
+                ? "border-app-accent bg-app-accent text-white"
+                : "border-app-border text-app-text"
+            }`}
+          >
+            <AppIcon name="sun" className="h-3 w-3" />
+            {tr("Light")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTheme("dark")}
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+              theme === "dark"
+                ? "border-app-accent bg-app-accent text-white"
+                : "border-app-border text-app-text"
+            }`}
+          >
+            <AppIcon name="moon" className="h-3 w-3" />
+            {tr("Dark")}
           </button>
         </div>
         {profile && (
@@ -413,7 +454,8 @@ function ProfileScenariosContent() {
         </div>
       </div>
       <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+        <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          <AppIcon name="premium" className="h-3.5 w-3.5" />
           {tr("Premium status")}
         </p>
         {isLoadingPremium ? (
@@ -452,7 +494,8 @@ function ProfileScenariosContent() {
         )}
       </div>
       <details className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+        <summary className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          <AppIcon name="support" className="h-3.5 w-3.5" />
           {tr("Report a bug")}
         </summary>
         <p className="mt-2 text-xs text-app-text-muted">
@@ -530,7 +573,8 @@ function ProfileScenariosContent() {
       </details>
       <PremiumAdminConsole initData={initData} />
       <details className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+        <summary className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          <AppIcon name="premium" className="h-3.5 w-3.5" />
           {tr("Gift premium claim (verification)")}
         </summary>
         <p className="mt-2 text-xs text-app-text-muted">
@@ -576,7 +620,8 @@ function ProfileScenariosContent() {
         )}
       </details>
       <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+        <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          <AppIcon name="workspace" className="h-3.5 w-3.5" />
           {tr("Workspace state")}
         </p>
         {workspace ? (
@@ -871,9 +916,11 @@ function ProfileScenariosContent() {
 
 export function ProfileScenariosPlaceholder() {
   return (
-    <LocalizationProvider>
-      <ProfileScenariosContent />
-    </LocalizationProvider>
+    <ThemeProvider>
+      <LocalizationProvider>
+        <ProfileScenariosContent />
+      </LocalizationProvider>
+    </ThemeProvider>
   );
 }
 

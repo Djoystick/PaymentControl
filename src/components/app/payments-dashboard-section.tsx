@@ -11,6 +11,7 @@ import type {
   DashboardPaymentItemPayload,
   PaymentsDashboardPayload,
 } from "@/lib/payments/types";
+import { AppIcon } from "@/components/app/app-icon";
 
 type PaymentsDashboardSectionProps = {
   workspace: WorkspaceSummaryPayload | null;
@@ -145,11 +146,12 @@ export function PaymentsDashboardSection({
   return (
     <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-app-text">
+        <h2 className="inline-flex items-center gap-2 text-base font-semibold text-app-text">
+          <AppIcon name={isCompact ? "home" : "payments"} className="h-4 w-4" />
           {isCompact ? tr("Payment snapshot") : tr("Dashboard")}
         </h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          {tr("Phase 14A")}
+          {tr("Phase 16A")}
         </span>
       </div>
 
