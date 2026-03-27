@@ -148,6 +148,10 @@ const readCustomTemplatesFromStorage = (): CustomTemplateStorageShape => {
   }
 };
 
+const isCustomTemplate = (template: StarterPaymentTemplate): boolean => {
+  return template.id.startsWith("custom-");
+};
+
 const validateForm = (form: PaymentFormState): string | null => {
   if (!form.title.trim()) {
     return "Title is required.";
@@ -649,14 +653,38 @@ export function RecurringPaymentsSection({
     setFeedback(null);
   };
 
+  const localizeSystemTemplate = (
+    template: StarterPaymentTemplate,
+  ): StarterPaymentTemplate => {
+    if (isCustomTemplate(template)) {
+      return template;
+    }
+
+    return {
+      ...template,
+      title: tr(template.title),
+      category: tr(template.category),
+      notes: template.notes ? tr(template.notes) : "",
+    };
+  };
+
+  const resolveTemplateLabel = (template: StarterPaymentTemplate): string => {
+    if (isCustomTemplate(template)) {
+      return template.label;
+    }
+
+    return tr(template.label);
+  };
+
   const applyTemplate = (template: StarterPaymentTemplate) => {
+    const localizedTemplate = localizeSystemTemplate(template);
     setEditingPaymentId(null);
     setIsComposerExpanded(true);
     setIsAdvancedFormExpanded(false);
-    setForm(formFromTemplate(template));
+    setForm(formFromTemplate(localizedTemplate));
     setFeedback(
       tr('Template "{template}" applied. Review and add payment.', {
-        template: tr(template.label),
+        template: resolveTemplateLabel(template),
       }),
     );
   };
@@ -911,9 +939,6 @@ export function RecurringPaymentsSection({
           <AppIcon name="reminders" className="h-4 w-4" />
           {tr("Recurring Payments")}
         </h2>
-        <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          {tr("Phase 16A")}
-        </span>
       </div>
       {workspace && (
         <div className="mb-3 flex items-center gap-2 text-xs text-app-text-muted">
@@ -948,20 +973,35 @@ export function RecurringPaymentsSection({
         <>
           <div className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
             <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                  {tr("Main action")}
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                {tr("Quick actions")}
+              </p>
+              <HelpPopover
+                buttonLabel={tr("Open quick actions help")}
+                title={tr("Quick actions help")}
+              >
+                <p>
+                  {tr(
+                    "Open payment form for new entries, use Refresh only when data looks outdated.",
+                  )}
                 </p>
-                <p className="mt-1 text-xs text-app-text-muted">
-                  {tr("Add or edit recurring payments in one compact form.")}
-                </p>
-              </div>
+              </HelpPopover>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={openComposer}
                 className="rounded-xl bg-app-accent px-3 py-1.5 text-xs font-semibold text-white"
               >
                 {editingPaymentId ? tr("Continue editing") : tr("Open payment form")}
+              </button>
+              <button
+                type="button"
+                onClick={loadPayments}
+                disabled={isLoading}
+                className="rounded-xl border border-app-border bg-white px-3 py-1.5 text-xs font-semibold text-app-text disabled:opacity-70"
+              >
+                {tr("Refresh section")}
               </button>
             </div>
           </div>
@@ -991,193 +1031,210 @@ export function RecurringPaymentsSection({
               </button>
             </div>
           )}
-          {isFamilyWorkspace ? (
-            <details className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                {tr("Family controls")}
-              </summary>
-              <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3">
-                <div className="rounded-xl bg-white p-2">
-                  <p className="text-[11px] text-app-text-muted">{tr("Members")}</p>
-                  <p className="text-sm font-semibold text-app-text">
-                    {familyReadinessSummary.householdMembersCount}
-                  </p>
-                </div>
-                <div className="rounded-xl bg-white p-2">
-                  <p className="text-[11px] text-app-text-muted">{tr("Shared payments")}</p>
-                  <p className="text-sm font-semibold text-app-text">
-                    {isLoading
-                      ? tr("Loading...")
-                      : familyReadinessSummary.sharedRecurringPaymentsCount}
-                  </p>
-                </div>
-                <div className="rounded-xl bg-white p-2">
-                  <p className="text-[11px] text-app-text-muted">{tr("Who pays not assigned")}</p>
-                  <p className="text-sm font-semibold text-app-text">
-                    {isLoading
-                      ? tr("Loading...")
-                      : familyReadinessSummary.unassignedResponsibleCount}
-                  </p>
-                </div>
-              </div>
-              <p className="mt-2 text-xs text-app-text-muted">
-                {tr("Use this member list to keep Who pays assigned on shared cards.")}
-              </p>
-              {responsiblePayerOptions.length === 0 ? (
-                <p className="mt-1 text-xs text-app-text-muted">
-                  {(workspace?.memberCount ?? 0) > 0
-                    ? tr("Member list is temporarily unavailable. Try Refresh.")
-                    : tr("No members are visible yet.")}
-                </p>
-              ) : (
-                <ul className="mt-2 space-y-1">
-                  {responsiblePayerOptions.map((option) => (
-                    <li
-                      key={option.profileId}
-                      className="flex items-center justify-between rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text"
+          <details className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+              {tr("Setup and templates")}
+            </summary>
+            <div className="mt-2 space-y-2">
+              {isFamilyWorkspace && (
+                <details className="rounded-2xl border border-app-border bg-white p-3">
+                  <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                    {tr("Family controls")}
+                  </summary>
+                  <div className="mt-1 flex items-center gap-2 text-xs text-app-text-muted">
+                    <HelpPopover
+                      buttonLabel={tr("Open family controls help")}
+                      title={tr("Family controls help")}
                     >
-                      <span>{option.displayName}</span>
-                      <span className="rounded-full border border-app-border px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
-                        {option.memberRole === "owner" ? tr("Owner") : tr("Member")}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                      <p>{tr("Use this member list to keep Who pays assigned on shared cards.")}</p>
+                    </HelpPopover>
+                    <span>{tr("Who pays assignment and visibility")}</span>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3">
+                    <div className="rounded-xl bg-app-surface-soft p-2">
+                      <p className="text-[11px] text-app-text-muted">{tr("Members")}</p>
+                      <p className="text-sm font-semibold text-app-text">
+                        {familyReadinessSummary.householdMembersCount}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-app-surface-soft p-2">
+                      <p className="text-[11px] text-app-text-muted">{tr("Shared payments")}</p>
+                      <p className="text-sm font-semibold text-app-text">
+                        {isLoading
+                          ? tr("Loading...")
+                          : familyReadinessSummary.sharedRecurringPaymentsCount}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-app-surface-soft p-2">
+                      <p className="text-[11px] text-app-text-muted">{tr("Who pays not assigned")}</p>
+                      <p className="text-sm font-semibold text-app-text">
+                        {isLoading
+                          ? tr("Loading...")
+                          : familyReadinessSummary.unassignedResponsibleCount}
+                      </p>
+                    </div>
+                  </div>
+                  {responsiblePayerOptions.length === 0 ? (
+                    <p className="mt-2 text-xs text-app-text-muted">
+                      {(workspace?.memberCount ?? 0) > 0
+                        ? tr("Member list is temporarily unavailable. Try Refresh.")
+                        : tr("No members are visible yet.")}
+                    </p>
+                  ) : (
+                    <ul className="mt-2 space-y-1">
+                      {responsiblePayerOptions.map((option) => (
+                        <li
+                          key={option.profileId}
+                          className="flex items-center justify-between rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text"
+                        >
+                          <span>{option.displayName}</span>
+                          <span className="rounded-full border border-app-border px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
+                            {option.memberRole === "owner" ? tr("Owner") : tr("Member")}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </details>
               )}
-              <details className="mt-2 rounded-xl border border-app-border bg-white px-3 py-2">
+
+              <details className="rounded-2xl border border-app-border bg-white p-3">
                 <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                   {tr("Reminder operations and visibility")}
                 </summary>
-                <p className="mt-1 text-xs text-app-text-muted">
-                  {tr(
-                    "Open this block for delivery readiness, diagnostics, and reminder candidates.",
-                  )}
-                </p>
+                <div className="mt-1 flex items-center gap-2 text-xs text-app-text-muted">
+                  <HelpPopover
+                    buttonLabel={tr("Open reminder operations help")}
+                    title={tr("Reminder operations help")}
+                  >
+                    <p>
+                      {tr(
+                        "Open this block for delivery readiness, diagnostics, and reminder candidates.",
+                      )}
+                    </p>
+                  </HelpPopover>
+                  <span>{tr("Delivery diagnostics and reminder candidates.")}</span>
+                </div>
                 <div className="mt-2">
                   <ReminderCandidatesSection workspace={workspace} initData={initData} />
                 </div>
               </details>
-            </details>
-          ) : (
-            <details className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                {tr("Reminder operations and visibility")}
-              </summary>
-              <p className="mt-1 text-xs text-app-text-muted">
-                {tr("Open this block for delivery readiness, diagnostics, and reminder candidates.")}
-              </p>
-              <div className="mt-2">
-                <ReminderCandidatesSection workspace={workspace} initData={initData} />
-              </div>
-            </details>
-          )}
 
-          <details className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
-            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              {activeTemplateScenario === "family"
-                ? tr("Family templates")
-                : tr("Personal templates")}
-            </summary>
-            <p className="mt-1 text-xs text-app-text-muted">
-              {tr("Templates are scenario-specific and can be edited here.")}
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <input
-                value={templateNameInput}
-                onChange={(event) => setTemplateNameInput(event.target.value)}
-                placeholder={tr("Template name (optional)")}
-                className="min-w-[170px] flex-1 rounded-xl border border-app-border bg-white px-3 py-1.5 text-xs text-app-text outline-none"
-              />
-              <button
-                type="button"
-                onClick={saveCurrentFormAsTemplate}
-                disabled={isSaving}
-                className="rounded-xl border border-app-border bg-white px-3 py-1.5 text-xs font-semibold text-app-text disabled:opacity-60"
-              >
-                {tr("Save current form as template")}
-              </button>
-            </div>
-
-            <div className="mt-2 space-y-2">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                  {tr("Payment templates")}
-                </p>
-                <div className="mt-1 space-y-1">
-                  {paymentTemplates.length === 0 ? (
-                    <p className="text-xs text-app-text-muted">{tr("No templates yet.")}</p>
-                  ) : (
-                    paymentTemplates.map((template) => {
-                      const isCustomTemplate = template.id.startsWith("custom-");
-
-                      return (
-                        <div
-                          key={template.id}
-                          className="flex items-center justify-between gap-2 rounded-xl border border-app-border bg-white px-3 py-1.5"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => applyTemplate(template)}
-                            disabled={isSaving}
-                            className="text-left text-xs font-medium text-app-text disabled:opacity-60"
-                          >
-                            {tr(template.label)}
-                          </button>
-                          {isCustomTemplate && (
-                            <button
-                              type="button"
-                              onClick={() => deleteCustomTemplate(template.id)}
-                              className="rounded-lg border border-app-border px-2 py-0.5 text-[11px] font-semibold text-app-text-muted"
-                            >
-                              {tr("Delete")}
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })
-                  )}
+              <details className="rounded-2xl border border-app-border bg-white p-3">
+                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                  {activeTemplateScenario === "family"
+                    ? tr("Family templates")
+                    : tr("Personal templates")}
+                </summary>
+                <div className="mt-1 flex items-center gap-2 text-xs text-app-text-muted">
+                  <HelpPopover
+                    buttonLabel={tr("Open templates help")}
+                    title={tr("Templates help")}
+                  >
+                    <p>{tr("Templates are scenario-specific and can be edited here.")}</p>
+                    <p>{tr("Tap a template row to fill the form.")}</p>
+                  </HelpPopover>
+                  <span>{tr("Scenario-specific template sets")}</span>
                 </div>
-              </div>
-
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                  {tr("Subscription templates")}
-                </p>
-                <div className="mt-1 space-y-1">
-                  {subscriptionTemplates.length === 0 ? (
-                    <p className="text-xs text-app-text-muted">{tr("No templates yet.")}</p>
-                  ) : (
-                    subscriptionTemplates.map((template) => {
-                      const isCustomTemplate = template.id.startsWith("custom-");
-
-                      return (
-                        <div
-                          key={template.id}
-                          className="flex items-center justify-between gap-2 rounded-xl border border-app-border bg-white px-3 py-1.5"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => applyTemplate(template)}
-                            disabled={isSaving}
-                            className="text-left text-xs font-medium text-app-text disabled:opacity-60"
-                          >
-                            {tr(template.label)}
-                          </button>
-                          {isCustomTemplate && (
-                            <button
-                              type="button"
-                              onClick={() => deleteCustomTemplate(template.id)}
-                              className="rounded-lg border border-app-border px-2 py-0.5 text-[11px] font-semibold text-app-text-muted"
-                            >
-                              {tr("Delete")}
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })
-                  )}
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <input
+                    value={templateNameInput}
+                    onChange={(event) => setTemplateNameInput(event.target.value)}
+                    placeholder={tr("Template name (optional)")}
+                    className="min-w-[170px] flex-1 rounded-xl border border-app-border bg-app-surface px-3 py-1.5 text-xs text-app-text outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={saveCurrentFormAsTemplate}
+                    disabled={isSaving}
+                    className="rounded-xl border border-app-border bg-app-surface px-3 py-1.5 text-xs font-semibold text-app-text disabled:opacity-60"
+                  >
+                    {tr("Save current form as template")}
+                  </button>
                 </div>
-              </div>
+
+                <div className="mt-2 space-y-2">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                      {tr("Payment templates")}
+                    </p>
+                    <div className="mt-1 space-y-1">
+                      {paymentTemplates.length === 0 ? (
+                        <p className="text-xs text-app-text-muted">{tr("No templates yet.")}</p>
+                      ) : (
+                        paymentTemplates.map((template) => {
+                          const customTemplate = isCustomTemplate(template);
+
+                          return (
+                            <div
+                              key={template.id}
+                              className="flex items-center justify-between gap-2 rounded-xl border border-app-border bg-app-surface px-2 py-1"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => applyTemplate(template)}
+                                disabled={isSaving}
+                                className="flex-1 rounded-lg px-2 py-1.5 text-left text-xs font-medium text-app-text hover:bg-app-surface-soft disabled:opacity-60"
+                              >
+                                {resolveTemplateLabel(template)}
+                              </button>
+                              {customTemplate && (
+                                <button
+                                  type="button"
+                                  onClick={() => deleteCustomTemplate(template.id)}
+                                  className="rounded-lg border border-app-border px-2 py-0.5 text-[11px] font-semibold text-app-text-muted"
+                                >
+                                  {tr("Delete")}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                      {tr("Subscription templates")}
+                    </p>
+                    <div className="mt-1 space-y-1">
+                      {subscriptionTemplates.length === 0 ? (
+                        <p className="text-xs text-app-text-muted">{tr("No templates yet.")}</p>
+                      ) : (
+                        subscriptionTemplates.map((template) => {
+                          const customTemplate = isCustomTemplate(template);
+
+                          return (
+                            <div
+                              key={template.id}
+                              className="flex items-center justify-between gap-2 rounded-xl border border-app-border bg-app-surface px-2 py-1"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => applyTemplate(template)}
+                                disabled={isSaving}
+                                className="flex-1 rounded-lg px-2 py-1.5 text-left text-xs font-medium text-app-text hover:bg-app-surface-soft disabled:opacity-60"
+                              >
+                                {resolveTemplateLabel(template)}
+                              </button>
+                              {customTemplate && (
+                                <button
+                                  type="button"
+                                  onClick={() => deleteCustomTemplate(template.id)}
+                                  className="rounded-lg border border-app-border px-2 py-0.5 text-[11px] font-semibold text-app-text-muted"
+                                >
+                                  {tr("Delete")}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </details>
             </div>
           </details>
 
@@ -1457,9 +1514,15 @@ export function RecurringPaymentsSection({
             <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {editingPaymentId ? tr("Edit payment") : tr("Add payment")}
             </summary>
-            <p className="mt-1 text-xs text-app-text-muted">
-              {tr("Core fields first. Open advanced options only when needed.")}
-            </p>
+            <div className="mt-1 flex items-center gap-2 text-xs text-app-text-muted">
+              <HelpPopover
+                buttonLabel={tr("Open payment form help")}
+                title={tr("Payment form help")}
+              >
+                <p>{tr("Core fields first. Open advanced options only when needed.")}</p>
+              </HelpPopover>
+              <span>{tr("Core fields first")}</span>
+            </div>
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <input
               value={form.title}
@@ -1684,14 +1747,6 @@ export function RecurringPaymentsSection({
                 {tr("Cancel edit")}
                 </button>
               )}
-            <button
-                type="button"
-                onClick={loadPayments}
-                disabled={isLoading}
-                className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text"
-              >
-                {tr("Refresh section")}
-              </button>
               <button
                 type="button"
                 onClick={resetForm}

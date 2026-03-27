@@ -163,33 +163,11 @@ export function AppShell({ screens }: AppShellProps) {
 
   const activeOnboardingStep = onboardingSteps[onboardingStepIndex];
   const isLastOnboardingStep = onboardingStepIndex === onboardingSteps.length - 1;
-  const activeTabItem = tabItems.find((tab) => tab.key === activeTab) ?? tabItems[0];
 
   return (
     <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col px-3 pb-4 pt-2 sm:px-4 sm:pt-3">
       <div className="relative flex min-h-[calc(100dvh-1.5rem)] flex-1 flex-col rounded-[30px] border border-app-border/80 bg-app-surface/70 p-2 shadow-[0_18px_40px_var(--app-frame-shadow)] backdrop-blur">
-        <header className="sticky top-2 z-30 mb-3 rounded-2xl border border-app-border/80 bg-app-surface/90 px-3 py-2 shadow-sm backdrop-blur">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl border border-app-border bg-app-surface-soft text-app-text">
-                <AppIcon name={activeTabItem.icon} className="h-4 w-4" />
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-app-text-muted">
-                  {tr("Payment Control")}
-                </p>
-                <p className="truncate text-sm font-semibold text-app-text">
-                  {tr(activeTabItem.label)}
-                </p>
-              </div>
-            </div>
-            <span className="rounded-full bg-app-warm px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-app-text">
-              {tr("Phase 16A")}
-            </span>
-          </div>
-        </header>
-
-        <main className="relative z-0 flex-1 pb-24">
+        <main className="relative z-0 flex-1 pb-24 pt-1">
           <div key={activeTab} className="space-y-2.5">
             {screens[activeTab]}
           </div>
