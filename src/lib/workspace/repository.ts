@@ -306,6 +306,23 @@ const expireInviteById = async (inviteId: string): Promise<boolean> => {
   return !error;
 };
 
+const revokeInviteById = async (inviteId: string): Promise<boolean> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return false;
+  }
+
+  const { error } = await supabase
+    .from("family_workspace_invites")
+    .update({
+      invite_status: "revoked",
+    })
+    .eq("id", inviteId)
+    .eq("invite_status", "active");
+
+  return !error;
+};
+
 const loadPersonalWorkspaceSummary = async (
   profileId: string,
 ): Promise<WorkspaceSummaryPayload | null> => {
@@ -640,10 +657,10 @@ export const createFamilyWorkspaceInviteForProfile = async (
         return { ok: false, reason: "UNKNOWN" };
       }
     } else {
-      return {
-        ok: true,
-        invite: toInvitePayload(existingActiveInvite),
-      };
+      const revoked = await revokeInviteById(existingActiveInvite.id);
+      if (!revoked) {
+        return { ok: false, reason: "UNKNOWN" };
+      }
     }
   }
 

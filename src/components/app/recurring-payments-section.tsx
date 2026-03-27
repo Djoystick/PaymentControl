@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
-  FamilyWorkspaceInvitePayload,
-  FamilyWorkspaceInviteStatus,
   WorkspaceSummaryPayload,
 } from "@/lib/auth/types";
 import {
@@ -31,7 +29,6 @@ import type {
 type RecurringPaymentsSectionProps = {
   workspace: WorkspaceSummaryPayload | null;
   initData: string;
-  currentFamilyInvite: FamilyWorkspaceInvitePayload | null;
 };
 
 type PaymentFormState = {
@@ -221,17 +218,9 @@ const formatCurrencyTotals = (
     .join(" | ");
 };
 
-const familyInviteStatusLabels: Record<FamilyWorkspaceInviteStatus, string> = {
-  active: "Active invite",
-  accepted: "Invite already used",
-  expired: "Invite expired",
-  revoked: "Invite revoked",
-};
-
 export function RecurringPaymentsSection({
   workspace,
   initData,
-  currentFamilyInvite,
 }: RecurringPaymentsSectionProps) {
   const { tr } = useLocalization();
   const [payments, setPayments] = useState<RecurringPaymentPayload[]>([]);
@@ -433,12 +422,8 @@ export function RecurringPaymentsSection({
       householdMembersCount: workspace?.memberCount ?? 0,
       sharedRecurringPaymentsCount: activeSharedPayments.length,
       unassignedResponsibleCount,
-      inviteStatus: currentFamilyInvite
-        ? familyInviteStatusLabels[currentFamilyInvite.inviteStatus]
-        : "No current invite",
-      hasCurrentInvite: Boolean(currentFamilyInvite),
     };
-  }, [currentFamilyInvite, payments, workspace?.memberCount]);
+  }, [payments, workspace?.memberCount]);
 
   const visiblePayments = useMemo(() => {
     if (showPausedSubscriptionsOnly) {
@@ -732,7 +717,7 @@ export function RecurringPaymentsSection({
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">{tr("Recurring Payments")}</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          {tr("Phase 12A")}
+          {tr("Phase 14A")}
         </span>
       </div>
       {workspace && (
@@ -776,11 +761,9 @@ export function RecurringPaymentsSection({
               </p>
               <p className="mt-1 text-xs text-app-text-muted">
                 {isFamilyWorkspace
-                  ? familyReadinessSummary.hasCurrentInvite
-                    ? tr("Invite is ready. Add your first shared payment below.")
-                    : tr(
-                        "Add your first shared payment below. Invite members from Profile when needed.",
-                      )
+                  ? tr(
+                      "Add your first shared payment below. Invite members from Profile when needed.",
+                    )
                   : tr(
                       "Add your first payment below. Reminders and History will update after that.",
                     )}
@@ -809,19 +792,13 @@ export function RecurringPaymentsSection({
           {isFamilyWorkspace && (
             <details className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
               <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                {tr("Family readiness snapshot")}
+                {tr("Family payment setup")}
               </summary>
-              <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
+              <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3">
                 <div className="rounded-xl bg-white p-2">
                   <p className="text-[11px] text-app-text-muted">{tr("Members")}</p>
                   <p className="text-sm font-semibold text-app-text">
                     {familyReadinessSummary.householdMembersCount}
-                  </p>
-                </div>
-                <div className="rounded-xl bg-white p-2">
-                  <p className="text-[11px] text-app-text-muted">{tr("Invite")}</p>
-                  <p className="text-sm font-semibold text-app-text">
-                    {tr(familyReadinessSummary.inviteStatus)}
                   </p>
                 </div>
                 <div className="rounded-xl bg-white p-2">

@@ -251,7 +251,7 @@ export function PaymentsActivitySection({
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">{tr("History")}</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          {tr("Phase 12A")}
+          {tr("Phase 14A")}
         </span>
       </div>
 
@@ -261,27 +261,20 @@ export function PaymentsActivitySection({
         </p>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-xl bg-app-surface-soft p-2">
-              <p className="text-[11px] text-app-text-muted">{tr("In scope")}</p>
-              <p className="text-base font-semibold text-app-text">{scopedPaymentsCount}</p>
-            </div>
-            <div className="rounded-xl bg-app-surface-soft p-2">
-              <p className="text-[11px] text-app-text-muted">{tr("Recent events")}</p>
-              <p className="text-base font-semibold text-app-text">{activityItems.length}</p>
-            </div>
-          </div>
-          {isFamilyWorkspace && sharedWhoPaysSummary && (
-            <details className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                {tr("Family activity context")}
-              </summary>
-              <p className="mt-2 text-xs text-app-text-muted">
+          <details className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+              {tr("History context")}
+            </summary>
+            <p className="mt-2 text-xs text-app-text-muted">
+              {tr("In scope")}: {scopedPaymentsCount}. {tr("Recent events")}: {activityItems.length}.
+            </p>
+            {isFamilyWorkspace && sharedWhoPaysSummary && (
+              <p className="mt-1 text-xs text-app-text-muted">
                 {tr("Who pays assigned")}: {sharedWhoPaysSummary.assignedCount}. {tr("Missing")}:{" "}
                 {sharedWhoPaysSummary.unassignedCount}. {tr("Mismatch hints")}: {paidByMismatchCount}.
               </p>
-            </details>
-          )}
+            )}
+          </details>
 
           <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
             {scopedPaymentsCount === 0 ? (

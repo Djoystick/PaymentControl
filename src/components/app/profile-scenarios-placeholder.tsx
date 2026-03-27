@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type {
+  FamilyWorkspaceInvitePayload,
   FamilyWorkspaceInviteStatus,
-  SelectedScenario,
 } from "@/lib/auth/types";
 import { useCurrentAppContext } from "@/hooks/use-current-app-context";
 import {
@@ -22,28 +22,6 @@ import { PaymentsActivitySection } from "@/components/app/payments-activity-sect
 import { ReminderCandidatesSection } from "@/components/app/reminder-candidates-section";
 import { RecurringPaymentsSection } from "@/components/app/recurring-payments-section";
 import { PremiumAdminConsole } from "@/components/app/premium-admin-console";
-
-const scenarioCards: Array<{
-  key: SelectedScenario;
-  title: string;
-  caption: string;
-  description: string;
-}> = [
-  {
-    key: "single",
-    title: "Single mode",
-    caption: '"I pay alone"',
-    description:
-      "Personal subscription and recurring payment tracking for one user.",
-  },
-  {
-    key: "family",
-    title: "Family mode",
-    caption: '"Family use"',
-    description:
-      "Shared household expenses with family members and future role support.",
-  },
-];
 
 const inviteStatusLabels: Record<FamilyWorkspaceInviteStatus, string> = {
   active: "Active",
@@ -99,7 +77,6 @@ function ProfileScenariosContent() {
     isTelegramContext,
     initData,
     workspaces,
-    currentFamilyInvite,
     premiumEntitlement,
     giftPremiumClaimResult,
     inviteAcceptDiagnostic,
@@ -113,6 +90,11 @@ function ProfileScenariosContent() {
   } = useCurrentAppContext();
   const [familyWorkspaceTitle, setFamilyWorkspaceTitle] = useState("Family Workspace");
   const [inviteTokenInput, setInviteTokenInput] = useState("");
+  const [generatedInvite, setGeneratedInvite] =
+    useState<FamilyWorkspaceInvitePayload | null>(null);
+  const [inviteCopyState, setInviteCopyState] = useState<"idle" | "copied" | "failed">(
+    "idle",
+  );
   const [giftCampaignCodeInput, setGiftCampaignCodeInput] = useState("");
   const [isOnboardingFlagCompleted, setIsOnboardingFlagCompleted] = useState<
     boolean | null
@@ -134,13 +116,6 @@ function ProfileScenariosContent() {
     workspace?.id.startsWith("virtual-personal-"),
   );
   const isFamilyWorkspace = workspace?.kind === "family";
-  const activeContextScenario = useMemo<SelectedScenario | null>(() => {
-    if (!workspace) {
-      return null;
-    }
-
-    return workspace.kind === "family" ? "family" : "single";
-  }, [workspace]);
 
   const normalizedInviteToken = useMemo(
     () => normalizeFamilyInviteToken(inviteTokenInput),
@@ -209,6 +184,28 @@ function ProfileScenariosContent() {
     setIsOnboardingFlagCompleted(readOnboardingFlagState());
   };
 
+  const copyGeneratedInviteToken = async () => {
+    if (
+      !generatedInvite ||
+      !workspace ||
+      generatedInvite.workspaceId !== workspace.id
+    ) {
+      return;
+    }
+
+    if (!window.navigator?.clipboard) {
+      setInviteCopyState("failed");
+      return;
+    }
+
+    try {
+      await window.navigator.clipboard.writeText(generatedInvite.inviteToken);
+      setInviteCopyState("copied");
+    } catch {
+      setInviteCopyState("failed");
+    }
+  };
+
   const homeScreen = (
     <div className="space-y-3">
       <LandingScreen />
@@ -225,7 +222,6 @@ function ProfileScenariosContent() {
       <RecurringPaymentsSection
         workspace={workspace}
         initData={initData}
-        currentFamilyInvite={currentFamilyInvite}
       />
       <details className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
         <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
@@ -252,7 +248,7 @@ function ProfileScenariosContent() {
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">{tr("Profile")}</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          {tr("Phase 12A")}
+          {tr("Phase 14A")}
         </span>
       </div>
       <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
@@ -484,44 +480,86 @@ function ProfileScenariosContent() {
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {tr("Family invite")}
             </p>
+            <p className="text-xs text-app-text-muted">
+              {tr(
+                "Generate a fresh one-time invite only when you are ready to send it.",
+              )}
+            </p>
             <button
               type="button"
-              onClick={createInvite}
+              onClick={async () => {
+                const invite = await createInvite();
+                if (!invite) {
+                  return;
+                }
+
+                setGeneratedInvite(invite);
+                setInviteCopyState("idle");
+              }}
               disabled={
                 isSavingInvite || isSavingWorkspace || workspace.memberRole !== "owner"
               }
               className="rounded-xl border border-app-border px-3 py-2 text-sm font-semibold text-app-text disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {tr("Create invite")}
+              {tr("Generate one-time invite")}
             </button>
-            {currentFamilyInvite ? (
+            {generatedInvite && generatedInvite.workspaceId === workspace.id ? (
               <div className="rounded-xl border border-app-border bg-white px-3 py-2 text-xs text-app-text">
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-semibold">
-                    {tr("Current invite for {workspace}", { workspace: workspace.title })}
+                    {tr("One-time invite for {workspace}", { workspace: workspace.title })}
                   </p>
                   <span className="rounded-full border border-app-border px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
-                    {tr(inviteStatusLabels[currentFamilyInvite.inviteStatus])}
+                    {tr(inviteStatusLabels[generatedInvite.inviteStatus])}
                   </span>
                 </div>
                 <p className="mt-1 text-app-text-muted">
-                  {tr(inviteStatusHints[currentFamilyInvite.inviteStatus])}
+                  {tr(inviteStatusHints[generatedInvite.inviteStatus])}
+                </p>
+                <p className="mt-1 text-app-text-muted">
+                  {tr("Share this token now. After successful join, it becomes invalid.")}
                 </p>
                 <p className="mt-1 font-semibold">{tr("Invite token")}</p>
                 <p className="mt-1 break-all rounded-lg bg-app-surface px-2 py-1 font-mono text-[11px]">
-                  {currentFamilyInvite.inviteToken}
+                  {generatedInvite.inviteToken}
                 </p>
                 <p className="mt-2 text-app-text-muted">
-                  {tr("Expires")}: {formatDateTime(currentFamilyInvite.expiresAt, tr("No expiry"))}
+                  {tr("Expires")}: {formatDateTime(generatedInvite.expiresAt, tr("No expiry"))}
                 </p>
                 <p className="text-app-text-muted">
-                  {tr("Created at")}: {formatDateTime(currentFamilyInvite.createdAt, tr("No expiry"))}
+                  {tr("Created at")}: {formatDateTime(generatedInvite.createdAt, tr("No expiry"))}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void copyGeneratedInviteToken()}
+                    className="rounded-lg border border-app-border px-2 py-1 text-[11px] font-semibold text-app-text"
+                  >
+                    {tr("Copy token")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGeneratedInvite(null);
+                      setInviteCopyState("idle");
+                    }}
+                    className="rounded-lg border border-app-border px-2 py-1 text-[11px] font-semibold text-app-text"
+                  >
+                    {tr("Hide token")}
+                  </button>
+                </div>
+                <p className="mt-1 text-[11px] text-app-text-muted">
+                  {inviteCopyState === "copied"
+                    ? tr("Token copied.")
+                    : inviteCopyState === "failed"
+                      ? tr("Copy failed. Copy token manually.")
+                      : tr("Token is shown for this session only.")}
                 </p>
               </div>
             ) : (
               <p className="text-xs text-app-text-muted">
                 {tr(
-                  "No active invite for this family workspace yet. Create one when you are ready to invite a member.",
+                  "No token is shown by default. Generate one only when inviting someone.",
                 )}
               </p>
             )}
@@ -663,50 +701,6 @@ function ProfileScenariosContent() {
           </details>
         )}
       </div>
-      <details className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
-        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-          {tr("Scenario cards")}
-        </summary>
-        <div className="mt-2 rounded-2xl border border-app-border bg-app-surface px-3 py-2">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-            {tr("Scenario cards (informational)")}
-          </p>
-          <p className="mt-1 text-xs text-app-text-muted">
-            {tr(
-              "Cards below are informational in this phase. To change active context, use Workspace switch above.",
-            )}
-          </p>
-          {profile && (
-            <p className="mt-1 text-xs text-app-text-muted">
-              {tr("Profile scenario field")}: {tr(profile.selectedScenario)}{" "}
-              ({tr("auto-synced with active workspace where possible")}).
-            </p>
-          )}
-        </div>
-        <div className="mt-2 space-y-2">
-          {scenarioCards.map((scenario) => (
-            <article
-              key={scenario.key}
-              className="rounded-2xl border border-app-border bg-app-surface px-3 py-2"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="font-semibold text-app-text">{tr(scenario.title)}</h3>
-                  <p className="text-sm text-app-text-muted">{tr(scenario.caption)}</p>
-                </div>
-                <span className="rounded-full border border-app-border px-2 py-0.5 text-[11px] font-medium text-app-text-muted">
-                  {activeContextScenario === scenario.key
-                    ? tr("Active context")
-                    : tr("Not active")}
-                </span>
-              </div>
-              <p className="mt-2 text-sm text-app-text-muted">
-                {tr(scenario.description)}
-              </p>
-            </article>
-          ))}
-        </div>
-      </details>
       {actionMessage && (
         <p className="mt-2 text-xs font-medium text-app-text">{tr(actionMessage)}</p>
       )}

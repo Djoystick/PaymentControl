@@ -13,6 +13,7 @@ type OnboardingStep = {
   title: string;
   description: string;
   tab: AppTab;
+  bullets: string[];
 };
 
 const tabItems: ReadonlyArray<{ key: AppTab; label: string }> = [
@@ -28,26 +29,43 @@ export const ONBOARDING_REPLAY_EVENT = "payment-control-replay-onboarding";
 const onboardingSteps: OnboardingStep[] = [
   {
     title: "Welcome to Payment Control",
-    description: "Home gives a compact snapshot of what needs attention today.",
+    description: "Keep daily money control simple with one short routine.",
     tab: "home",
+    bullets: [
+      "Use Home for a calm snapshot, not for deep management.",
+      "Open Reminders for actions and History for proof of changes.",
+      "Start with one recurring payment, then grow from real usage.",
+    ],
   },
   {
     title: "Reminders is your main working screen",
-    description:
-      "Use recurring cards for Mark paid / Undo paid and quick subscription control.",
+    description: "Add and manage recurring payments here first.",
     tab: "reminders",
+    bullets: [
+      "Create payment -> due cycle appears -> reminders become available.",
+      "Use Mark paid / Undo paid directly from payment cards.",
+      "For family mode, keep Who pays assigned on shared payments.",
+    ],
   },
   {
     title: "History shows recent updates",
-    description:
-      "Use History to quickly review recent shared and personal payment events.",
+    description: "History is your lightweight activity feed.",
     tab: "history",
+    bullets: [
+      "See what changed and when, without extra dashboard noise.",
+      "In family mode, compare Who pays and Paid by when needed.",
+      "If empty, do one action in Reminders and check back here.",
+    ],
   },
   {
-    title: "Profile controls workspace context",
-    description:
-      "Use Profile to switch workspace, manage family invite and check account context.",
+    title: "Profile controls context and onboarding",
+    description: "Use Profile for workspace, language, and family setup.",
     tab: "profile",
+    bullets: [
+      "Switch language (RU/EN) and active workspace context.",
+      "Use one-time family invites: generate, share, then generate again later.",
+      "Use Show onboarding again anytime from Profile.",
+    ],
   },
 ];
 
@@ -209,25 +227,8 @@ export function AppShell({ screens }: AppShellProps) {
   const isLastOnboardingStep = onboardingStepIndex === onboardingSteps.length - 1;
 
   return (
-    <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col px-3 pb-4 pt-4 sm:px-4 sm:pt-5">
-      <header className="rounded-[28px] border border-app-border/90 bg-app-surface/95 p-4 shadow-[0_10px_26px_rgba(19,32,20,0.08)] backdrop-blur">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-app-text-muted">
-          {tr("Telegram Mini App")}
-        </p>
-        <h1 className="mt-2 text-2xl font-bold tracking-tight text-app-text">
-          {tr("Payment Control")}
-        </h1>
-        <div className="mt-1 flex items-center gap-2">
-          <p className="text-sm text-app-text-muted">
-            {tr("Foundation for recurring payments and household tracking")}
-          </p>
-          <span className="rounded-full bg-app-warm px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-app-text">
-            {tr("Phase 12A")}
-          </span>
-        </div>
-      </header>
-
-      <main className="relative z-0 mt-3.5 flex-1 pb-24">
+    <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col px-3 pb-4 pt-3 sm:px-4 sm:pt-4">
+      <main className="relative z-0 flex-1 pb-24">
         <div key={activeTab} className="space-y-2.5">
           {screens[activeTab]}
         </div>
@@ -282,6 +283,13 @@ export function AppShell({ screens }: AppShellProps) {
             <p className="mt-1 text-sm text-app-text-muted">
               {tr(activeOnboardingStep.description)}
             </p>
+            <ul className="mt-2 space-y-1">
+              {activeOnboardingStep.bullets.map((bullet) => (
+                <li key={bullet} className="text-xs text-app-text-muted">
+                  - {tr(bullet)}
+                </li>
+              ))}
+            </ul>
             <p className="mt-2 text-[11px] text-app-text-muted">
               {tr("Step {current} of {total}", {
                 current: onboardingStepIndex + 1,

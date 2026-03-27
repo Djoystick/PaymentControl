@@ -149,7 +149,7 @@ export function PaymentsDashboardSection({
           {isCompact ? tr("Payment snapshot") : tr("Dashboard")}
         </h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          {tr("Phase 12A")}
+          {tr("Phase 14A")}
         </span>
       </div>
 

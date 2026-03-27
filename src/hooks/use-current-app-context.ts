@@ -9,7 +9,6 @@ import {
   createFamilyWorkspace as createFamilyWorkspaceRequest,
   getCurrentAppContext,
   readPremiumEntitlement as readPremiumEntitlementRequest,
-  readCurrentFamilyInvite,
   switchActiveWorkspace as switchActiveWorkspaceRequest,
   updateScenario,
 } from "@/lib/auth/client";
@@ -93,7 +92,6 @@ type UseCurrentAppContextResult = {
   isTelegramContext: boolean;
   initData: string;
   workspaces: WorkspaceSummaryPayload[];
-  currentFamilyInvite: FamilyWorkspaceInvitePayload | null;
   premiumEntitlement: PremiumEntitlementStatePayload | null;
   giftPremiumClaimResult: GiftPremiumClaimResultPayload | null;
   inviteAcceptDiagnostic: InviteAcceptDiagnostic | null;
@@ -101,7 +99,7 @@ type UseCurrentAppContextResult = {
   changeScenario: (scenario: SelectedScenario) => Promise<void>;
   createFamilyWorkspace: (title: string) => Promise<void>;
   switchWorkspace: (workspaceId: string) => Promise<void>;
-  createInvite: () => Promise<void>;
+  createInvite: () => Promise<FamilyWorkspaceInvitePayload | null>;
   claimGiftPremium: (campaignCode: string) => Promise<boolean>;
   acceptInvite: (inviteToken: string) => Promise<boolean>;
   clearInviteAcceptDiagnostic: () => void;
@@ -112,8 +110,6 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
   const [workspace, setWorkspace] = useState<WorkspaceSummaryPayload | null>(null);
   const [source, setSource] = useState<TelegramIdentity["source"] | null>(null);
   const [workspaces, setWorkspaces] = useState<WorkspaceSummaryPayload[]>([]);
-  const [currentFamilyInvite, setCurrentFamilyInvite] =
-    useState<FamilyWorkspaceInvitePayload | null>(null);
   const [premiumEntitlement, setPremiumEntitlement] =
     useState<PremiumEntitlementStatePayload | null>(null);
   const [giftPremiumClaimResult, setGiftPremiumClaimResult] =
@@ -144,31 +140,6 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
     setWorkspaces(nextWorkspaces);
     setStateLabel("Current app context loaded.");
   };
-
-  const loadFamilyInvite = useCallback(
-    async (
-      telegramInitData: string,
-      activeWorkspace: WorkspaceSummaryPayload | null,
-    ) => {
-      if (!activeWorkspace || activeWorkspace.kind !== "family") {
-        setCurrentFamilyInvite(null);
-        return;
-      }
-
-      try {
-        const inviteResult = await readCurrentFamilyInvite(telegramInitData);
-        if (inviteResult.ok) {
-          setCurrentFamilyInvite(inviteResult.invite);
-          return;
-        }
-
-        setCurrentFamilyInvite(null);
-      } catch {
-        setCurrentFamilyInvite(null);
-      }
-    },
-    [],
-  );
 
   const loadPremiumEntitlement = useCallback(async (telegramInitData: string) => {
     setIsLoadingPremium(true);
@@ -205,7 +176,6 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
             contextResult.source,
             contextResult.workspaces,
           );
-          await loadFamilyInvite(telegramInitData, contextResult.workspace);
           await loadPremiumEntitlement(telegramInitData);
           return;
         }
@@ -232,7 +202,6 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
               refreshedContext.source,
               refreshedContext.workspaces,
             );
-            await loadFamilyInvite(telegramInitData, refreshedContext.workspace);
             await loadPremiumEntitlement(telegramInitData);
           } else {
             setContextState(
@@ -241,7 +210,6 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
               bootstrapResult.source,
               bootstrapResult.workspaces,
             );
-            await loadFamilyInvite(telegramInitData, bootstrapResult.workspace);
             await loadPremiumEntitlement(telegramInitData);
           }
 
@@ -252,7 +220,6 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
         setWorkspace(null);
         setSource(null);
         setWorkspaces([]);
-        setCurrentFamilyInvite(null);
         setPremiumEntitlement(null);
         setIsLoadingPremium(false);
         setStateLabel(contextResult.error.message);
@@ -261,7 +228,6 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
         setWorkspace(null);
         setSource(null);
         setWorkspaces([]);
-        setCurrentFamilyInvite(null);
         setPremiumEntitlement(null);
         setIsLoadingPremium(false);
         setStateLabel("Current context request failed.");
@@ -269,7 +235,7 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
         setIsLoading(false);
       }
     },
-    [loadFamilyInvite, loadPremiumEntitlement],
+    [loadPremiumEntitlement],
   );
 
   useEffect(() => {
@@ -427,7 +393,7 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
 
   const createInvite = useCallback(async () => {
     if (!profile || !workspace || workspace.kind !== "family" || isSavingInvite) {
-      return;
+      return null;
     }
 
     setIsSavingInvite(true);
@@ -436,19 +402,19 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
       const createResult = await createFamilyInviteRequest(initData);
       if (!createResult.ok) {
         setActionMessage(createResult.error.message);
-        return;
+        return null;
       }
 
       setInviteAcceptDiagnostic(null);
-      setCurrentFamilyInvite(createResult.invite);
-      await loadCurrentContext(false);
-      setActionMessage("Family invite created.");
+      setActionMessage("One-time invite generated. Share it now.");
+      return createResult.invite;
     } catch {
       setActionMessage("Family invite creation failed.");
+      return null;
     } finally {
       setIsSavingInvite(false);
     }
-  }, [initData, isSavingInvite, loadCurrentContext, profile, workspace]);
+  }, [initData, isSavingInvite, profile, workspace]);
 
   const claimGiftPremium = useCallback(
     async (campaignCode: string) => {
@@ -567,13 +533,11 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
           nextSource,
           acceptResult.workspaces,
         );
-        setCurrentFamilyInvite(acceptResult.invite);
 
         const scenarioSynced = await syncScenarioWithWorkspaceKind(
           acceptResult.workspace.kind,
         );
 
-        await loadFamilyInvite(initData, acceptResult.workspace);
         await loadPremiumEntitlement(initData);
 
         const workspaceAdded = acceptResult.workspaces.some(
@@ -621,7 +585,6 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
       initData,
       isSavingInvite,
       isTelegramContext,
-      loadFamilyInvite,
       loadPremiumEntitlement,
       profile,
       source,
@@ -638,7 +601,6 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
     workspace,
     source,
     workspaces,
-    currentFamilyInvite,
     premiumEntitlement,
     giftPremiumClaimResult,
     inviteAcceptDiagnostic,
