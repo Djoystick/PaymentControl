@@ -28,43 +28,53 @@ export const ONBOARDING_REPLAY_EVENT = "payment-control-replay-onboarding";
 
 const onboardingSteps: OnboardingStep[] = [
   {
-    title: "Welcome to Payment Control",
-    description: "Keep daily money control simple with one short routine.",
+    title: "What this app does",
+    description: "Track recurring payments and close each cycle on time.",
     tab: "home",
     bullets: [
-      "Use Home for a calm snapshot, not for deep management.",
-      "Open Reminders for actions and History for proof of changes.",
-      "Start with one recurring payment, then grow from real usage.",
+      "Home is a quick status screen only.",
+      "Reminders is the main place for daily actions.",
+      "History stores proof of recent changes.",
     ],
   },
   {
-    title: "Reminders is your main working screen",
-    description: "Add and manage recurring payments here first.",
+    title: "Start with one payment",
+    description: "Open Reminders and add one recurring payment first.",
     tab: "reminders",
     bullets: [
-      "Create payment -> due cycle appears -> reminders become available.",
-      "Use Mark paid / Undo paid directly from payment cards.",
-      "For family mode, keep Who pays assigned on shared payments.",
+      "Set title, amount, cadence, and due day.",
+      "Use Mark paid when paid, Undo paid if it was accidental.",
+      "Keep reminders enabled unless you have a clear reason to disable them.",
     ],
   },
   {
-    title: "History shows recent updates",
-    description: "History is your lightweight activity feed.",
+    title: "Keep payments and subscriptions separate",
+    description: "Use the list switch to review each type without mixing them.",
+    tab: "reminders",
+    bullets: [
+      "Payments: regular bills and obligations.",
+      "Subscriptions: recurring services that can be paused or resumed.",
+      "Templates are scenario-specific: personal and family are independent.",
+    ],
+  },
+  {
+    title: "Use History to verify actions",
+    description: "Open History after important changes to confirm what happened.",
     tab: "history",
     bullets: [
-      "See what changed and when, without extra dashboard noise.",
-      "In family mode, compare Who pays and Paid by when needed.",
-      "If empty, do one action in Reminders and check back here.",
+      "Check timestamps and latest updates quickly.",
+      "In family mode, review Who pays and Paid by after each cycle.",
+      "If History is empty, complete one action in Reminders first.",
     ],
   },
   {
-    title: "Profile controls context and onboarding",
-    description: "Use Profile for workspace, language, and family setup.",
+    title: "Profile controls context",
+    description: "Manage workspace, language, onboarding replay, and family invite here.",
     tab: "profile",
     bullets: [
-      "Switch language (RU/EN) and active workspace context.",
-      "Use one-time family invites: generate, share, then generate again later.",
-      "Use Show onboarding again anytime from Profile.",
+      "Switch RU/EN and keep the correct active workspace.",
+      "Family invite is one-time: generate, share, then create a new one later.",
+      "Use Show onboarding again when onboarding needs a quick refresh.",
     ],
   },
 ];
