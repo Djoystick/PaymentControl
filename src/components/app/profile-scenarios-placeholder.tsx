@@ -90,6 +90,7 @@ function ProfileScenariosContent() {
     source,
     stateLabel,
     isLoading,
+    isLoadingPremium,
     isSavingWorkspace,
     isSavingInvite,
     actionMessage,
@@ -97,6 +98,7 @@ function ProfileScenariosContent() {
     initData,
     workspaces,
     currentFamilyInvite,
+    premiumEntitlement,
     inviteAcceptDiagnostic,
     refreshContext,
     createFamilyWorkspace,
@@ -139,6 +141,26 @@ function ProfileScenariosContent() {
     () => normalizeFamilyInviteToken(inviteTokenInput),
     [inviteTokenInput],
   );
+  const premiumSourceLabel = (() => {
+    if (!premiumEntitlement?.effectiveSource) {
+      return null;
+    }
+
+    if (premiumEntitlement.effectiveSource === "manual_admin") {
+      return tr("Manual/admin grant");
+    }
+
+    if (premiumEntitlement.effectiveSource === "boosty") {
+      return tr("Boosty sync (future)");
+    }
+
+    return tr("Gift campaign grant");
+  })();
+  const premiumScopeLabel = premiumEntitlement?.effectiveScope
+    ? premiumEntitlement.effectiveScope === "workspace"
+      ? tr("Workspace entitlement")
+      : tr("Personal entitlement")
+    : null;
   useEffect(() => {
     const syncOnboardingFlagState = () => {
       setIsOnboardingFlagCompleted(readOnboardingFlagState());
@@ -287,6 +309,45 @@ function ProfileScenariosContent() {
               "Open this app in Telegram to verify identity, or enable explicit dev fallback for local testing.",
             )}
           </p>
+        )}
+      </div>
+      <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          {tr("Premium status")}
+        </p>
+        {isLoadingPremium ? (
+          <p className="mt-1 text-sm text-app-text-muted">
+            {tr("Loading premium status...")}
+          </p>
+        ) : !premiumEntitlement ? (
+          <p className="mt-1 text-sm text-app-text-muted">
+            {tr("Premium status is temporarily unavailable.")}
+          </p>
+        ) : (
+          <>
+            <p className="mt-1 text-sm font-semibold text-app-text">
+              {premiumEntitlement.isPremium
+                ? tr("Premium active")
+                : tr("Free plan active")}
+            </p>
+            {premiumEntitlement.isPremium && (
+              <p className="mt-1 text-xs text-app-text-muted">
+                {premiumScopeLabel ? `${tr("Entitlement scope")}: ${premiumScopeLabel}. ` : ""}
+                {premiumSourceLabel ? `${tr("Entitlement source")}: ${premiumSourceLabel}. ` : ""}
+                {premiumEntitlement.endsAt
+                  ? `${tr("Premium valid until")}: ${formatDateTime(premiumEntitlement.endsAt)}.`
+                  : tr("No expiry")}
+              </p>
+            )}
+            {!premiumEntitlement.isPremium && (
+              <p className="mt-1 text-xs text-app-text-muted">
+                {tr("Core features remain free in this phase.")}
+              </p>
+            )}
+            <p className="mt-1 text-xs text-app-text-muted">
+              {tr("No core features are locked in this phase.")}
+            </p>
+          </>
         )}
       </div>
       <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">

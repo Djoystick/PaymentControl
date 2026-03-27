@@ -259,3 +259,53 @@ export type FamilyInviteAcceptError = {
 export type FamilyInviteAcceptResponse =
   | FamilyInviteAcceptSuccess
   | FamilyInviteAcceptError;
+
+export type PremiumEntitlementScope = "profile" | "workspace";
+export type PremiumEntitlementSource = "manual_admin" | "boosty" | "gift_campaign";
+export type PremiumEntitlementStatus = "active" | "expired" | "revoked";
+
+export type PremiumEntitlementPayload = {
+  id: string;
+  scope: PremiumEntitlementScope;
+  profileId: string | null;
+  workspaceId: string | null;
+  source: PremiumEntitlementSource;
+  status: PremiumEntitlementStatus;
+  startsAt: string;
+  endsAt: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PremiumEntitlementStatePayload = {
+  plan: "free" | "premium";
+  isPremium: boolean;
+  effectiveScope: PremiumEntitlementScope | null;
+  effectiveSource: PremiumEntitlementSource | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  profileEntitlement: PremiumEntitlementPayload | null;
+  workspaceEntitlement: PremiumEntitlementPayload | null;
+};
+
+export type PremiumEntitlementReadSuccess = {
+  ok: true;
+  entitlement: PremiumEntitlementStatePayload;
+};
+
+export type PremiumEntitlementReadErrorCode =
+  | CurrentAppContextErrorCode
+  | "PREMIUM_ENTITLEMENT_READ_FAILED";
+
+export type PremiumEntitlementReadError = {
+  ok: false;
+  error: {
+    code: PremiumEntitlementReadErrorCode;
+    message: string;
+  };
+};
+
+export type PremiumEntitlementReadResponse =
+  | PremiumEntitlementReadSuccess
+  | PremiumEntitlementReadError;

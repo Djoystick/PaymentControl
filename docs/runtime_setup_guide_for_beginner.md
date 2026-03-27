@@ -148,6 +148,7 @@ git push origin <ваша-ветка>
 - `20260326080000_phase8b_family_invites.sql`
 - `20260326081000_phase8d_family_responsibility.sql`
 - `20260327090000_phase9c_family_shared_economics_foundation.sql`
+- `20260327110000_phase13a_premium_entitlements_foundation.sql`
 5. Для каждого файла:
 - скопируйте SQL;
 - вставьте в SQL Editor;
@@ -164,6 +165,7 @@ git push origin <ваша-ветка>
 - `reminder_dispatch_attempts`
 - `telegram_recipient_bindings`
 - `family_workspace_invites`
+- `premium_entitlements`
 
 Если таблицы не появились:
 - вернитесь в `SQL Editor`;

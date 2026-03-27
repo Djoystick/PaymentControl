@@ -7,6 +7,7 @@ import type {
   FamilyInviteCreateResponse,
   FamilyInviteReadResponse,
   FamilyWorkspaceCreateResponse,
+  PremiumEntitlementReadResponse,
   ScenarioUpdateResponse,
   SelectedScenario,
   WorkspaceSwitchResponse,
@@ -116,4 +117,12 @@ export const acceptFamilyInvite = async (
       inviteToken,
     },
   );
+};
+
+export const readPremiumEntitlement = async (
+  initData: string,
+): Promise<PremiumEntitlementReadResponse> => {
+  return postJson<PremiumEntitlementReadResponse>("/api/premium/entitlement", "POST", {
+    initData,
+  });
 };

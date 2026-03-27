@@ -112,6 +112,12 @@ Phase 8C keeps accepted subscriptions/reminders foundations intact, preserves Ph
   - compact current invite read path (`POST /api/workspaces/family/invites/current`)
   - invite acceptance path (`POST /api/workspaces/family/invites/accept`)
   - invite persistence with status/expiry/accepted metadata
+- Added premium entitlement foundation (no core pay-lock):
+  - entitlement table with scope (`profile` / `workspace`)
+  - source model (`manual_admin` / `boosty` / `gift_campaign`)
+  - active window fields (`starts_at` / `ends_at`)
+  - read endpoint (`POST /api/premium/entitlement`)
+  - compact read-only premium status surface in Profile
 - Added improved Telegram chat-not-found mapping:
   - `TELEGRAM_CHAT_NOT_FOUND_BOT_NOT_STARTED_INFERENCE`
   - `TELEGRAM_CHAT_NOT_FOUND_STALE_BINDING_INFERENCE`
@@ -131,7 +137,7 @@ Phase 8C keeps accepted subscriptions/reminders foundations intact, preserves Ph
 - Worker/queue/retry engine
 - Full notification center
 - Family/shared reminder flows
-- Premium gating
+- Premium paywall activation
 - Localization overhaul
 - Large auth/profile/workspace refactor
 - Worker/queue/retry orchestration framework
@@ -161,6 +167,7 @@ Phase 8C keeps accepted subscriptions/reminders foundations intact, preserves Ph
 - `POST /api/workspaces/family/invites/create`
 - `POST /api/workspaces/family/invites/current`
 - `POST /api/workspaces/family/invites/accept`
+- `POST /api/premium/entitlement`
 - `POST /api/internal/reminders/scheduled-dispatch`
 - `GET /api/internal/reminders/scheduled-dispatch`
 
@@ -179,6 +186,7 @@ Apply migrations in order (`YYYYMMDDHHMMSS_name.sql`):
 11. `supabase/migrations/20260326080000_phase8b_family_invites.sql`
 12. `supabase/migrations/20260326081000_phase8d_family_responsibility.sql`
 13. `supabase/migrations/20260327090000_phase9c_family_shared_economics_foundation.sql`
+14. `supabase/migrations/20260327110000_phase13a_premium_entitlements_foundation.sql`
 
 ## Env Notes
 Server:
