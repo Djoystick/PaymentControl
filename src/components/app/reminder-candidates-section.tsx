@@ -435,7 +435,7 @@ export function ReminderCandidatesSection({
           {isFamilyWorkspace ? "Reminder Visibility" : "Reminder Candidates"}
         </h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 11C
+          Phase 11D
         </span>
       </div>
 
@@ -573,6 +573,14 @@ export function ReminderCandidatesSection({
               <p className="text-base font-semibold text-app-text">{summary.overdue}</p>
             </div>
           </div>
+          {summary.dueToday + summary.advance + summary.overdue === 0 && (
+            <div className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+              <p className="text-sm font-semibold text-app-text">No reminders yet</p>
+              <p className="mt-1 text-xs text-app-text-muted">
+                Add your first recurring payment above. Reminders will appear here when due.
+              </p>
+            </div>
+          )}
 
           <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
@@ -728,7 +736,7 @@ export function ReminderCandidatesSection({
             </p>
             {candidates.length === 0 ? (
               <p className="mt-2 text-sm text-app-text-muted">
-                No reminder candidates in current pass.
+                No reminder candidates right now.
               </p>
             ) : (
               <ul className="mt-2 space-y-1">

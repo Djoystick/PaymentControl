@@ -238,6 +238,7 @@ export function RecurringPaymentsSection({
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [showSubscriptionsOnly, setShowSubscriptionsOnly] = useState(false);
   const [showPausedSubscriptionsOnly, setShowPausedSubscriptionsOnly] = useState(false);
+  const [isComposerExpanded, setIsComposerExpanded] = useState(false);
   const [responsiblePayerOptions, setResponsiblePayerOptions] = useState<
     WorkspaceResponsiblePayerOptionPayload[]
   >([]);
@@ -492,13 +493,21 @@ export function RecurringPaymentsSection({
     loadPayments();
   }, [loadPayments]);
 
+  useEffect(() => {
+    if (payments.length === 0) {
+      setIsComposerExpanded(true);
+    }
+  }, [payments.length]);
+
   const resetForm = () => {
     setForm(createDefaultForm());
     setEditingPaymentId(null);
+    setIsComposerExpanded(payments.length === 0);
   };
 
   const startEdit = (payment: RecurringPaymentPayload) => {
     setEditingPaymentId(payment.id);
+    setIsComposerExpanded(true);
     setForm({
       responsibleProfileId: payment.responsibleProfileId ?? "",
       title: payment.title,
@@ -520,6 +529,7 @@ export function RecurringPaymentsSection({
 
   const applyTemplate = (template: StarterPaymentTemplate) => {
     setEditingPaymentId(null);
+    setIsComposerExpanded(true);
     setForm(formFromTemplate(template));
     setFeedback(`Template "${template.label}" applied. Review and add payment.`);
   };
@@ -693,7 +703,7 @@ export function RecurringPaymentsSection({
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">Recurring Payments</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 11C
+          Phase 11D
         </span>
       </div>
       {workspace && (
@@ -708,6 +718,29 @@ export function RecurringPaymentsSection({
         </p>
       ) : (
         <>
+          {!isLoading && payments.length === 0 && (
+            <div className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+              <p className="text-sm font-semibold text-app-text">
+                {isFamilyWorkspace
+                  ? "No shared recurring payments yet"
+                  : "No recurring payments yet"}
+              </p>
+              <p className="mt-1 text-xs text-app-text-muted">
+                {isFamilyWorkspace
+                  ? familyReadinessSummary.hasCurrentInvite
+                    ? "Invite is ready. Add your first shared payment below."
+                    : "Add your first shared payment below. Invite members from Profile when needed."
+                  : "Add your first payment below. Reminders and History will update after that."}
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsComposerExpanded(true)}
+                className="mt-2 rounded-xl border border-app-border bg-white px-3 py-1.5 text-xs font-semibold text-app-text"
+              >
+                Open add payment form
+              </button>
+            </div>
+          )}
           {isFamilyWorkspace && (
             <details className="mb-2 rounded-xl border border-app-border bg-app-surface-soft px-3 py-2">
               <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
@@ -795,24 +828,6 @@ export function RecurringPaymentsSection({
               )}
             </details>
           )}
-          {isFamilyWorkspace &&
-            !isLoading &&
-            familyReadinessSummary.sharedRecurringPaymentsCount === 0 && (
-              <div className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                  Start with first shared payment
-                </p>
-                <p className="mt-1 text-sm text-app-text">
-                  This family workspace does not have shared recurring payments yet.
-                </p>
-                <p className="mt-1 text-xs text-app-text-muted">
-                  {familyReadinessSummary.hasCurrentInvite
-                    ? "Invite is ready. Next step: add your first shared recurring payment below."
-                    : "You can add your first shared recurring payment now, then invite members when needed."}
-                </p>
-              </div>
-            )}
-
           <div className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {isFamilyWorkspace
@@ -835,12 +850,13 @@ export function RecurringPaymentsSection({
             </div>
           </div>
 
-          <details className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              Subscription insights - active {subscriptionSummary.activeSubscriptionsCount}, unpaid {subscriptionSummary.unpaidSubscriptionsCount}
-            </summary>
+          {payments.length > 0 && (
+            <details className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                Subscription insights - active {subscriptionSummary.activeSubscriptionsCount}, unpaid {subscriptionSummary.unpaidSubscriptionsCount}
+              </summary>
 
-            <div className="mt-2 space-y-2">
+              <div className="mt-2 space-y-2">
           <div className="rounded-2xl border border-app-border bg-app-surface p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               Subscriptions Summary
@@ -1086,10 +1102,18 @@ export function RecurringPaymentsSection({
           </div>
             </div>
           </details>
+          )}
 
           <details
             className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3"
-            open={editingPaymentId !== null}
+            open={isComposerExpanded || editingPaymentId !== null}
+            onToggle={(event) => {
+              if (editingPaymentId !== null) {
+                return;
+              }
+
+              setIsComposerExpanded(event.currentTarget.open);
+            }}
           >
             <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {editingPaymentId ? "Edit payment" : "Add payment"}
@@ -1275,7 +1299,7 @@ export function RecurringPaymentsSection({
             className="mt-2 h-20 w-full rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
           />
 
-          <div className="mt-2 flex gap-2">
+          <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={submitForm}
@@ -1309,24 +1333,26 @@ export function RecurringPaymentsSection({
               >
                 Clear form
               </button>
-            </div>
-          </details>
+              </div>
+            </details>
 
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setShowSubscriptionsOnly((current) => !current);
-                setShowPausedSubscriptionsOnly(false);
-              }}
-              className="rounded-xl border border-app-border px-3 py-1 text-xs font-semibold text-app-text"
-            >
-              {showSubscriptionsOnly ? "Show all payments" : "Show subscriptions only"}
-            </button>
-            <p className="text-xs text-app-text-muted">
-              Visible: {visiblePayments.length} / Total: {payments.length}
-            </p>
-          </div>
+          {payments.length > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSubscriptionsOnly((current) => !current);
+                  setShowPausedSubscriptionsOnly(false);
+                }}
+                className="rounded-xl border border-app-border px-3 py-1 text-xs font-semibold text-app-text"
+              >
+                {showSubscriptionsOnly ? "Show all payments" : "Show subscriptions only"}
+              </button>
+              <p className="text-xs text-app-text-muted">
+                Visible: {visiblePayments.length} / Total: {payments.length}
+              </p>
+            </div>
+          )}
 
           <div className="mt-3 space-y-2">
             {isLoading && (
@@ -1334,7 +1360,7 @@ export function RecurringPaymentsSection({
             )}
             {!isLoading && payments.length === 0 && (
               <p className="text-sm text-app-text-muted">
-                No recurring payments yet. Create your first one.
+                Payments list is empty for now.
               </p>
             )}
             {!isLoading && payments.length > 0 && visiblePayments.length === 0 && (

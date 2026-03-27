@@ -14,7 +14,11 @@ export function LandingScreen() {
         Today snapshot
       </h2>
       <p className="mt-1 text-xs text-app-text-muted">
-        Reminders for actions, History for recent changes.
+        Keep it simple: Reminders for actions, History for updates.
+      </p>
+      <p className="mt-2 rounded-xl border border-app-border bg-app-surface-soft px-3 py-2 text-sm text-app-text">
+        First step: open <span className="font-semibold">Reminders</span> and add your
+        first payment.
       </p>
       <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft px-3 py-2">
         <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">

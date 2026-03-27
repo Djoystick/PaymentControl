@@ -244,9 +244,9 @@ export function PaymentsActivitySection({
   return (
     <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-app-text">Activity</h2>
+        <h2 className="text-base font-semibold text-app-text">History</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 11C
+          Phase 11D
         </span>
       </div>
 
@@ -280,15 +280,21 @@ export function PaymentsActivitySection({
 
           <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
             {scopedPaymentsCount === 0 ? (
-              <p className="text-sm text-app-text-muted">
-                {isFamilyWorkspace
-                  ? "No shared payments yet in this family workspace. Activity will appear after shared payments are added."
-                  : "No payment activity yet in this personal workspace."}
-              </p>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-app-text">History is empty</p>
+                <p className="text-sm text-app-text-muted">
+                  {isFamilyWorkspace
+                    ? "Add the first shared payment in Reminders. Events will appear here after updates."
+                    : "Add your first payment in Reminders. Events will appear here after updates."}
+                </p>
+              </div>
             ) : activityItems.length === 0 ? (
-              <p className="text-sm text-app-text-muted">
-                No recent activity items yet.
-              </p>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-app-text">No recent updates yet</p>
+                <p className="text-sm text-app-text-muted">
+                  Mark paid or edit a payment in Reminders to populate History.
+                </p>
+              </div>
             ) : (
               <ul className="space-y-1.5">
                 {activityItems.map((item) => (
