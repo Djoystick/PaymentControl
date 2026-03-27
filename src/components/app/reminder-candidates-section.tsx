@@ -417,7 +417,7 @@ export function ReminderCandidatesSection({
           {isFamilyWorkspace ? "Reminder Visibility" : "Reminder Candidates"}
         </h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 10B
+          Phase 10C
         </span>
       </div>
 
@@ -432,10 +432,6 @@ export function ReminderCandidatesSection({
               <div className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                   Family reminder visibility
-                </p>
-                <p className="mt-1 text-sm text-app-text-muted">
-                  Reminder summary for shared payments in the current family
-                  workspace.
                 </p>
                 <p className="mt-1 text-xs text-app-text-muted">
                   Dispatch and test-send actions are still available in personal

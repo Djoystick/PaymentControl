@@ -136,7 +136,7 @@ export function ProfileScenariosPlaceholder() {
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-semibold text-app-text">Profile</h2>
           <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-            Phase 10B
+            Phase 10C
           </span>
         </div>
         <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
@@ -184,10 +184,6 @@ export function ProfileScenariosPlaceholder() {
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                 Workspace switch
               </p>
-              <p className="text-xs text-app-text-muted">
-                Active app context is controlled here. Personal workspace means
-                Single context, family workspace means Family context.
-              </p>
               <div className="space-y-1">
                 {workspaces.map((workspaceOption) => (
                   <div
@@ -218,10 +214,6 @@ export function ProfileScenariosPlaceholder() {
             <div className="mt-3 space-y-2">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                 Family invite
-              </p>
-              <p className="text-xs text-app-text-muted">
-                Invites below are for this family workspace household.
-                Accepted members join this same household.
               </p>
               <button
                 type="button"
@@ -270,8 +262,7 @@ export function ProfileScenariosPlaceholder() {
                 Family next step
               </p>
               <p className="text-xs text-app-text-muted">
-                You are in personal context. Create a family workspace or join by
-                invite token when you need shared household tracking.
+                Create a family workspace or join by invite token.
               </p>
               {isVirtualWorkspace ? (
                 <p className="text-xs text-app-text-muted">

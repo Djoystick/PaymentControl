@@ -138,7 +138,7 @@ export function PaymentsDashboardSection({
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">Dashboard</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 10B
+          Phase 10C
         </span>
       </div>
 
@@ -149,15 +149,10 @@ export function PaymentsDashboardSection({
       ) : (
         <>
           <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {isFamilyWorkspace
                 ? "Family workspace overview"
                 : "Personal workspace overview"}
-            </p>
-            <p className="mt-1 text-sm text-app-text-muted">
-              {isFamilyWorkspace
-                ? "Home summary for shared payments in the current family workspace."
-                : "Home summary for recurring payments in your personal workspace."}
             </p>
           </div>
 

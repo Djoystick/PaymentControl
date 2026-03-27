@@ -1,12 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type AppShellProps = {
   children: React.ReactNode;
 };
 
 type AppTab = "home" | "activity" | "profile";
+
+type OnboardingStep = {
+  title: string;
+  description: string;
+  tab: AppTab;
+};
 
 const tabTargets: Record<AppTab, string> = {
   home: "home-section",
@@ -26,8 +32,39 @@ const hashToTab: Record<string, AppTab> = {
   "#profile-section": "profile",
 };
 
+const ONBOARDING_STORAGE_KEY = "payment_control_onboarding_v10c_done";
+
+const onboardingSteps: OnboardingStep[] = [
+  {
+    title: "Welcome to Payment Control",
+    description:
+      "Start on Home. Dashboard, reminders and recurring cards are your daily workspace.",
+    tab: "home",
+  },
+  {
+    title: "Recurring is your main action area",
+    description:
+      "Open recurring cards to use Mark paid / Undo paid, review Who pays and Paid by.",
+    tab: "home",
+  },
+  {
+    title: "Activity shows recent updates",
+    description:
+      "Use Activity to quickly check recent shared and personal payment events.",
+    tab: "activity",
+  },
+  {
+    title: "Profile controls workspace context",
+    description:
+      "Use Profile to switch workspace, manage family invite and check account context.",
+    tab: "profile",
+  },
+];
+
 export function AppShell({ children }: AppShellProps) {
   const [activeTab, setActiveTab] = useState<AppTab>("home");
+  const [isOnboardingVisible, setIsOnboardingVisible] = useState(false);
+  const [onboardingStepIndex, setOnboardingStepIndex] = useState(0);
 
   useEffect(() => {
     const syncActiveTabFromHash = () => {
@@ -44,14 +81,68 @@ export function AppShell({ children }: AppShellProps) {
     };
   }, []);
 
-  const handleTabClick = (tab: AppTab) => {
+  useEffect(() => {
+    let frame = 0;
+
+    try {
+      const isCompleted = window.localStorage.getItem(ONBOARDING_STORAGE_KEY) === "1";
+      if (!isCompleted) {
+        frame = window.requestAnimationFrame(() => {
+          setIsOnboardingVisible(true);
+        });
+      }
+    } catch {
+      frame = window.requestAnimationFrame(() => {
+        setIsOnboardingVisible(true);
+      });
+    }
+
+    return () => {
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+      }
+    };
+  }, []);
+
+  const handleTabClick = useCallback((tab: AppTab) => {
     setActiveTab(tab);
     const targetId = tabTargets[tab];
     const target = document.getElementById(targetId);
     if (target) {
       target.scrollIntoView({ behavior: "smooth", block: "start" });
     }
+  }, []);
+
+  useEffect(() => {
+    if (!isOnboardingVisible) {
+      return;
+    }
+
+    const stepTab = onboardingSteps[onboardingStepIndex]?.tab;
+    if (!stepTab) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      handleTabClick(stepTab);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [handleTabClick, isOnboardingVisible, onboardingStepIndex]);
+
+  const closeOnboarding = () => {
+    setIsOnboardingVisible(false);
+    try {
+      window.localStorage.setItem(ONBOARDING_STORAGE_KEY, "1");
+    } catch {
+      // Ignore localStorage write errors in restricted environments.
+    }
   };
+
+  const activeOnboardingStep = onboardingSteps[onboardingStepIndex];
+  const isLastOnboardingStep = onboardingStepIndex === onboardingSteps.length - 1;
 
   return (
     <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-4 pt-5">
@@ -118,6 +209,56 @@ export function AppShell({ children }: AppShellProps) {
           </a>
         </div>
       </footer>
+
+      {isOnboardingVisible && activeOnboardingStep && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-3xl border border-app-border bg-app-surface p-4 shadow-lg">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-app-text-muted">
+              Quick start
+            </p>
+            <p className="mt-1 text-base font-semibold text-app-text">
+              {activeOnboardingStep.title}
+            </p>
+            <p className="mt-1 text-sm text-app-text-muted">
+              {activeOnboardingStep.description}
+            </p>
+            <p className="mt-2 text-[11px] text-app-text-muted">
+              Step {onboardingStepIndex + 1} of {onboardingSteps.length}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={closeOnboarding}
+                className="rounded-xl border border-app-border px-3 py-2 text-xs font-semibold text-app-text"
+              >
+                Skip
+              </button>
+              {onboardingStepIndex > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setOnboardingStepIndex((current) => current - 1)}
+                  className="rounded-xl border border-app-border px-3 py-2 text-xs font-semibold text-app-text"
+                >
+                  Back
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  if (isLastOnboardingStep) {
+                    closeOnboarding();
+                    return;
+                  }
+                  setOnboardingStepIndex((current) => current + 1);
+                }}
+                className="rounded-xl bg-app-accent px-3 py-2 text-xs font-semibold text-white"
+              >
+                {isLastOnboardingStep ? "Finish" : "Next"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

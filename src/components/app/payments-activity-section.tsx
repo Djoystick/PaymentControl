@@ -249,7 +249,7 @@ export function PaymentsActivitySection({
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">Activity</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 10B
+          Phase 10C
         </span>
       </div>
 
@@ -265,12 +265,7 @@ export function PaymentsActivitySection({
                 ? "Family workspace activity"
                 : "Personal workspace activity"}
             </p>
-            <p className="mt-1 text-sm text-app-text-muted">
-              {isFamilyWorkspace
-                ? "Recent shared payment events for the current family workspace."
-                : "Recent payment activity for your personal workspace."}
-            </p>
-            <p className="mt-2 text-xs text-app-text-muted">
+            <p className="mt-1 text-xs text-app-text-muted">
               Payments in scope: {scopedPaymentsCount}. Recent items shown:{" "}
               {activityItems.length}.
             </p>

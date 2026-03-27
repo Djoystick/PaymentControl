@@ -693,7 +693,7 @@ export function RecurringPaymentsSection({
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">Recurring Payments</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 10B
+          Phase 10C
         </span>
       </div>
       {workspace && (
@@ -709,22 +709,15 @@ export function RecurringPaymentsSection({
       ) : (
         <>
           {isFamilyWorkspace && (
-            <div className="mb-2 rounded-xl border border-app-border bg-app-surface-soft px-3 py-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                Family shared payments context
-              </p>
+            <details className="mb-2 rounded-xl border border-app-border bg-app-surface-soft px-3 py-2">
+              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                Family shared payment help
+              </summary>
               <p className="mt-1 text-xs text-app-text-muted">
-                Payments created here are shared inside this family workspace.
-                Who pays means the household member responsible for each payment.
+                Shared cards use Who pays for responsibility and Paid by for who marked
+                the cycle paid.
               </p>
-              <p className="mt-1 text-xs text-app-text-muted">
-                If no member is selected, the card shows: Who pays: Not assigned yet.
-              </p>
-              <p className="mt-1 text-xs text-app-text-muted">
-                Create, edit, Mark paid and Undo paid are available for shared payments
-                in this context.
-              </p>
-            </div>
+            </details>
           )}
           {isFamilyWorkspace && (
             <div className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
@@ -836,11 +829,6 @@ export function RecurringPaymentsSection({
               {isFamilyWorkspace
                 ? "Quick Add shared payment templates"
                 : "Quick Add templates"}
-            </p>
-            <p className="mt-1 text-xs text-app-text-muted">
-              {isFamilyWorkspace
-                ? "Use a starter template to prefill your first shared payment, then review and add."
-                : "Choose a starter template to prefill the form, then review and add."}
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               {starterPaymentTemplates.map((template) => (
