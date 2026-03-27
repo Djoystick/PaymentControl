@@ -2,6 +2,7 @@
 
 import type {
   AuthBootstrapResponse,
+  BugReportSubmitResponse,
   CurrentAppContextResponse,
   FamilyInviteAcceptResponse,
   FamilyInviteCreateResponse,
@@ -231,5 +232,23 @@ export const deactivatePremiumGiftCampaignByAdmin = async (
     initData,
     action: "deactivate_campaign",
     campaignId,
+  });
+};
+
+export const submitBugReport = async (params: {
+  initData: string;
+  title: string;
+  description: string;
+  steps?: string;
+  currentScreen?: string;
+  language?: "ru" | "en";
+}): Promise<BugReportSubmitResponse> => {
+  return postJson<BugReportSubmitResponse>("/api/support/bug-report", "POST", {
+    initData: params.initData,
+    title: params.title,
+    description: params.description,
+    steps: params.steps ?? "",
+    currentScreen: params.currentScreen ?? "",
+    language: params.language ?? "",
   });
 };

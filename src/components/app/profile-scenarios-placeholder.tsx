@@ -1,10 +1,11 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import type {
   FamilyWorkspaceInvitePayload,
   FamilyWorkspaceInviteStatus,
 } from "@/lib/auth/types";
+import { submitBugReport } from "@/lib/auth/client";
 import { useCurrentAppContext } from "@/hooks/use-current-app-context";
 import {
   maskInviteToken,
@@ -94,6 +95,14 @@ function ProfileScenariosContent() {
     "idle",
   );
   const [giftCampaignCodeInput, setGiftCampaignCodeInput] = useState("");
+  const [bugReportTitle, setBugReportTitle] = useState("");
+  const [bugReportDescription, setBugReportDescription] = useState("");
+  const [bugReportSteps, setBugReportSteps] = useState("");
+  const [isSubmittingBugReport, setIsSubmittingBugReport] = useState(false);
+  const [bugReportFeedback, setBugReportFeedback] = useState<{
+    kind: "success" | "error";
+    message: string;
+  } | null>(null);
   const [isOnboardingFlagCompleted, setIsOnboardingFlagCompleted] = useState<
     boolean | null
   >(() => readOnboardingFlagState());
@@ -180,6 +189,90 @@ function ProfileScenariosContent() {
   const replayOnboarding = () => {
     window.dispatchEvent(new Event(ONBOARDING_REPLAY_EVENT));
     setIsOnboardingFlagCompleted(readOnboardingFlagState());
+  };
+
+  const submitBugReportFromProfile = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (isSubmittingBugReport) {
+      return;
+    }
+
+    const title = bugReportTitle.trim();
+    const description = bugReportDescription.trim();
+    const steps = bugReportSteps.trim();
+
+    if (!initData) {
+      setBugReportFeedback({
+        kind: "error",
+        message: tr("Init context is not ready yet. Please refresh and retry."),
+      });
+      return;
+    }
+
+    if (title.length < 3 || description.length < 10) {
+      setBugReportFeedback({
+        kind: "error",
+        message: tr("Please provide at least a short title and description."),
+      });
+      return;
+    }
+
+    setIsSubmittingBugReport(true);
+    setBugReportFeedback(null);
+    try {
+      const result = await submitBugReport({
+        initData,
+        title,
+        description,
+        steps,
+        currentScreen: "profile",
+        language,
+      });
+
+      if (!result.ok) {
+        if (result.error.code === "BUG_REPORT_INVALID_INPUT") {
+          setBugReportFeedback({
+            kind: "error",
+            message: tr("Please provide at least a short title and description."),
+          });
+        } else if (result.error.code === "BUG_REPORT_DELIVERY_NOT_CONFIGURED") {
+          setBugReportFeedback({
+            kind: "error",
+            message: tr(
+              "Bug report destination is not configured yet. Please try later.",
+            ),
+          });
+        } else if (result.error.code === "BUG_REPORT_DELIVERY_FAILED") {
+          setBugReportFeedback({
+            kind: "error",
+            message: tr("Could not send bug report. Please try again."),
+          });
+        } else {
+          setBugReportFeedback({
+            kind: "error",
+            message: tr(result.error.message),
+          });
+        }
+        return;
+      }
+
+      setBugReportFeedback({
+        kind: "success",
+        message: tr("Bug report sent. Report id: {reportId}.", {
+          reportId: result.reportId,
+        }),
+      });
+      setBugReportTitle("");
+      setBugReportDescription("");
+      setBugReportSteps("");
+    } catch {
+      setBugReportFeedback({
+        kind: "error",
+        message: tr("Could not send bug report. Please try again."),
+      });
+    } finally {
+      setIsSubmittingBugReport(false);
+    }
   };
 
   const copyGeneratedInviteToken = async () => {
@@ -358,6 +451,83 @@ function ProfileScenariosContent() {
           </>
         )}
       </div>
+      <details className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          {tr("Report a bug")}
+        </summary>
+        <p className="mt-2 text-xs text-app-text-muted">
+          {tr("Help us fix issues quickly.")}
+        </p>
+        <form className="mt-2 space-y-2" onSubmit={submitBugReportFromProfile}>
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-app-text">{tr("Issue title")}</p>
+            <input
+              type="text"
+              value={bugReportTitle}
+              onChange={(event) => {
+                setBugReportTitle(event.target.value);
+                setBugReportFeedback(null);
+              }}
+              maxLength={120}
+              placeholder={tr("Short subject")}
+              className="w-full rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
+            />
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-app-text">{tr("What happened?")}</p>
+            <textarea
+              value={bugReportDescription}
+              onChange={(event) => {
+                setBugReportDescription(event.target.value);
+                setBugReportFeedback(null);
+              }}
+              rows={4}
+              maxLength={1800}
+              placeholder={tr("Describe what you expected and what happened.")}
+              className="w-full resize-y rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
+            />
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-app-text">
+              {tr("Steps to reproduce (optional)")}
+            </p>
+            <textarea
+              value={bugReportSteps}
+              onChange={(event) => {
+                setBugReportSteps(event.target.value);
+                setBugReportFeedback(null);
+              }}
+              rows={3}
+              maxLength={1200}
+              placeholder={tr("Optional steps, device details, or timing notes.")}
+              className="w-full resize-y rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
+            />
+          </div>
+          <p className="text-[11px] text-app-text-muted">
+            {tr(
+              "Context from your profile, workspace, and language is attached automatically.",
+            )}
+          </p>
+          <button
+            type="submit"
+            disabled={isSubmittingBugReport}
+            className="rounded-xl border border-app-border bg-white px-3 py-2 text-xs font-semibold text-app-text disabled:opacity-60"
+          >
+            {isSubmittingBugReport ? tr("Sending...") : tr("Send bug report")}
+          </button>
+          {bugReportFeedback && (
+            <p
+              className={`text-xs font-medium ${
+                bugReportFeedback.kind === "success"
+                  ? "text-emerald-700"
+                  : "text-rose-700"
+              }`}
+            >
+              {bugReportFeedback.message}
+            </p>
+          )}
+        </form>
+      </details>
       <PremiumAdminConsole initData={initData} />
       <details className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
         <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">

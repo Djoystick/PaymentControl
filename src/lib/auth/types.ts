@@ -352,6 +352,30 @@ export type GiftPremiumClaimResponse =
   | GiftPremiumClaimSuccess
   | GiftPremiumClaimError;
 
+export type BugReportSubmitSuccess = {
+  ok: true;
+  reportId: string;
+  sentAt: string;
+};
+
+export type BugReportSubmitErrorCode =
+  | CurrentAppContextErrorCode
+  | "BUG_REPORT_INVALID_INPUT"
+  | "BUG_REPORT_DELIVERY_NOT_CONFIGURED"
+  | "BUG_REPORT_DELIVERY_FAILED";
+
+export type BugReportSubmitError = {
+  ok: false;
+  error: {
+    code: BugReportSubmitErrorCode;
+    message: string;
+  };
+};
+
+export type BugReportSubmitResponse =
+  | BugReportSubmitSuccess
+  | BugReportSubmitError;
+
 export type PremiumAdminErrorCode =
   | CurrentAppContextErrorCode
   | "PREMIUM_ADMIN_FORBIDDEN"
