@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   FamilyWorkspaceInvitePayload,
   FamilyWorkspaceInviteStatus,
@@ -242,10 +242,12 @@ export function RecurringPaymentsSection({
   const [showSubscriptionsOnly, setShowSubscriptionsOnly] = useState(false);
   const [showPausedSubscriptionsOnly, setShowPausedSubscriptionsOnly] = useState(false);
   const [isComposerExpanded, setIsComposerExpanded] = useState(false);
+  const [isAdvancedFormExpanded, setIsAdvancedFormExpanded] = useState(false);
   const [responsiblePayerOptions, setResponsiblePayerOptions] = useState<
     WorkspaceResponsiblePayerOptionPayload[]
   >([]);
   const [form, setForm] = useState<PaymentFormState>(createDefaultForm);
+  const composerRef = useRef<HTMLDetailsElement | null>(null);
 
   const subscriptionSummary = useMemo(() => {
     const activeSubscriptions = payments.filter(
@@ -514,11 +516,13 @@ export function RecurringPaymentsSection({
     setForm(createDefaultForm());
     setEditingPaymentId(null);
     setIsComposerExpanded(payments.length === 0);
+    setIsAdvancedFormExpanded(false);
   };
 
   const startEdit = (payment: RecurringPaymentPayload) => {
     setEditingPaymentId(payment.id);
     setIsComposerExpanded(true);
+    setIsAdvancedFormExpanded(true);
     setForm({
       responsibleProfileId: payment.responsibleProfileId ?? "",
       title: payment.title,
@@ -541,6 +545,7 @@ export function RecurringPaymentsSection({
   const applyTemplate = (template: StarterPaymentTemplate) => {
     setEditingPaymentId(null);
     setIsComposerExpanded(true);
+    setIsAdvancedFormExpanded(false);
     setForm(formFromTemplate(template));
     setFeedback(
       tr('Template "{template}" applied. Review and add payment.', {
@@ -715,6 +720,13 @@ export function RecurringPaymentsSection({
     }
   };
 
+  const openComposer = () => {
+    setIsComposerExpanded(true);
+    window.requestAnimationFrame(() => {
+      composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  };
+
   return (
     <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
@@ -735,6 +747,26 @@ export function RecurringPaymentsSection({
         </p>
       ) : (
         <>
+          <div className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                  {tr("Main action")}
+                </p>
+                <p className="mt-1 text-xs text-app-text-muted">
+                  {tr("Add or edit recurring payments in one compact form.")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={openComposer}
+                className="rounded-xl bg-app-accent px-3 py-1.5 text-xs font-semibold text-white"
+              >
+                {editingPaymentId ? tr("Continue editing") : tr("Open payment form")}
+              </button>
+            </div>
+          </div>
+
           {!isLoading && payments.length === 0 && (
             <div className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
               <p className="text-sm font-semibold text-app-text">
@@ -755,7 +787,7 @@ export function RecurringPaymentsSection({
               </p>
               <button
                 type="button"
-                onClick={() => setIsComposerExpanded(true)}
+                onClick={openComposer}
                 className="mt-2 rounded-xl border border-app-border bg-white px-3 py-1.5 text-xs font-semibold text-app-text"
               >
                 {tr("Open add payment form")}
@@ -775,10 +807,10 @@ export function RecurringPaymentsSection({
             </details>
           )}
           {isFamilyWorkspace && (
-            <div className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+            <details className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                 {tr("Family readiness snapshot")}
-              </p>
+              </summary>
               <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
                 <div className="rounded-xl bg-white p-2">
                   <p className="text-[11px] text-app-text-muted">{tr("Members")}</p>
@@ -809,7 +841,7 @@ export function RecurringPaymentsSection({
                   </p>
                 </div>
               </div>
-            </div>
+            </details>
           )}
           {isFamilyWorkspace && (
             <details className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
@@ -850,12 +882,12 @@ export function RecurringPaymentsSection({
               )}
             </details>
           )}
-          <div className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          <details className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
+            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {isFamilyWorkspace
                 ? tr("Quick Add shared payment templates")
                 : tr("Quick Add templates")}
-            </p>
+            </summary>
             <div className="mt-2 flex flex-wrap gap-2">
               {starterPaymentTemplates.map((template) => (
                 <button
@@ -870,7 +902,7 @@ export function RecurringPaymentsSection({
                 </button>
               ))}
             </div>
-          </div>
+          </details>
 
           {payments.length > 0 && (
             <details className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
@@ -1134,6 +1166,7 @@ export function RecurringPaymentsSection({
           )}
 
           <details
+            ref={composerRef}
             className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3"
             open={isComposerExpanded || editingPaymentId !== null}
             onToggle={(event) => {
@@ -1147,6 +1180,9 @@ export function RecurringPaymentsSection({
             <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {editingPaymentId ? tr("Edit payment") : tr("Add payment")}
             </summary>
+            <p className="mt-1 text-xs text-app-text-muted">
+              {tr("Core fields first. Open advanced options only when needed.")}
+            </p>
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <input
               value={form.title}
@@ -1165,22 +1201,6 @@ export function RecurringPaymentsSection({
               type="number"
               step="0.01"
               min="0"
-              className="rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
-            />
-            <input
-              value={form.currency}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, currency: event.target.value }))
-              }
-              placeholder={tr("Currency (USD)")}
-              className="rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
-            />
-            <input
-              value={form.category}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, category: event.target.value }))
-              }
-              placeholder={tr("Category")}
               className="rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
             />
             {isFamilyWorkspace && (
@@ -1237,100 +1257,129 @@ export function RecurringPaymentsSection({
               max={form.cadence === "weekly" ? "7" : "31"}
               className="rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
             />
-            <label className="flex items-center gap-2 rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text">
-              <input
-                type="checkbox"
-                checked={form.isRequired}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, isRequired: event.target.checked }))
-                }
-              />
-              {tr("Required payment")}
-            </label>
-
-            <label className="flex items-center gap-2 rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text">
-              <input
-                type="checkbox"
-                checked={form.isSubscription}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    isSubscription: event.target.checked,
-                  }))
-                }
-              />
-              {tr("Mark as subscription")}
-            </label>
-
-            <label className="flex items-center gap-2 rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text">
-              <input
-                type="checkbox"
-                checked={form.remindersEnabled}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    remindersEnabled: event.target.checked,
-                  }))
-                }
-              />
-              {tr("Reminders enabled")}
-            </label>
-
-            <select
-              value={form.remindDaysBefore}
-              onChange={(event) =>
-                setForm((prev) => ({
-                  ...prev,
-                  remindDaysBefore: event.target.value as "0" | "1" | "3",
-                }))
-              }
-              disabled={!form.remindersEnabled}
-              className="rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none disabled:bg-app-surface-soft disabled:text-app-text-muted"
-            >
-              <option value="0">{tr("Remind 0 days before")}</option>
-              <option value="1">{tr("Remind 1 day before")}</option>
-              <option value="3">{tr("Remind 3 days before")}</option>
-            </select>
-
-            <label className="flex items-center gap-2 rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text">
-              <input
-                type="checkbox"
-                checked={form.remindOnDueDay}
-                disabled={!form.remindersEnabled}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    remindOnDueDay: event.target.checked,
-                  }))
-                }
-              />
-              {tr("Remind on due day")}
-            </label>
-
-            <label className="flex items-center gap-2 rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text">
-              <input
-                type="checkbox"
-                checked={form.remindOnOverdue}
-                disabled={!form.remindersEnabled}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    remindOnOverdue: event.target.checked,
-                  }))
-                }
-              />
-              {tr("Remind if overdue")}
-            </label>
           </div>
+          <details
+            className="mt-2 rounded-xl border border-app-border bg-white px-3 py-2"
+            open={isAdvancedFormExpanded}
+            onToggle={(event) => setIsAdvancedFormExpanded(event.currentTarget.open)}
+          >
+            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+              {tr("Advanced options")}
+            </summary>
+            <p className="mt-1 text-xs text-app-text-muted">
+              {tr("Reminder timing, category, currency, and notes")}
+            </p>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <input
+                value={form.currency}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, currency: event.target.value }))
+                }
+                placeholder={tr("Currency (USD)")}
+                className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
+              />
+              <input
+                value={form.category}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, category: event.target.value }))
+                }
+                placeholder={tr("Category")}
+                className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
+              />
+              <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text">
+                <input
+                  type="checkbox"
+                  checked={form.isRequired}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, isRequired: event.target.checked }))
+                  }
+                />
+                {tr("Required payment")}
+              </label>
+              <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text">
+                <input
+                  type="checkbox"
+                  checked={form.isSubscription}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      isSubscription: event.target.checked,
+                    }))
+                  }
+                />
+                {tr("Mark as subscription")}
+              </label>
+              <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={form.remindersEnabled}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      remindersEnabled: event.target.checked,
+                    }))
+                  }
+                />
+                {tr("Reminders enabled")}
+              </label>
+            </div>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <select
+                value={form.remindDaysBefore}
+                onChange={(event) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    remindDaysBefore: event.target.value as "0" | "1" | "3",
+                  }))
+                }
+                disabled={!form.remindersEnabled}
+                className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none disabled:bg-app-surface-soft disabled:text-app-text-muted"
+              >
+                <option value="0">{tr("Remind 0 days before")}</option>
+                <option value="1">{tr("Remind 1 day before")}</option>
+                <option value="3">{tr("Remind 3 days before")}</option>
+              </select>
 
-          <textarea
-            value={form.notes}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, notes: event.target.value }))
-            }
-            placeholder={tr("Notes (optional)")}
-            className="mt-2 h-20 w-full rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
-          />
+              <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text">
+                <input
+                  type="checkbox"
+                  checked={form.remindOnDueDay}
+                  disabled={!form.remindersEnabled}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      remindOnDueDay: event.target.checked,
+                    }))
+                  }
+                />
+                {tr("Remind on due day")}
+              </label>
+
+              <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={form.remindOnOverdue}
+                  disabled={!form.remindersEnabled}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      remindOnOverdue: event.target.checked,
+                    }))
+                  }
+                />
+                {tr("Remind if overdue")}
+              </label>
+            </div>
+
+            <textarea
+              value={form.notes}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, notes: event.target.value }))
+              }
+              placeholder={tr("Notes (optional)")}
+              className="mt-2 h-20 w-full rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
+            />
+          </details>
 
           <div className="mt-2 flex flex-wrap gap-2">
             <button
@@ -1466,21 +1515,31 @@ export function RecurringPaymentsSection({
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-app-text-muted">
-                          {formatAmount(payment)} - {payment.category}
-                        </p>
-                        <p className="text-sm text-app-text-muted">
-                          {payment.cadence === "weekly"
-                            ? `${tr("Weekly")}, ${tr("weekday")} ${payment.dueDay}`
-                            : `${tr("Monthly")}, ${tr("day")} ${payment.dueDay}`}
-                          . {payment.isRequired ? tr("Required") : tr("Optional")}. {tr("Status")}: {tr(payment.status)}.
-                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] font-medium text-app-text">
+                            {formatAmount(payment)}
+                          </span>
+                          <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] text-app-text-muted">
+                            {payment.category}
+                          </span>
+                          <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] text-app-text-muted">
+                            {payment.cadence === "weekly"
+                              ? `${tr("Weekly")} • ${tr("weekday")} ${payment.dueDay}`
+                              : `${tr("Monthly")} • ${tr("day")} ${payment.dueDay}`}
+                          </span>
+                          <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] text-app-text-muted">
+                            {payment.isRequired ? tr("Required") : tr("Optional")}
+                          </span>
+                          <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] text-app-text-muted">
+                            {tr("Status")}: {tr(payment.status)}
+                          </span>
+                        </div>
                         {payment.paymentScope === "shared" ? (
                           <p className="text-sm text-app-text-muted">
                             {tr("Who pays")}: {responsiblePayerName}
                           </p>
                         ) : null}
-                        <p className="text-sm text-app-text-muted">
+                        <p className="mt-1 text-sm text-app-text-muted">
                           {tr("Current cycle")}: {tr(payment.currentCycle.state)}. {tr("Due")}{" "}
                           {formatDueDate(payment.currentCycle.dueDate)}
                           {payment.currentCycle.paidAt ? `. ${tr("Paid this cycle.")}` : "."}

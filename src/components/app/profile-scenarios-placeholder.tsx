@@ -173,7 +173,17 @@ function ProfileScenariosContent() {
         initData={initData}
         currentFamilyInvite={currentFamilyInvite}
       />
-      <ReminderCandidatesSection workspace={workspace} initData={initData} />
+      <details className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
+        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          {tr("Reminder operations and visibility")}
+        </summary>
+        <p className="mt-1 text-xs text-app-text-muted">
+          {tr("Open this block for delivery readiness, diagnostics, and reminder candidates.")}
+        </p>
+        <div className="mt-2">
+          <ReminderCandidatesSection workspace={workspace} initData={initData} />
+        </div>
+      </details>
     </div>
   );
 
