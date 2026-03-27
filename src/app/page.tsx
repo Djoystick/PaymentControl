@@ -1,10 +1,5 @@
-import { AppShell } from "@/components/app/app-shell";
-import { LandingScreen } from "@/components/app/landing-screen";
+﻿import { ProfileScenariosPlaceholder } from "@/components/app/profile-scenarios-placeholder";
 
 export default function Home() {
-  return (
-    <AppShell>
-      <LandingScreen />
-    </AppShell>
-  );
+  return <ProfileScenariosPlaceholder />;
 }

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { WorkspaceSummaryPayload } from "@/lib/auth/types";
@@ -14,6 +14,7 @@ import type {
 type PaymentsDashboardSectionProps = {
   workspace: WorkspaceSummaryPayload | null;
   initData: string;
+  variant?: "full" | "compact";
 };
 
 const formatAmount = (item: DashboardPaymentItemPayload): string => {
@@ -65,11 +66,13 @@ const DashboardBucket = ({
 export function PaymentsDashboardSection({
   workspace,
   initData,
+  variant = "full",
 }: PaymentsDashboardSectionProps) {
   const [dashboard, setDashboard] = useState<PaymentsDashboardPayload | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const isFamilyWorkspace = workspace?.kind === "family";
+  const isCompact = variant === "compact";
 
   const workspaceUnavailable = useMemo(() => {
     if (!workspace) {
@@ -136,9 +139,11 @@ export function PaymentsDashboardSection({
   return (
     <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-app-text">Dashboard</h2>
+        <h2 className="text-base font-semibold text-app-text">
+          {isCompact ? "Payment snapshot" : "Dashboard"}
+        </h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 10C
+          Phase 11A
         </span>
       </div>
 
@@ -148,133 +153,221 @@ export function PaymentsDashboardSection({
         </p>
       ) : (
         <>
-          <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              {isFamilyWorkspace
-                ? "Family workspace overview"
-                : "Personal workspace overview"}
-            </p>
-          </div>
+          {isCompact ? (
+            <>
+              <p className="mb-3 text-xs text-app-text-muted">
+                {isFamilyWorkspace
+                  ? "Compact family snapshot for quick decision-making."
+                  : "Compact personal snapshot for quick decision-making."}
+              </p>
 
-          {dashboard && (
-            <div
-              className={`grid grid-cols-2 gap-2 ${
-                isFamilyWorkspace ? "md:grid-cols-6" : "md:grid-cols-5"
-              }`}
-            >
-              <div className="rounded-xl bg-app-surface-soft p-2">
-                <p className="text-[11px] text-app-text-muted">
-                  {isFamilyWorkspace ? "Shared due today" : "Due today"}
-                </p>
-                <p className="text-base font-semibold text-app-text">
-                  {dashboard.summary.dueTodayCount}
+              {dashboard && (
+                <div
+                  className={`grid grid-cols-3 gap-2 ${
+                    isFamilyWorkspace ? "md:grid-cols-6" : "md:grid-cols-5"
+                  }`}
+                >
+                  <div className="rounded-xl bg-app-surface-soft p-2">
+                    <p className="text-[11px] text-app-text-muted">Due today</p>
+                    <p className="text-base font-semibold text-app-text">
+                      {dashboard.summary.dueTodayCount}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-app-surface-soft p-2">
+                    <p className="text-[11px] text-app-text-muted">Upcoming</p>
+                    <p className="text-base font-semibold text-app-text">
+                      {dashboard.summary.upcomingCount}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-app-surface-soft p-2">
+                    <p className="text-[11px] text-app-text-muted">Overdue</p>
+                    <p className="text-base font-semibold text-app-text">
+                      {dashboard.summary.overdueCount}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-app-surface-soft p-2">
+                    <p className="text-[11px] text-app-text-muted">Paid</p>
+                    <p className="text-base font-semibold text-app-text">
+                      {dashboard.summary.paidThisCycleCount}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-app-surface-soft p-2">
+                    <p className="text-[11px] text-app-text-muted">Unpaid</p>
+                    <p className="text-base font-semibold text-app-text">
+                      {dashboard.summary.unpaidThisCycleCount}
+                    </p>
+                  </div>
+                  {isFamilyWorkspace && (
+                    <div className="rounded-xl bg-app-surface-soft p-2">
+                      <p className="text-[11px] text-app-text-muted">Mismatch</p>
+                      <p className="text-base font-semibold text-app-text">
+                        {dashboard.summary.paidByMismatchCount}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+                <DashboardBucket
+                  title="Due today"
+                  items={(dashboard?.dueToday ?? []).slice(0, 3)}
+                  emptyLabel="No unpaid payments due today."
+                />
+                <DashboardBucket
+                  title={`Upcoming (${dashboard?.summary.upcomingWindowDays ?? 0}d)`}
+                  items={(dashboard?.upcoming ?? []).slice(0, 3)}
+                  emptyLabel="No unpaid upcoming payments."
+                />
+              </div>
+
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={loadDashboard}
+                  disabled={isLoading}
+                  className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
+                >
+                  Refresh snapshot
+                </button>
+                {isLoading && (
+                  <p className="text-xs text-app-text-muted">Loading snapshot...</p>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                  {isFamilyWorkspace
+                    ? "Family workspace overview"
+                    : "Personal workspace overview"}
                 </p>
               </div>
-              <div className="rounded-xl bg-app-surface-soft p-2">
-                <p className="text-[11px] text-app-text-muted">
-                  {isFamilyWorkspace ? "Shared upcoming" : "Upcoming"} (
-                  {dashboard.summary.upcomingWindowDays}d)
-                </p>
-                <p className="text-base font-semibold text-app-text">
-                  {dashboard.summary.upcomingCount}
-                </p>
-              </div>
-              <div className="rounded-xl bg-app-surface-soft p-2">
-                <p className="text-[11px] text-app-text-muted">
-                  {isFamilyWorkspace ? "Shared overdue" : "Overdue"}
-                </p>
-                <p className="text-base font-semibold text-app-text">
-                  {dashboard.summary.overdueCount}
-                </p>
-              </div>
-              <div className="rounded-xl bg-app-surface-soft p-2">
-                <p className="text-[11px] text-app-text-muted">
-                  {isFamilyWorkspace ? "Shared paid this cycle" : "Paid this cycle"}
-                </p>
-                <p className="text-base font-semibold text-app-text">
-                  {dashboard.summary.paidThisCycleCount}
-                </p>
-              </div>
-              <div className="rounded-xl bg-app-surface-soft p-2">
-                <p className="text-[11px] text-app-text-muted">
-                  {isFamilyWorkspace ? "Shared unpaid this cycle" : "Unpaid this cycle"}
-                </p>
-                <p className="text-base font-semibold text-app-text">
-                  {dashboard.summary.unpaidThisCycleCount}
-                </p>
-              </div>
-              {isFamilyWorkspace && (
-                <div className="rounded-xl bg-app-surface-soft p-2">
-                  <p className="text-[11px] text-app-text-muted">
-                    Paid mismatch hints
+
+              {dashboard && (
+                <div
+                  className={`grid grid-cols-2 gap-2 ${
+                    isFamilyWorkspace ? "md:grid-cols-6" : "md:grid-cols-5"
+                  }`}
+                >
+                  <div className="rounded-xl bg-app-surface-soft p-2">
+                    <p className="text-[11px] text-app-text-muted">
+                      {isFamilyWorkspace ? "Shared due today" : "Due today"}
+                    </p>
+                    <p className="text-base font-semibold text-app-text">
+                      {dashboard.summary.dueTodayCount}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-app-surface-soft p-2">
+                    <p className="text-[11px] text-app-text-muted">
+                      {isFamilyWorkspace ? "Shared upcoming" : "Upcoming"} (
+                      {dashboard.summary.upcomingWindowDays}d)
+                    </p>
+                    <p className="text-base font-semibold text-app-text">
+                      {dashboard.summary.upcomingCount}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-app-surface-soft p-2">
+                    <p className="text-[11px] text-app-text-muted">
+                      {isFamilyWorkspace ? "Shared overdue" : "Overdue"}
+                    </p>
+                    <p className="text-base font-semibold text-app-text">
+                      {dashboard.summary.overdueCount}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-app-surface-soft p-2">
+                    <p className="text-[11px] text-app-text-muted">
+                      {isFamilyWorkspace ? "Shared paid this cycle" : "Paid this cycle"}
+                    </p>
+                    <p className="text-base font-semibold text-app-text">
+                      {dashboard.summary.paidThisCycleCount}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-app-surface-soft p-2">
+                    <p className="text-[11px] text-app-text-muted">
+                      {isFamilyWorkspace
+                        ? "Shared unpaid this cycle"
+                        : "Unpaid this cycle"}
+                    </p>
+                    <p className="text-base font-semibold text-app-text">
+                      {dashboard.summary.unpaidThisCycleCount}
+                    </p>
+                  </div>
+                  {isFamilyWorkspace && (
+                    <div className="rounded-xl bg-app-surface-soft p-2">
+                      <p className="text-[11px] text-app-text-muted">
+                        Paid mismatch hints
+                      </p>
+                      <p className="text-base font-semibold text-app-text">
+                        {dashboard.summary.paidByMismatchCount}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {isFamilyWorkspace && dashboard && !hasAnyActivePayments && (
+                <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+                  <p className="text-sm font-semibold text-app-text">
+                    No shared payments yet
                   </p>
-                  <p className="text-base font-semibold text-app-text">
-                    {dashboard.summary.paidByMismatchCount}
+                  <p className="mt-1 text-xs text-app-text-muted">
+                    Add your first shared payment in the recurring section to start
+                    family tracking here.
                   </p>
                 </div>
               )}
-            </div>
+
+              <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+                <DashboardBucket
+                  title={isFamilyWorkspace ? "Shared due today" : "Due today"}
+                  items={dashboard?.dueToday ?? []}
+                  emptyLabel={
+                    isFamilyWorkspace
+                      ? "No unpaid shared payments due today."
+                      : "No unpaid payments due today."
+                  }
+                />
+                <DashboardBucket
+                  title={`${isFamilyWorkspace ? "Shared upcoming" : "Upcoming"} (${dashboard?.summary.upcomingWindowDays ?? 0}d)`}
+                  items={dashboard?.upcoming ?? []}
+                  emptyLabel={
+                    isFamilyWorkspace
+                      ? "No unpaid shared payments in upcoming window."
+                      : "No unpaid payments in upcoming window."
+                  }
+                />
+                <DashboardBucket
+                  title={isFamilyWorkspace ? "Shared overdue" : "Overdue"}
+                  items={dashboard?.overdue ?? []}
+                  emptyLabel={
+                    isFamilyWorkspace
+                      ? "No overdue unpaid shared payments."
+                      : "No overdue unpaid payments."
+                  }
+                />
+              </div>
+
+              <div className="mt-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={loadDashboard}
+                  disabled={isLoading}
+                  className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
+                >
+                  {isFamilyWorkspace ? "Refresh family section" : "Refresh dashboard"}
+                </button>
+                {isLoading && (
+                  <p className="text-xs text-app-text-muted">
+                    {isFamilyWorkspace
+                      ? "Loading family overview..."
+                      : "Loading dashboard..."}
+                  </p>
+                )}
+              </div>
+            </>
           )}
-
-          {isFamilyWorkspace && dashboard && !hasAnyActivePayments && (
-            <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-              <p className="text-sm font-semibold text-app-text">
-                No shared payments yet
-              </p>
-              <p className="mt-1 text-xs text-app-text-muted">
-                Add your first shared payment in the recurring section to start
-                family tracking here.
-              </p>
-            </div>
-          )}
-
-          <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
-            <DashboardBucket
-              title={isFamilyWorkspace ? "Shared due today" : "Due today"}
-              items={dashboard?.dueToday ?? []}
-              emptyLabel={
-                isFamilyWorkspace
-                  ? "No unpaid shared payments due today."
-                  : "No unpaid payments due today."
-              }
-            />
-            <DashboardBucket
-              title={`${isFamilyWorkspace ? "Shared upcoming" : "Upcoming"} (${dashboard?.summary.upcomingWindowDays ?? 0}d)`}
-              items={dashboard?.upcoming ?? []}
-              emptyLabel={
-                isFamilyWorkspace
-                  ? "No unpaid shared payments in upcoming window."
-                  : "No unpaid payments in upcoming window."
-              }
-            />
-            <DashboardBucket
-              title={isFamilyWorkspace ? "Shared overdue" : "Overdue"}
-              items={dashboard?.overdue ?? []}
-              emptyLabel={
-                isFamilyWorkspace
-                  ? "No overdue unpaid shared payments."
-                  : "No overdue unpaid payments."
-              }
-            />
-          </div>
-
-          <div className="mt-3 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={loadDashboard}
-              disabled={isLoading}
-              className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
-            >
-              {isFamilyWorkspace ? "Refresh family section" : "Refresh dashboard"}
-            </button>
-            {isLoading && (
-              <p className="text-xs text-app-text-muted">
-                {isFamilyWorkspace
-                  ? "Loading family overview..."
-                  : "Loading dashboard..."}
-              </p>
-            )}
-          </div>
         </>
       )}
 

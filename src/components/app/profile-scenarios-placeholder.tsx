@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import type {
@@ -10,6 +10,8 @@ import {
   maskInviteToken,
   normalizeFamilyInviteToken,
 } from "@/lib/auth/invite-token";
+import { AppShell } from "@/components/app/app-shell";
+import { LandingScreen } from "@/components/app/landing-screen";
 import { PaymentsDashboardSection } from "@/components/app/payments-dashboard-section";
 import { PaymentsActivitySection } from "@/components/app/payments-activity-section";
 import { ReminderCandidatesSection } from "@/components/app/reminder-candidates-section";
@@ -121,303 +123,318 @@ export function ProfileScenariosPlaceholder() {
     window.dispatchEvent(new Event("payment-control-replay-onboarding"));
   };
 
-  return (
+  const homeScreen = (
     <div className="space-y-3">
-      <PaymentsDashboardSection workspace={workspace} initData={initData} />
-      <ReminderCandidatesSection workspace={workspace} initData={initData} />
+      <LandingScreen />
+      <PaymentsDashboardSection
+        workspace={workspace}
+        initData={initData}
+        variant="compact"
+      />
+    </div>
+  );
+
+  const remindersScreen = (
+    <div className="space-y-3">
       <RecurringPaymentsSection
         workspace={workspace}
         initData={initData}
         currentFamilyInvite={currentFamilyInvite}
       />
-      <PaymentsActivitySection workspace={workspace} initData={initData} />
+      <ReminderCandidatesSection workspace={workspace} initData={initData} />
+    </div>
+  );
 
-      <section
-        id="profile-section"
-        className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm"
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-app-text">Profile</h2>
-          <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-            Phase 10C
-          </span>
+  const historyScreen = (
+    <div className="space-y-3">
+      <PaymentsActivitySection workspace={workspace} initData={initData} />
+    </div>
+  );
+
+  const profileScreen = (
+    <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-base font-semibold text-app-text">Profile</h2>
+        <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
+          Phase 11A
+        </span>
+      </div>
+      <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          Session
+        </p>
+        <p className="mt-1 text-sm font-semibold text-app-text">{sourceLabel}</p>
+        <p className="mt-1 text-sm text-app-text-muted">
+          {isLoading ? "Loading current app context..." : stateLabel}
+        </p>
+        {profile && (
+          <p className="mt-2 text-sm text-app-text">
+            {profile.firstName} {profile.lastName ?? ""}
+            {profile.username ? ` (@${profile.username})` : ""}
+          </p>
+        )}
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={replayOnboarding}
+            className="rounded-xl border border-app-border px-3 py-1.5 text-xs font-semibold text-app-text"
+          >
+            Show onboarding again
+          </button>
         </div>
-        <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-            Session
+        {!profile && !isLoading && !isTelegramContext && (
+          <p className="mt-2 text-xs text-app-text-muted">
+            Open this app in Telegram to verify identity, or enable explicit
+            dev fallback for local testing.
           </p>
-          <p className="mt-1 text-sm font-semibold text-app-text">{sourceLabel}</p>
-          <p className="mt-1 text-sm text-app-text-muted">
-            {isLoading ? "Loading current app context..." : stateLabel}
-          </p>
-          {profile && (
-            <p className="mt-2 text-sm text-app-text">
-              {profile.firstName} {profile.lastName ?? ""}
-              {profile.username ? ` (@${profile.username})` : ""}
+        )}
+      </div>
+      <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          Workspace state
+        </p>
+        {workspace ? (
+          <>
+            <p className="mt-1 text-sm font-semibold text-app-text">
+              {workspace.title}
             </p>
-          )}
-          <div className="mt-2">
-            <button
-              type="button"
-              onClick={replayOnboarding}
-              className="rounded-xl border border-app-border px-3 py-1.5 text-xs font-semibold text-app-text"
-            >
-              Show onboarding again
-            </button>
-          </div>
-          {!profile && !isLoading && !isTelegramContext && (
-            <p className="mt-2 text-xs text-app-text-muted">
-              Open this app in Telegram to verify identity, or enable explicit
-              dev fallback for local testing.
-            </p>
-          )}
-        </div>
-        <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-            Workspace state
-          </p>
-          {workspace ? (
-            <>
-              <p className="mt-1 text-sm font-semibold text-app-text">
-                {workspace.title}
-              </p>
-              <p className="mt-1 text-sm text-app-text-muted">
-                Kind: {workspace.kind}. Role: {workspace.memberRole}. Members:{" "}
-                {workspace.memberCount}.
-              </p>
-            </>
-          ) : (
             <p className="mt-1 text-sm text-app-text-muted">
-              No active workspace resolved yet.
+              Kind: {workspace.kind}. Role: {workspace.memberRole}. Members: {" "}
+              {workspace.memberCount}.
             </p>
-          )}
-          {workspaces.length > 0 && (
-            <div className="mt-3 space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                Workspace switch
-              </p>
-              <div className="space-y-1">
-                {workspaces.map((workspaceOption) => (
-                  <div
-                    key={workspaceOption.id}
-                    className="flex items-center justify-between rounded-xl border border-app-border bg-white px-3 py-2"
-                  >
-                    <p className="text-sm text-app-text">
-                      {workspaceOption.title} ({workspaceOption.kind})
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => switchWorkspace(workspaceOption.id)}
-                      disabled={
-                        !profile ||
-                        isSavingWorkspace ||
-                        workspace?.id === workspaceOption.id
-                      }
-                      className="rounded-full border border-app-border px-2 py-0.5 text-[11px] font-medium text-app-text-muted disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {workspace?.id === workspaceOption.id ? "Current" : "Switch"}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {isFamilyWorkspace ? (
-            <div className="mt-3 space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                Family invite
-              </p>
-              <button
-                type="button"
-                onClick={createInvite}
-                disabled={
-                  isSavingInvite || isSavingWorkspace || workspace.memberRole !== "owner"
-                }
-                className="rounded-xl border border-app-border px-3 py-2 text-sm font-semibold text-app-text disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Create invite
-              </button>
-              {currentFamilyInvite ? (
-                <div className="rounded-xl border border-app-border bg-white px-3 py-2 text-xs text-app-text">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-semibold">
-                      Current invite for {workspace.title}
-                    </p>
-                    <span className="rounded-full border border-app-border px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
-                      {inviteStatusLabels[currentFamilyInvite.inviteStatus]}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-app-text-muted">
-                    {inviteStatusHints[currentFamilyInvite.inviteStatus]}
+          </>
+        ) : (
+          <p className="mt-1 text-sm text-app-text-muted">
+            No active workspace resolved yet.
+          </p>
+        )}
+        {workspaces.length > 0 && (
+          <div className="mt-3 space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+              Workspace switch
+            </p>
+            <div className="space-y-1">
+              {workspaces.map((workspaceOption) => (
+                <div
+                  key={workspaceOption.id}
+                  className="flex items-center justify-between rounded-xl border border-app-border bg-white px-3 py-2"
+                >
+                  <p className="text-sm text-app-text">
+                    {workspaceOption.title} ({workspaceOption.kind})
                   </p>
-                  <p className="mt-1 font-semibold">Invite token</p>
-                  <p className="mt-1 break-all rounded-lg bg-app-surface px-2 py-1 font-mono text-[11px]">
-                    {currentFamilyInvite.inviteToken}
-                  </p>
-                  <p className="mt-2 text-app-text-muted">
-                    Expires: {formatDateTime(currentFamilyInvite.expiresAt)}
-                  </p>
-                  <p className="text-app-text-muted">
-                    Created: {formatDateTime(currentFamilyInvite.createdAt)}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-xs text-app-text-muted">
-                  No active invite for this family workspace yet. Create one when
-                  you are ready to invite a member.
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="mt-3 space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                Family next step
-              </p>
-              <p className="text-xs text-app-text-muted">
-                Create a family workspace or join by invite token.
-              </p>
-              {isVirtualWorkspace ? (
-                <p className="text-xs text-app-text-muted">
-                  Workspace persistence is not initialized yet. Apply workspace migrations
-                  to enable family workspace creation.
-                </p>
-              ) : (
-                <>
-                  <input
-                    value={familyWorkspaceTitle}
-                    onChange={(event) => setFamilyWorkspaceTitle(event.target.value)}
-                    placeholder="Family workspace title"
-                    className="w-full rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
-                  />
                   <button
                     type="button"
-                    onClick={() => createFamilyWorkspace(familyWorkspaceTitle)}
-                    disabled={!profile || isSavingWorkspace}
-                    className="rounded-xl border border-app-border px-3 py-2 text-sm font-semibold text-app-text disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Create family workspace
-                  </button>
-                </>
-              )}
-              <div className="space-y-2 rounded-xl border border-app-border bg-white px-3 py-2">
-                <p className="text-xs font-semibold text-app-text">Join by invite token</p>
-                <input
-                  value={inviteTokenInput}
-                  onChange={(event) => {
-                    setInviteTokenInput(event.target.value);
-                    clearInviteAcceptDiagnostic();
-                  }}
-                  placeholder="Paste family invite token"
-                  className="w-full rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
-                />
-                <p className="text-[11px] text-app-text-muted">
-                  Token preview:{" "}
-                  {inviteTokenInput.trim()
-                    ? maskInviteToken(inviteTokenInput)
-                    : "empty"}
-                  {". "}Normalized:{" "}
-                  {normalizedInviteToken
-                    ? maskInviteToken(normalizedInviteToken)
-                    : "not detected"}
-                </p>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const accepted = await acceptInvite(inviteTokenInput);
-                    if (accepted) {
-                      setInviteTokenInput("");
+                    onClick={() => switchWorkspace(workspaceOption.id)}
+                    disabled={
+                      !profile ||
+                      isSavingWorkspace ||
+                      workspace?.id === workspaceOption.id
                     }
-                  }}
-                  disabled={isSavingInvite || !profile}
-                  className="rounded-xl border border-app-border px-3 py-2 text-sm font-semibold text-app-text disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Accept invite
-                </button>
-                {inviteAcceptDiagnostic && (
-                  <details className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-xs text-app-text">
-                    <summary className="cursor-pointer font-semibold text-app-text">
-                      Accept invite diagnostic
-                    </summary>
-                    <p
-                      className={
-                        inviteAcceptDiagnostic.status === "success"
-                          ? "mt-2 font-semibold text-emerald-700"
-                          : "mt-2 font-semibold text-rose-700"
-                      }
-                    >
-                      {inviteAcceptDiagnostic.status === "success"
-                        ? "Accept invite: SUCCESS"
-                        : "Accept invite: FAILED"}
-                    </p>
-                    <p className="mt-1 text-app-text-muted">
-                      {inviteAcceptDiagnostic.message}
-                    </p>
-                    <p className="mt-1 text-app-text-muted">
-                      Code: {inviteAcceptDiagnostic.code}. Attempted:{" "}
-                      {new Date(inviteAcceptDiagnostic.attemptedAt).toLocaleString()}
-                    </p>
-                    <p className="mt-1 text-app-text-muted">
-                      Raw token: {inviteAcceptDiagnostic.rawTokenPreview}. Normalized:{" "}
-                      {inviteAcceptDiagnostic.normalizedTokenPreview}
-                    </p>
-                    {inviteAcceptDiagnostic.status === "success" && (
-                      <>
-                        <p className="mt-1 text-app-text-muted">
-                          Joined workspace:{" "}
-                          {inviteAcceptDiagnostic.workspaceTitle ?? "unknown"}. Invite status:{" "}
-                          {inviteAcceptDiagnostic.inviteStatus ?? "unknown"}
-                        </p>
-                        <p className="mt-1 text-app-text-muted">
-                          Workspace list updated:{" "}
-                          {inviteAcceptDiagnostic.workspaceAdded ? "yes" : "no"}. Household members:{" "}
-                          {inviteAcceptDiagnostic.memberCount ?? "unknown"}
-                        </p>
-                        <p className="mt-1 text-app-text-muted">
-                          Next check: family workspace should appear in Workspace switch and
-                          household members should no longer be owner-only.
-                        </p>
-                      </>
-                    )}
-                    {inviteAcceptDiagnostic.status === "error" && (
-                      <p className="mt-1 text-app-text-muted">
-                        Check token validity/status with owner and retry. If state looks stale,
-                        use Refresh context below.
-                      </p>
-                    )}
-                    <button
-                      type="button"
-                      onClick={refreshContext}
-                      disabled={isLoading}
-                      className="mt-2 rounded-lg border border-app-border px-2 py-1 text-[11px] font-semibold text-app-text disabled:opacity-60"
-                    >
-                      Refresh context
-                    </button>
-                  </details>
-                )}
-              </div>
+                    className="rounded-full border border-app-border px-2 py-0.5 text-[11px] font-medium text-app-text-muted disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {workspace?.id === workspaceOption.id ? "Current" : "Switch"}
+                  </button>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
-        <details className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
-          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-            Scenario cards
-          </summary>
-          <div className="mt-2 rounded-2xl border border-app-border bg-app-surface px-3 py-2">
+          </div>
+        )}
+        {isFamilyWorkspace ? (
+          <div className="mt-3 space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              Scenario cards (informational)
+              Family invite
             </p>
-            <p className="mt-1 text-xs text-app-text-muted">
-              Cards below are informational in this phase. To change active context,
-              use Workspace switch above.
-            </p>
-            {profile && (
-              <p className="mt-1 text-xs text-app-text-muted">
-                Profile scenario field: {profile.selectedScenario} (auto-synced with
-                active workspace where possible).
+            <button
+              type="button"
+              onClick={createInvite}
+              disabled={
+                isSavingInvite || isSavingWorkspace || workspace.memberRole !== "owner"
+              }
+              className="rounded-xl border border-app-border px-3 py-2 text-sm font-semibold text-app-text disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Create invite
+            </button>
+            {currentFamilyInvite ? (
+              <div className="rounded-xl border border-app-border bg-white px-3 py-2 text-xs text-app-text">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-semibold">
+                    Current invite for {workspace.title}
+                  </p>
+                  <span className="rounded-full border border-app-border px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
+                    {inviteStatusLabels[currentFamilyInvite.inviteStatus]}
+                  </span>
+                </div>
+                <p className="mt-1 text-app-text-muted">
+                  {inviteStatusHints[currentFamilyInvite.inviteStatus]}
+                </p>
+                <p className="mt-1 font-semibold">Invite token</p>
+                <p className="mt-1 break-all rounded-lg bg-app-surface px-2 py-1 font-mono text-[11px]">
+                  {currentFamilyInvite.inviteToken}
+                </p>
+                <p className="mt-2 text-app-text-muted">
+                  Expires: {formatDateTime(currentFamilyInvite.expiresAt)}
+                </p>
+                <p className="text-app-text-muted">
+                  Created: {formatDateTime(currentFamilyInvite.createdAt)}
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-app-text-muted">
+                No active invite for this family workspace yet. Create one when
+                you are ready to invite a member.
               </p>
             )}
           </div>
-          <div className="mt-2 space-y-2">
+        ) : (
+          <div className="mt-3 space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+              Family next step
+            </p>
+            <p className="text-xs text-app-text-muted">
+              Create a family workspace or join by invite token.
+            </p>
+            {isVirtualWorkspace ? (
+              <p className="text-xs text-app-text-muted">
+                Workspace persistence is not initialized yet. Apply workspace migrations
+                to enable family workspace creation.
+              </p>
+            ) : (
+              <>
+                <input
+                  value={familyWorkspaceTitle}
+                  onChange={(event) => setFamilyWorkspaceTitle(event.target.value)}
+                  placeholder="Family workspace title"
+                  className="w-full rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => createFamilyWorkspace(familyWorkspaceTitle)}
+                  disabled={!profile || isSavingWorkspace}
+                  className="rounded-xl border border-app-border px-3 py-2 text-sm font-semibold text-app-text disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Create family workspace
+                </button>
+              </>
+            )}
+            <div className="space-y-2 rounded-xl border border-app-border bg-white px-3 py-2">
+              <p className="text-xs font-semibold text-app-text">Join by invite token</p>
+              <input
+                value={inviteTokenInput}
+                onChange={(event) => {
+                  setInviteTokenInput(event.target.value);
+                  clearInviteAcceptDiagnostic();
+                }}
+                placeholder="Paste family invite token"
+                className="w-full rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
+              />
+              <p className="text-[11px] text-app-text-muted">
+                Token preview:{" "}
+                {inviteTokenInput.trim()
+                  ? maskInviteToken(inviteTokenInput)
+                  : "empty"}
+                {". "}Normalized:{" "}
+                {normalizedInviteToken
+                  ? maskInviteToken(normalizedInviteToken)
+                  : "not detected"}
+              </p>
+              <button
+                type="button"
+                onClick={async () => {
+                  const accepted = await acceptInvite(inviteTokenInput);
+                  if (accepted) {
+                    setInviteTokenInput("");
+                  }
+                }}
+                disabled={isSavingInvite || !profile}
+                className="rounded-xl border border-app-border px-3 py-2 text-sm font-semibold text-app-text disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Accept invite
+              </button>
+              {inviteAcceptDiagnostic && (
+                <details className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-xs text-app-text">
+                  <summary className="cursor-pointer font-semibold text-app-text">
+                    Accept invite diagnostic
+                  </summary>
+                  <p
+                    className={
+                      inviteAcceptDiagnostic.status === "success"
+                        ? "mt-2 font-semibold text-emerald-700"
+                        : "mt-2 font-semibold text-rose-700"
+                    }
+                  >
+                    {inviteAcceptDiagnostic.status === "success"
+                      ? "Accept invite: SUCCESS"
+                      : "Accept invite: FAILED"}
+                  </p>
+                  <p className="mt-1 text-app-text-muted">
+                    {inviteAcceptDiagnostic.message}
+                  </p>
+                  <p className="mt-1 text-app-text-muted">
+                    Code: {inviteAcceptDiagnostic.code}. Attempted:{" "}
+                    {new Date(inviteAcceptDiagnostic.attemptedAt).toLocaleString()}
+                  </p>
+                  <p className="mt-1 text-app-text-muted">
+                    Raw token: {inviteAcceptDiagnostic.rawTokenPreview}. Normalized:{" "}
+                    {inviteAcceptDiagnostic.normalizedTokenPreview}
+                  </p>
+                  {inviteAcceptDiagnostic.status === "success" && (
+                    <>
+                      <p className="mt-1 text-app-text-muted">
+                        Joined workspace:{" "}
+                        {inviteAcceptDiagnostic.workspaceTitle ?? "unknown"}. Invite status:{" "}
+                        {inviteAcceptDiagnostic.inviteStatus ?? "unknown"}
+                      </p>
+                      <p className="mt-1 text-app-text-muted">
+                        Workspace list updated:{" "}
+                        {inviteAcceptDiagnostic.workspaceAdded ? "yes" : "no"}. Household members:{" "}
+                        {inviteAcceptDiagnostic.memberCount ?? "unknown"}
+                      </p>
+                      <p className="mt-1 text-app-text-muted">
+                        Next check: family workspace should appear in Workspace switch and
+                        household members should no longer be owner-only.
+                      </p>
+                    </>
+                  )}
+                  {inviteAcceptDiagnostic.status === "error" && (
+                    <p className="mt-1 text-app-text-muted">
+                      Check token validity/status with owner and retry. If state looks stale,
+                      use Refresh context below.
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={refreshContext}
+                    disabled={isLoading}
+                    className="mt-2 rounded-lg border border-app-border px-2 py-1 text-[11px] font-semibold text-app-text disabled:opacity-60"
+                  >
+                    Refresh context
+                  </button>
+                </details>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+      <details className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
+        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          Scenario cards
+        </summary>
+        <div className="mt-2 rounded-2xl border border-app-border bg-app-surface px-3 py-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+            Scenario cards (informational)
+          </p>
+          <p className="mt-1 text-xs text-app-text-muted">
+            Cards below are informational in this phase. To change active context,
+            use Workspace switch above.
+          </p>
+          {profile && (
+            <p className="mt-1 text-xs text-app-text-muted">
+              Profile scenario field: {profile.selectedScenario} (auto-synced with
+              active workspace where possible).
+            </p>
+          )}
+        </div>
+        <div className="mt-2 space-y-2">
           {scenarioCards.map((scenario) => (
             <article
               key={scenario.key}
@@ -437,16 +454,26 @@ export function ProfileScenariosPlaceholder() {
               </p>
             </article>
           ))}
-          </div>
-        </details>
-        <p className="mt-3 text-xs text-app-text-muted">
-          Context switching is workspace-driven in this phase. Scenario cards no
-          longer act as a separate switch.
-        </p>
-        {actionMessage && (
-          <p className="mt-2 text-xs font-medium text-app-text">{actionMessage}</p>
-        )}
-      </section>
-    </div>
+        </div>
+      </details>
+      <p className="mt-3 text-xs text-app-text-muted">
+        Context switching is workspace-driven in this phase. Scenario cards no
+        longer act as a separate switch.
+      </p>
+      {actionMessage && (
+        <p className="mt-2 text-xs font-medium text-app-text">{actionMessage}</p>
+      )}
+    </section>
+  );
+
+  return (
+    <AppShell
+      screens={{
+        home: homeScreen,
+        reminders: remindersScreen,
+        history: historyScreen,
+        profile: profileScreen,
+      }}
+    />
   );
 }

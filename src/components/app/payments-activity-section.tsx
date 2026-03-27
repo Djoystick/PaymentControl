@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { WorkspaceSummaryPayload } from "@/lib/auth/types";
@@ -249,7 +249,7 @@ export function PaymentsActivitySection({
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">Activity</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 10C
+          Phase 11A
         </span>
       </div>
 

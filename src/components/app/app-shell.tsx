@@ -1,35 +1,17 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
 
 type AppShellProps = {
-  children: React.ReactNode;
+  screens: Record<AppTab, React.ReactNode>;
 };
 
-type AppTab = "home" | "activity" | "profile";
+export type AppTab = "home" | "reminders" | "history" | "profile";
 
 type OnboardingStep = {
   title: string;
   description: string;
   tab: AppTab;
-};
-
-const tabTargets: Record<AppTab, string> = {
-  home: "home-section",
-  activity: "activity-section",
-  profile: "profile-section",
-};
-
-const tabHashes: Record<AppTab, string> = {
-  home: "#home-section",
-  activity: "#activity-section",
-  profile: "#profile-section",
-};
-
-const hashToTab: Record<string, AppTab> = {
-  "#home-section": "home",
-  "#activity-section": "activity",
-  "#profile-section": "profile",
 };
 
 const ONBOARDING_STORAGE_KEY = "payment_control_onboarding_v10c_done";
@@ -38,21 +20,20 @@ const ONBOARDING_REPLAY_EVENT = "payment-control-replay-onboarding";
 const onboardingSteps: OnboardingStep[] = [
   {
     title: "Welcome to Payment Control",
-    description:
-      "Start on Home. Dashboard, reminders and recurring cards are your daily workspace.",
+    description: "Home gives a compact snapshot of what needs attention today.",
     tab: "home",
   },
   {
-    title: "Recurring is your main action area",
+    title: "Reminders is your main working screen",
     description:
-      "Open recurring cards to use Mark paid / Undo paid, review Who pays and Paid by.",
-    tab: "home",
+      "Use recurring cards for Mark paid / Undo paid and quick subscription control.",
+    tab: "reminders",
   },
   {
-    title: "Activity shows recent updates",
+    title: "History shows recent updates",
     description:
-      "Use Activity to quickly check recent shared and personal payment events.",
-    tab: "activity",
+      "Use History to quickly review recent shared and personal payment events.",
+    tab: "history",
   },
   {
     title: "Profile controls workspace context",
@@ -62,25 +43,18 @@ const onboardingSteps: OnboardingStep[] = [
   },
 ];
 
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ screens }: AppShellProps) {
   const [activeTab, setActiveTab] = useState<AppTab>("home");
   const [isOnboardingVisible, setIsOnboardingVisible] = useState(false);
   const [onboardingStepIndex, setOnboardingStepIndex] = useState(0);
 
-  useEffect(() => {
-    const syncActiveTabFromHash = () => {
-      const nextTab = hashToTab[window.location.hash];
-      if (nextTab) {
-        setActiveTab(nextTab);
-      }
-    };
-
-    syncActiveTabFromHash();
-    window.addEventListener("hashchange", syncActiveTabFromHash);
-    return () => {
-      window.removeEventListener("hashchange", syncActiveTabFromHash);
-    };
+  const handleTabClick = useCallback((tab: AppTab) => {
+    setActiveTab(tab);
   }, []);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [activeTab]);
 
   useEffect(() => {
     let frame = 0;
@@ -117,15 +91,6 @@ export function AppShell({ children }: AppShellProps) {
     };
   }, []);
 
-  const handleTabClick = useCallback((tab: AppTab) => {
-    setActiveTab(tab);
-    const targetId = tabTargets[tab];
-    const target = document.getElementById(targetId);
-    if (target) {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, []);
-
   useEffect(() => {
     if (!isOnboardingVisible) {
       return;
@@ -137,13 +102,13 @@ export function AppShell({ children }: AppShellProps) {
     }
 
     const frame = window.requestAnimationFrame(() => {
-      handleTabClick(stepTab);
+      setActiveTab(stepTab);
     });
 
     return () => {
       window.cancelAnimationFrame(frame);
     };
-  }, [handleTabClick, isOnboardingVisible, onboardingStepIndex]);
+  }, [isOnboardingVisible, onboardingStepIndex]);
 
   const closeOnboarding = () => {
     setIsOnboardingVisible(false);
@@ -166,21 +131,23 @@ export function AppShell({ children }: AppShellProps) {
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-app-text">
           Payment Control
         </h1>
-        <p className="mt-1 text-sm text-app-text-muted">
-          Foundation for recurring payments and household tracking
-        </p>
+        <div className="mt-1 flex items-center gap-2">
+          <p className="text-sm text-app-text-muted">
+            Foundation for recurring payments and household tracking
+          </p>
+          <span className="rounded-full bg-app-warm px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-app-text">
+            Phase 11A
+          </span>
+        </div>
       </header>
 
-      <main className="relative z-0 mt-4 flex-1 space-y-3 pb-24">{children}</main>
+      <main className="relative z-0 mt-4 flex-1 pb-24">{screens[activeTab]}</main>
 
       <footer className="sticky bottom-2 z-40 mt-4 rounded-3xl border border-app-border bg-app-surface p-2 shadow-sm [padding-bottom:calc(env(safe-area-inset-bottom)+0.5rem)]">
-        <div className="grid grid-cols-3 gap-2 text-xs font-medium">
-          <a
-            href={tabHashes.home}
-            onClick={(event) => {
-              event.preventDefault();
-              handleTabClick("home");
-            }}
+        <div className="grid grid-cols-4 gap-2 text-xs font-medium">
+          <button
+            type="button"
+            onClick={() => handleTabClick("home")}
             aria-current={activeTab === "home" ? "page" : undefined}
             className={`touch-manipulation rounded-2xl px-2 py-3 text-center ${
               activeTab === "home"
@@ -189,28 +156,34 @@ export function AppShell({ children }: AppShellProps) {
             }`}
           >
             Home
-          </a>
-          <a
-            href={tabHashes.activity}
-            onClick={(event) => {
-              event.preventDefault();
-              handleTabClick("activity");
-            }}
-            aria-current={activeTab === "activity" ? "page" : undefined}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabClick("reminders")}
+            aria-current={activeTab === "reminders" ? "page" : undefined}
             className={`touch-manipulation rounded-2xl px-2 py-3 text-center ${
-              activeTab === "activity"
+              activeTab === "reminders"
                 ? "bg-app-accent text-white"
                 : "bg-app-surface-soft text-app-text-muted"
             }`}
           >
-            Activity
-          </a>
-          <a
-            href={tabHashes.profile}
-            onClick={(event) => {
-              event.preventDefault();
-              handleTabClick("profile");
-            }}
+            Reminders
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabClick("history")}
+            aria-current={activeTab === "history" ? "page" : undefined}
+            className={`touch-manipulation rounded-2xl px-2 py-3 text-center ${
+              activeTab === "history"
+                ? "bg-app-accent text-white"
+                : "bg-app-surface-soft text-app-text-muted"
+            }`}
+          >
+            History
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabClick("profile")}
             aria-current={activeTab === "profile" ? "page" : undefined}
             className={`touch-manipulation rounded-2xl px-2 py-3 text-center ${
               activeTab === "profile"
@@ -219,7 +192,7 @@ export function AppShell({ children }: AppShellProps) {
             }`}
           >
             Profile
-          </a>
+          </button>
         </div>
       </footer>
 
