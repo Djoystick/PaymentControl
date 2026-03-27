@@ -32,6 +32,12 @@ const reasonLabel: Record<ReminderDispatchAttemptPayload["reminderReason"], stri
   overdue: "Overdue",
   test_send: "Test send",
 };
+const triggerSourceLabel: Record<ReminderDispatchAttemptPayload["triggerSource"], string> =
+  {
+    manual_dispatch: "Manual dispatch",
+    manual_test_send: "Manual test send",
+    scheduled_dispatch: "Scheduled dispatch",
+  };
 
 const toUtcDateKey = (date: Date): string => {
   const year = date.getUTCFullYear();
@@ -213,6 +219,17 @@ export function ReminderCandidatesSection({
       attentionItems,
     };
   }, [familyPayments]);
+  const scheduledDispatchObservation = useMemo(() => {
+    const scheduledAttempts = recentAttempts.filter(
+      (attempt) => attempt.triggerSource === "scheduled_dispatch",
+    );
+    const latestScheduledAttempt = scheduledAttempts[0] ?? null;
+    return {
+      latestScheduledAttempt,
+      scheduledAttemptsCountInSnapshot: scheduledAttempts.length,
+      snapshotSize: recentAttempts.length,
+    };
+  }, [recentAttempts]);
 
   const loadCandidates = useCallback(async () => {
     if (workspaceUnavailable || !isPersonalWorkspace) {
@@ -251,6 +268,7 @@ export function ReminderCandidatesSection({
       }
 
       setReadiness(result.readiness);
+      setRecentAttempts(result.recentAttempts);
     } catch {
       setFeedback("Failed to load delivery readiness.");
     } finally {
@@ -417,7 +435,7 @@ export function ReminderCandidatesSection({
           {isFamilyWorkspace ? "Reminder Visibility" : "Reminder Candidates"}
         </h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 11A
+          Phase 11B
         </span>
       </div>
 
@@ -620,6 +638,36 @@ export function ReminderCandidatesSection({
                 {readiness.lastErrorMessage ? `. ${readiness.lastErrorMessage}` : ""}
               </p>
             )}
+            <div className="mt-2 rounded-xl border border-app-border bg-app-surface px-2 py-2 text-xs text-app-text-muted">
+              <p className="font-semibold text-app-text">Scheduled dispatch observation</p>
+              {scheduledDispatchObservation.latestScheduledAttempt ? (
+                <p className="mt-1">
+                  Last scheduled attempt:{" "}
+                  {formatDateTime(
+                    scheduledDispatchObservation.latestScheduledAttempt.createdAt,
+                  )}{" "}
+                  (
+                  {
+                    dispatchStatusMeta[
+                      scheduledDispatchObservation.latestScheduledAttempt.dispatchStatus
+                    ].label
+                  }
+                  ).
+                </p>
+              ) : (
+                <p className="mt-1">
+                  No scheduled attempts in current snapshot.
+                </p>
+              )}
+              <p className="mt-1">
+                Snapshot: {scheduledDispatchObservation.scheduledAttemptsCountInSnapshot}{" "}
+                scheduled rows out of {scheduledDispatchObservation.snapshotSize} recent attempts.
+              </p>
+              <p className="mt-1">
+                This is an operational snapshot only. Long-horizon cron health still requires
+                repeated production checks over time.
+              </p>
+            </div>
           </div>
 
           <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
@@ -841,6 +889,9 @@ export function ReminderCandidatesSection({
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                 Recent Attempts
               </p>
+              <p className="mt-1 text-xs text-app-text-muted">
+                Auto-refreshed by `Refresh delivery status`.
+              </p>
               <ul className="mt-2 space-y-1">
                 {recentAttempts.map((attempt) => {
                   const statusMeta = dispatchStatusMeta[attempt.dispatchStatus];
@@ -858,6 +909,9 @@ export function ReminderCandidatesSection({
                       <p className="text-app-text-muted">
                         Due {formatDueDate(attempt.cycleDueDate)}.{" "}
                         {formatDateTime(attempt.createdAt)}.
+                      </p>
+                      <p className="text-app-text-muted">
+                        Source: {triggerSourceLabel[attempt.triggerSource]}.
                       </p>
                       <p className="text-app-text-muted">
                         {attempt.errorCode

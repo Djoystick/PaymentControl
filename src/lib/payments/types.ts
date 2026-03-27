@@ -282,6 +282,7 @@ export type ReminderDeliveryReadinessResponse =
   | {
       ok: true;
       readiness: ReminderDeliveryReadinessPayload;
+      recentAttempts: ReminderDispatchAttemptPayload[];
       workspace: WorkspaceSummaryPayload;
     }
   | PaymentApiError;

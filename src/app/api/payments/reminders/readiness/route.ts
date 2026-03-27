@@ -16,6 +16,7 @@ import {
 type ReadReminderDeliveryReadinessBody = {
   initData?: string;
 };
+const RECENT_ATTEMPTS_LIMIT = 10;
 
 const codeToStatus: Record<PaymentApiError["error"]["code"], number> = {
   TELEGRAM_INIT_DATA_MISSING: 400,
@@ -79,12 +80,12 @@ export async function POST(request: Request) {
 
   const recentAttempts = await readRecentReminderDispatchAttemptsByWorkspace(
     scopeResult.workspace.id,
-    1,
+    RECENT_ATTEMPTS_LIMIT,
   );
   if (!recentAttempts) {
     return jsonError(
       "PAYMENT_LIST_FAILED",
-      "Unable to load last reminder dispatch attempt.",
+      "Unable to load reminder dispatch attempts.",
     );
   }
 
@@ -176,6 +177,7 @@ export async function POST(request: Request) {
   return NextResponse.json<ReminderDeliveryReadinessResponse>({
     ok: true,
     readiness,
+    recentAttempts,
     workspace: scopeResult.workspace,
   });
 }

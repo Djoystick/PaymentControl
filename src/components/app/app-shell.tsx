@@ -21,8 +21,8 @@ const tabItems: ReadonlyArray<{ key: AppTab; label: string }> = [
   { key: "profile", label: "Profile" },
 ];
 
-const ONBOARDING_STORAGE_KEY = "payment_control_onboarding_v10c_done";
-const ONBOARDING_REPLAY_EVENT = "payment-control-replay-onboarding";
+export const ONBOARDING_STORAGE_KEY = "payment_control_onboarding_v10c_done";
+export const ONBOARDING_REPLAY_EVENT = "payment-control-replay-onboarding";
 
 const onboardingSteps: OnboardingStep[] = [
   {
@@ -143,7 +143,7 @@ export function AppShell({ screens }: AppShellProps) {
             Foundation for recurring payments and household tracking
           </p>
           <span className="rounded-full bg-app-warm px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-app-text">
-            Phase 11A
+            Phase 11B
           </span>
         </div>
       </header>

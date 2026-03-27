@@ -165,18 +165,20 @@ Phase 8C keeps accepted subscriptions/reminders foundations intact, preserves Ph
 - `GET /api/internal/reminders/scheduled-dispatch`
 
 ## Database Setup
-Apply migrations in order:
-1. `supabase/migrations/20260325_010000_phase1a_profiles.sql`
-2. `supabase/migrations/20260325_020000_phase2a_personal_workspaces.sql`
-3. `supabase/migrations/20260325_030000_phase3a_recurring_payments.sql`
-4. `supabase/migrations/20260325_040000_phase3b_payment_cycle_state.sql`
-5. `supabase/migrations/20260325_060000_phase6a_reminder_preferences.sql`
-6. `supabase/migrations/20260325_061000_phase6b_reminder_dispatch_attempts.sql`
-7. `supabase/migrations/20260325_062000_phase6c_reminder_attempt_reason_test_send.sql`
-8. `supabase/migrations/20260325_063000_phase6d_telegram_recipient_bindings.sql`
-9. `supabase/migrations/20260325_070000_phase7a_subscriptions_layer.sql`
-10. `supabase/migrations/20260325_071000_phase7d_subscription_pause_resume.sql`
-11. `supabase/migrations/20260326_080000_phase8b_family_invites.sql`
+Apply migrations in order (`YYYYMMDDHHMMSS_name.sql`):
+1. `supabase/migrations/20260325010000_phase1a_profiles.sql`
+2. `supabase/migrations/20260325020000_phase2a_personal_workspaces.sql`
+3. `supabase/migrations/20260325030000_phase3a_recurring_payments.sql`
+4. `supabase/migrations/20260325040000_phase3b_payment_cycle_state.sql`
+5. `supabase/migrations/20260325060000_phase6a_reminder_preferences.sql`
+6. `supabase/migrations/20260325061000_phase6b_reminder_dispatch_attempts.sql`
+7. `supabase/migrations/20260325062000_phase6c_reminder_attempt_reason_test_send.sql`
+8. `supabase/migrations/20260325063000_phase6d_telegram_recipient_bindings.sql`
+9. `supabase/migrations/20260325070000_phase7a_subscriptions_layer.sql`
+10. `supabase/migrations/20260325071000_phase7d_subscription_pause_resume.sql`
+11. `supabase/migrations/20260326080000_phase8b_family_invites.sql`
+12. `supabase/migrations/20260326081000_phase8d_family_responsibility.sql`
+13. `supabase/migrations/20260327090000_phase9c_family_shared_economics_foundation.sql`
 
 ## Env Notes
 Server:
@@ -240,6 +242,10 @@ Response summary includes:
 - `skipped`
 - `failed`
 
+Operational note:
+- This endpoint provides run snapshots, not long-horizon proof of cron health.
+- To close production verification debt, observe repeated scheduled runs over time in Vercel logs and `reminder_dispatch_attempts` (`trigger_source = scheduled_dispatch`).
+
 ## Vercel Cron Hookup
 1. Keep `vercel.json` in repo with cron path:
    - `/api/internal/reminders/scheduled-dispatch`
@@ -255,8 +261,8 @@ Response summary includes:
 
 ## Phase 7A/7B/7C/7D/7E/7F/8A/8B Manual Verification
 1. Apply migrations:
-   - `supabase/migrations/20260325_070000_phase7a_subscriptions_layer.sql`
-   - `supabase/migrations/20260325_071000_phase7d_subscription_pause_resume.sql`
+   - `supabase/migrations/20260325070000_phase7a_subscriptions_layer.sql`
+   - `supabase/migrations/20260325071000_phase7d_subscription_pause_resume.sql`
 2. Open the app and go to `Recurring Payments`.
 3. Use a starter template such as `Streaming` or `Mobile` and verify the form is prefilled with `Mark as subscription` enabled.
 4. Create payment and confirm the row in Supabase has `is_subscription = true`.

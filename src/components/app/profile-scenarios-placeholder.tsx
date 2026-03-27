@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   FamilyWorkspaceInviteStatus,
   SelectedScenario,
@@ -10,7 +10,11 @@ import {
   maskInviteToken,
   normalizeFamilyInviteToken,
 } from "@/lib/auth/invite-token";
-import { AppShell } from "@/components/app/app-shell";
+import {
+  AppShell,
+  ONBOARDING_REPLAY_EVENT,
+  ONBOARDING_STORAGE_KEY,
+} from "@/components/app/app-shell";
 import { LandingScreen } from "@/components/app/landing-screen";
 import { PaymentsDashboardSection } from "@/components/app/payments-dashboard-section";
 import { PaymentsActivitySection } from "@/components/app/payments-activity-section";
@@ -67,6 +71,17 @@ const formatDateTime = (value: string | null): string => {
 };
 
 export function ProfileScenariosPlaceholder() {
+  const readOnboardingFlagState = (): boolean | null => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    try {
+      return window.localStorage.getItem(ONBOARDING_STORAGE_KEY) === "1";
+    } catch {
+      return null;
+    }
+  };
   const {
     profile,
     workspace,
@@ -90,6 +105,9 @@ export function ProfileScenariosPlaceholder() {
   } = useCurrentAppContext();
   const [familyWorkspaceTitle, setFamilyWorkspaceTitle] = useState("Family Workspace");
   const [inviteTokenInput, setInviteTokenInput] = useState("");
+  const [isOnboardingFlagCompleted, setIsOnboardingFlagCompleted] = useState<
+    boolean | null
+  >(() => readOnboardingFlagState());
 
   const sourceLabel = useMemo(() => {
     if (source === "telegram") {
@@ -119,8 +137,20 @@ export function ProfileScenariosPlaceholder() {
     () => normalizeFamilyInviteToken(inviteTokenInput),
     [inviteTokenInput],
   );
+  useEffect(() => {
+    const syncOnboardingFlagState = () => {
+      setIsOnboardingFlagCompleted(readOnboardingFlagState());
+    };
+
+    window.addEventListener("focus", syncOnboardingFlagState);
+    return () => {
+      window.removeEventListener("focus", syncOnboardingFlagState);
+    };
+  }, []);
+
   const replayOnboarding = () => {
-    window.dispatchEvent(new Event("payment-control-replay-onboarding"));
+    window.dispatchEvent(new Event(ONBOARDING_REPLAY_EVENT));
+    setIsOnboardingFlagCompleted(readOnboardingFlagState());
   };
 
   const homeScreen = (
@@ -156,7 +186,7 @@ export function ProfileScenariosPlaceholder() {
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">Profile</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 11A
+          Phase 11B
         </span>
       </div>
       <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
@@ -182,6 +212,27 @@ export function ProfileScenariosPlaceholder() {
             Show onboarding again
           </button>
         </div>
+        <details className="mt-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-xs text-app-text">
+          <summary className="cursor-pointer font-semibold text-app-text">
+            Onboarding verification notes
+          </summary>
+          <p className="mt-2 text-app-text-muted">
+            Local onboarding flag:{" "}
+            {isOnboardingFlagCompleted === null
+              ? "unknown (storage unavailable)"
+              : isOnboardingFlagCompleted
+                ? "completed"
+                : "not completed"}
+            .
+          </p>
+          <p className="mt-1 text-app-text-muted">
+            Show onboarding again is replay-only. It does not prove true first-run behavior.
+          </p>
+          <p className="mt-1 text-app-text-muted">
+            True first-run check requires a clean Telegram profile/device storage state and
+            first open of Mini App.
+          </p>
+        </details>
         {!profile && !isLoading && !isTelegramContext && (
           <p className="mt-2 text-xs text-app-text-muted">
             Open this app in Telegram to verify identity, or enable explicit
