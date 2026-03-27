@@ -69,6 +69,12 @@ const asIsoOrNull = (value: string | undefined): string | null => {
   return parsed.toISOString();
 };
 
+const wait = async (ms: number): Promise<void> => {
+  await new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+};
+
 const toCampaignPayload = (
   campaign: PremiumGiftCampaignRow,
   usage: { attempts: number; granted: number },
@@ -141,6 +147,47 @@ const toTargetPayload = async (
       activeWorkspaceId: profile.activeWorkspaceId,
       premium: premiumState,
     },
+  };
+};
+
+const readTargetPayloadWithExpectation = async (
+  profile: ProfilePayload,
+  expectedPremiumState: boolean | null,
+): Promise<AdminServiceResult<PremiumAdminTargetPayload>> => {
+  let lastResult: AdminServiceResult<PremiumAdminTargetPayload> | null = null;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const current = await toTargetPayload(profile);
+    lastResult = current;
+    if (!current.ok) {
+      return current;
+    }
+
+    if (
+      expectedPremiumState === null ||
+      current.data.premium.isPremium === expectedPremiumState
+    ) {
+      return current;
+    }
+
+    await wait(120 * (attempt + 1));
+  }
+
+  if (!lastResult || !lastResult.ok) {
+    return {
+      ok: false,
+      reason: "ACTION_FAILED",
+      message: "Failed to confirm target premium state after admin action.",
+    };
+  }
+
+  return {
+    ok: false,
+    reason: "ACTION_FAILED",
+    message:
+      expectedPremiumState === true
+        ? "Premium grant persisted, but target state is still not active."
+        : "Premium revoke persisted, but target state is still active.",
   };
 };
 
@@ -232,7 +279,10 @@ export const grantManualPremiumByTelegramUserId = async (params: {
     };
   }
 
-  const targetResult = await toTargetPayload(profileResult.data);
+  const targetResult = await readTargetPayloadWithExpectation(
+    profileResult.data,
+    true,
+  );
   if (!targetResult.ok) {
     return targetResult;
   }
@@ -266,7 +316,7 @@ export const revokePremiumByTelegramUserId = async (params: {
   }
 
   const nowIso = new Date().toISOString();
-  const { data: activeRows, error: activeRowsError } = await supabase
+  const { data: activeProfileRows, error: activeProfileRowsError } = await supabase
     .from("premium_entitlements")
     .select("id, metadata")
     .eq("scope", "profile")
@@ -274,7 +324,10 @@ export const revokePremiumByTelegramUserId = async (params: {
     .eq("status", "active")
     .returns<PremiumEntitlementActiveRow[]>();
 
-  if (activeRowsError?.code === "42P01" || activeRowsError?.code === "PGRST205") {
+  if (
+    activeProfileRowsError?.code === "42P01" ||
+    activeProfileRowsError?.code === "PGRST205"
+  ) {
     return {
       ok: false,
       reason: "FOUNDATION_NOT_READY",
@@ -283,13 +336,46 @@ export const revokePremiumByTelegramUserId = async (params: {
     };
   }
 
-  if (activeRowsError || !activeRows) {
+  if (activeProfileRowsError || !activeProfileRows) {
     return {
       ok: false,
       reason: "ACTION_FAILED",
       message: "Failed to read active premium entitlements for target.",
     };
   }
+
+  const workspaceId = profileResult.data.activeWorkspaceId?.trim() ?? "";
+  let activeWorkspaceRows: PremiumEntitlementActiveRow[] = [];
+  if (uuidLikePattern.test(workspaceId)) {
+    const { data: workspaceRows, error: workspaceRowsError } = await supabase
+      .from("premium_entitlements")
+      .select("id, metadata")
+      .eq("scope", "workspace")
+      .eq("workspace_id", workspaceId)
+      .eq("status", "active")
+      .returns<PremiumEntitlementActiveRow[]>();
+
+    if (workspaceRowsError) {
+      return {
+        ok: false,
+        reason: "ACTION_FAILED",
+        message: "Failed to read active workspace entitlements for target.",
+      };
+    }
+
+    activeWorkspaceRows = workspaceRows ?? [];
+  }
+
+  const rowMap = new Map<string, PremiumEntitlementActiveRow>();
+  for (const row of activeProfileRows) {
+    rowMap.set(row.id, row);
+  }
+
+  for (const row of activeWorkspaceRows) {
+    rowMap.set(row.id, row);
+  }
+
+  const activeRows = [...rowMap.values()];
 
   const note = params.note?.trim() ?? "";
   let revokedCount = 0;
@@ -324,7 +410,10 @@ export const revokePremiumByTelegramUserId = async (params: {
     revokedCount += 1;
   }
 
-  const targetResult = await toTargetPayload(profileResult.data);
+  const targetResult = await readTargetPayloadWithExpectation(
+    profileResult.data,
+    false,
+  );
   if (!targetResult.ok) {
     return targetResult;
   }
