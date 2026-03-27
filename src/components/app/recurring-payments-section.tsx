@@ -693,12 +693,12 @@ export function RecurringPaymentsSection({
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">Recurring Payments</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 11B
+          Phase 11C
         </span>
       </div>
       {workspace && (
         <p className="mb-3 text-xs text-app-text-muted">
-          Current workspace: {workspace.title} ({workspace.kind})
+          Workspace: {workspace.title} ({workspace.kind})
         </p>
       )}
 
@@ -711,7 +711,7 @@ export function RecurringPaymentsSection({
           {isFamilyWorkspace && (
             <details className="mb-2 rounded-xl border border-app-border bg-app-surface-soft px-3 py-2">
               <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                Family shared payment help
+                Shared payment help
               </summary>
               <p className="mt-1 text-xs text-app-text-muted">
                 Shared cards use Who pays for responsibility and Paid by for who marked
@@ -723,9 +723,6 @@ export function RecurringPaymentsSection({
             <div className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                 Family readiness snapshot
-              </p>
-              <p className="mt-1 text-xs text-app-text-muted">
-                Quick readiness view for this household.
               </p>
               <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
                 <div className="rounded-xl bg-white p-2">
@@ -760,17 +757,12 @@ export function RecurringPaymentsSection({
             </div>
           )}
           {isFamilyWorkspace && (
-            <div className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+            <details className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                 Household members for who pays
-              </p>
-              <p className="mt-1 text-sm text-app-text">
-                Members in this family workspace:{" "}
-                <span className="font-semibold">{workspace?.memberCount ?? 0}</span>
-              </p>
-              <p className="mt-1 text-xs text-app-text-muted">
-                Shared payments belong to this household. Who pays can be selected only
-                from members listed here.
+              </summary>
+              <p className="mt-2 text-sm text-app-text">
+                Members: <span className="font-semibold">{workspace?.memberCount ?? 0}</span>
               </p>
               {responsiblePayerOptions.length === 0 ? (
                 <p className="mt-2 text-xs text-app-text-muted">
@@ -801,7 +793,7 @@ export function RecurringPaymentsSection({
                     )}
                 </>
               )}
-            </div>
+            </details>
           )}
           {isFamilyWorkspace &&
             !isLoading &&
@@ -817,9 +809,6 @@ export function RecurringPaymentsSection({
                   {familyReadinessSummary.hasCurrentInvite
                     ? "Invite is ready. Next step: add your first shared recurring payment below."
                     : "You can add your first shared recurring payment now, then invite members when needed."}
-                </p>
-                <p className="mt-1 text-xs text-app-text-muted">
-                  Quick Add templates and the create form below already work for this.
                 </p>
               </div>
             )}
@@ -1098,7 +1087,14 @@ export function RecurringPaymentsSection({
             </div>
           </details>
 
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <details
+            className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3"
+            open={editingPaymentId !== null}
+          >
+            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+              {editingPaymentId ? "Edit payment" : "Add payment"}
+            </summary>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <input
               value={form.title}
               onChange={(event) =>
@@ -1295,25 +1291,26 @@ export function RecurringPaymentsSection({
                 className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text"
               >
                 Cancel edit
-              </button>
-            )}
-              <button
+                </button>
+              )}
+            <button
                 type="button"
                 onClick={loadPayments}
                 disabled={isLoading}
                 className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text"
               >
-              Refresh section
+                Refresh section
               </button>
-            <button
-              type="button"
-              onClick={resetForm}
-              disabled={isSaving}
-              className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-70"
-            >
-              Clear form
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={resetForm}
+                disabled={isSaving}
+                className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-70"
+              >
+                Clear form
+              </button>
+            </div>
+          </details>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
@@ -1407,9 +1404,7 @@ export function RecurringPaymentsSection({
                           <p className="text-sm text-app-text-muted">
                             Who pays: {responsiblePayerName}
                           </p>
-                        ) : (
-                          <p className="text-sm text-app-text-muted">Personal payment</p>
-                        )}
+                        ) : null}
                         <p className="text-sm text-app-text-muted">
                           Current cycle: {payment.currentCycle.state}. Due{" "}
                           {formatDueDate(payment.currentCycle.dueDate)}
@@ -1441,17 +1436,17 @@ export function RecurringPaymentsSection({
                               Economics: aligned (responsible payer paid this cycle).
                             </p>
                           )}
-                        <p className="text-xs text-app-text-muted">
-                          Reminders:{" "}
-                          {payment.remindersEnabled
-                            ? `on (before ${payment.remindDaysBefore}d, due day ${payment.remindOnDueDay ? "yes" : "no"}, overdue ${payment.remindOnOverdue ? "yes" : "no"})`
-                            : "off"}
-                        </p>
-                        {payment.notes && (
-                          <p className="mt-1 text-xs text-app-text-muted">
-                            {payment.notes}
+                        <details className="mt-1 rounded-xl border border-app-border bg-white px-2 py-1.5 text-xs text-app-text-muted">
+                          <summary className="cursor-pointer font-semibold text-app-text">
+                            Reminder settings
+                          </summary>
+                          <p className="mt-1">
+                            {payment.remindersEnabled
+                              ? `On (before ${payment.remindDaysBefore}d, due day ${payment.remindOnDueDay ? "yes" : "no"}, overdue ${payment.remindOnOverdue ? "yes" : "no"})`
+                              : "Off"}
                           </p>
-                        )}
+                          {payment.notes && <p className="mt-1">{payment.notes}</p>}
+                        </details>
                       </div>
                       <div className="flex flex-wrap gap-2 sm:justify-end">
                         <button

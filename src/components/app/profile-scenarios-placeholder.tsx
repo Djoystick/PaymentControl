@@ -186,7 +186,7 @@ export function ProfileScenariosPlaceholder() {
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">Profile</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 11B
+          Phase 11C
         </span>
       </div>
       <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
@@ -250,8 +250,7 @@ export function ProfileScenariosPlaceholder() {
               {workspace.title}
             </p>
             <p className="mt-1 text-sm text-app-text-muted">
-              Kind: {workspace.kind}. Role: {workspace.memberRole}. Members: {" "}
-              {workspace.memberCount}.
+              {workspace.kind} workspace. Role: {workspace.memberRole}. Members: {workspace.memberCount}.
             </p>
           </>
         ) : (
@@ -342,7 +341,7 @@ export function ProfileScenariosPlaceholder() {
               Family next step
             </p>
             <p className="text-xs text-app-text-muted">
-              Create a family workspace or join by invite token.
+              Create family workspace or join by invite token.
             </p>
             {isVirtualWorkspace ? (
               <p className="text-xs text-app-text-muted">
@@ -379,7 +378,7 @@ export function ProfileScenariosPlaceholder() {
                 className="w-full rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
               />
               <p className="text-[11px] text-app-text-muted">
-                Token preview:{" "}
+                Preview:{" "}
                 {inviteTokenInput.trim()
                   ? maskInviteToken(inviteTokenInput)
                   : "empty"}
@@ -507,10 +506,6 @@ export function ProfileScenariosPlaceholder() {
           ))}
         </div>
       </details>
-      <p className="mt-3 text-xs text-app-text-muted">
-        Context switching is workspace-driven in this phase. Scenario cards no
-        longer act as a separate switch.
-      </p>
       {actionMessage && (
         <p className="mt-2 text-xs font-medium text-app-text">{actionMessage}</p>
       )}

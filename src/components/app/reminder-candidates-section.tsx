@@ -435,7 +435,7 @@ export function ReminderCandidatesSection({
           {isFamilyWorkspace ? "Reminder Visibility" : "Reminder Candidates"}
         </h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 11B
+          Phase 11C
         </span>
       </div>
 
@@ -450,10 +450,6 @@ export function ReminderCandidatesSection({
               <div className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                   Family reminder visibility
-                </p>
-                <p className="mt-1 text-xs text-app-text-muted">
-                  Dispatch and test-send actions are still available in personal
-                  reminder flow.
                 </p>
               </div>
 
@@ -496,10 +492,7 @@ export function ReminderCandidatesSection({
                 </div>
               </div>
               <p className="mt-2 text-xs text-app-text-muted">
-                Paid-cycle economics mismatch hints:{" "}
-                <span className="font-semibold text-app-text">
-                  {familyVisibilitySummary.paidByMismatchCount}
-                </span>
+                Mismatch hints: {familyVisibilitySummary.paidByMismatchCount}.
               </p>
 
               <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
@@ -518,10 +511,6 @@ export function ReminderCandidatesSection({
                   </p>
                 ) : (
                   <>
-                    <p className="mt-2 text-sm text-app-text-muted">
-                      Shared reminder setup is visible. Items below need the most
-                      attention right now.
-                    </p>
                     {familyVisibilitySummary.attentionItems.length > 0 ? (
                       <ul className="mt-2 space-y-1">
                         {familyVisibilitySummary.attentionItems.map((payment) => (
@@ -595,29 +584,6 @@ export function ReminderCandidatesSection({
               {readiness?.deliveryReady ? "yes" : "no"}.
             </p>
             <p className="mt-1 text-xs text-app-text-muted">
-              Source: {readiness?.recipientSource ?? "unknown"}. Binding:{" "}
-              {readiness?.bindingStatus ?? "unknown"}
-              {readiness?.bindingVerifiedAt
-                ? `. Verified at ${new Date(readiness.bindingVerifiedAt).toLocaleString()}`
-                : ""}
-            </p>
-            <p className="mt-1 text-xs text-app-text-muted">
-              Diagnostic source: {readiness?.recipientDiagnosticSource ?? "unknown"}.
-              Type: {readiness?.recipientType ?? "unknown"}. Preview:{" "}
-              {readiness?.recipientPreview ?? "none"}
-            </p>
-            <p className="mt-1 text-xs text-app-text-muted">
-              Binding diagnostic status:{" "}
-              {readiness?.bindingDiagnosticStatus ?? "unknown"}
-            </p>
-            <p className="mt-1 text-xs text-app-text-muted">
-              Active recipient source:{" "}
-              {readiness?.bindingStatus === "verified" &&
-              readiness?.recipientSource === "stored_chat_id"
-                ? "verified stored chat id (authoritative)"
-                : readiness?.recipientSource ?? "unknown"}
-            </p>
-            <p className="mt-1 text-xs text-app-text-muted">
               Status: {readiness?.code ?? "unknown"}
               {readiness?.message ? `. ${readiness.message}` : ""}
             </p>
@@ -626,20 +592,47 @@ export function ReminderCandidatesSection({
                 Delivery path is healthy for the current recipient.
               </p>
             )}
-            {readiness?.bindingReason && (
-              <p className="mt-1 text-xs text-app-text-muted">
-                Binding reason: {readiness.bindingReason}
-                {readiness.bindingReasonIsInference ? " (inference)" : ""}
+            <details className="mt-2 rounded-xl border border-app-border bg-app-surface px-2 py-2 text-xs text-app-text-muted">
+              <summary className="cursor-pointer font-semibold text-app-text">
+                Diagnostics and dispatch observation
+              </summary>
+              <p className="mt-2">
+                Source: {readiness?.recipientSource ?? "unknown"}. Binding:{" "}
+                {readiness?.bindingStatus ?? "unknown"}
+                {readiness?.bindingVerifiedAt
+                  ? `. Verified at ${new Date(readiness.bindingVerifiedAt).toLocaleString()}`
+                  : ""}
+                .
               </p>
-            )}
-            {readiness?.lastErrorCode && (
-              <p className="mt-1 text-xs text-app-text-muted">
-                Last error: {readiness.lastErrorCode}
-                {readiness.lastErrorMessage ? `. ${readiness.lastErrorMessage}` : ""}
+              <p className="mt-1">
+                Diagnostic source: {readiness?.recipientDiagnosticSource ?? "unknown"}.
+                Type: {readiness?.recipientType ?? "unknown"}. Preview:{" "}
+                {readiness?.recipientPreview ?? "none"}.
               </p>
-            )}
-            <div className="mt-2 rounded-xl border border-app-border bg-app-surface px-2 py-2 text-xs text-app-text-muted">
-              <p className="font-semibold text-app-text">Scheduled dispatch observation</p>
+              <p className="mt-1">
+                Binding diagnostic status: {readiness?.bindingDiagnosticStatus ?? "unknown"}.
+              </p>
+              <p className="mt-1">
+                Active recipient source:{" "}
+                {readiness?.bindingStatus === "verified" &&
+                readiness?.recipientSource === "stored_chat_id"
+                  ? "verified stored chat id (authoritative)"
+                  : readiness?.recipientSource ?? "unknown"}
+                .
+              </p>
+              {readiness?.bindingReason && (
+                <p className="mt-1">
+                  Binding reason: {readiness.bindingReason}
+                  {readiness.bindingReasonIsInference ? " (inference)" : ""}
+                </p>
+              )}
+              {readiness?.lastErrorCode && (
+                <p className="mt-1">
+                  Last error: {readiness.lastErrorCode}
+                  {readiness.lastErrorMessage ? `. ${readiness.lastErrorMessage}` : ""}
+                </p>
+              )}
+              <p className="mt-2 font-semibold text-app-text">Scheduled dispatch observation</p>
               {scheduledDispatchObservation.latestScheduledAttempt ? (
                 <p className="mt-1">
                   Last scheduled attempt:{" "}
@@ -655,9 +648,7 @@ export function ReminderCandidatesSection({
                   ).
                 </p>
               ) : (
-                <p className="mt-1">
-                  No scheduled attempts in current snapshot.
-                </p>
+                <p className="mt-1">No scheduled attempts in current snapshot.</p>
               )}
               <p className="mt-1">
                 Snapshot: {scheduledDispatchObservation.scheduledAttemptsCountInSnapshot}{" "}
@@ -667,19 +658,19 @@ export function ReminderCandidatesSection({
                 This is an operational snapshot only. Long-horizon cron health still requires
                 repeated production checks over time.
               </p>
-            </div>
+            </details>
           </div>
 
-          <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              Telegram Onboarding
-            </p>
-            <p className="mt-1 text-xs text-app-text-muted">
+          <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+              Telegram onboarding help
+            </summary>
+            <p className="mt-2 text-xs text-app-text-muted">
               To receive reminders, open the bot in Telegram and press Start.
             </p>
             {clientEnv.telegramBotUsername ? (
               <>
-                <p className="mt-1 text-xs text-app-text-muted">
+                <p className="mt-2 text-xs text-app-text-muted">
                   Bot username: @{clientEnv.telegramBotUsername}
                 </p>
                 <a
@@ -695,15 +686,15 @@ export function ReminderCandidatesSection({
               <p className="mt-1 text-xs text-app-text-muted">
                 Bot username is not configured in public env. Set
                 ` NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ` and restart dev server.
-              </p>
-            )}
-          </div>
+                </p>
+              )}
+          </details>
 
-          <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              Recipient Binding Verification
-            </p>
-            <p className="mt-1 text-xs text-app-text-muted">
+          <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+              Recipient binding verification
+            </summary>
+            <p className="mt-2 text-xs text-app-text-muted">
               Optional: enter numeric private chat id to override recipient binding and verify delivery path.
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -729,7 +720,7 @@ export function ReminderCandidatesSection({
                 Verify binding
               </button>
             </div>
-          </div>
+          </details>
 
           <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
             <p className="text-xs text-app-text-muted">
@@ -754,7 +745,7 @@ export function ReminderCandidatesSection({
             )}
           </div>
 
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={loadCandidates}
@@ -807,14 +798,17 @@ export function ReminderCandidatesSection({
           </div>
 
           {lastDispatchSummary && (
-            <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3 text-xs text-app-text-muted">
+            <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3 text-xs text-app-text-muted">
+              <summary className="cursor-pointer font-semibold text-app-text">
+                Last dispatch result
+              </summary>
               <p
-                className={
+                className={`mt-2 ${
                   lastDispatchSummary.failedCount === 0 &&
                   lastDispatchSummary.sentCount > 0
                     ? "font-semibold text-emerald-700"
                     : "font-semibold text-app-text"
-                }
+                }`}
               >
                 Dispatch result:{" "}
                 {lastDispatchSummary.failedCount === 0 &&
@@ -833,19 +827,22 @@ export function ReminderCandidatesSection({
                 {lastDispatchSummary.skippedCount}, failed{" "}
                 {lastDispatchSummary.failedCount}.
               </p>
-            </div>
+            </details>
           )}
 
           {lastTestStatus && (
-            <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3 text-xs text-app-text-muted">
+            <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3 text-xs text-app-text-muted">
+              <summary className="cursor-pointer font-semibold text-app-text">
+                Last test send
+              </summary>
               <p
-                className={
+                className={`mt-2 ${
                   lastTestStatus.status === "sent"
                     ? "font-semibold text-emerald-700"
                     : lastTestStatus.status === "failed"
                       ? "font-semibold text-rose-700"
                       : "font-semibold text-amber-700"
-                }
+                }`}
               >
                 Last test send: {lastTestStatus.status.toUpperCase()}
               </p>
@@ -860,12 +857,15 @@ export function ReminderCandidatesSection({
                   : ""}
                 {lastTestStatus.diagnosticIsInference ? " (inference)" : ""}
               </p>
-            </div>
+            </details>
           )}
 
           {lastBindingVerifyStatus && (
-            <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3 text-xs text-app-text-muted">
-              <p>
+            <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3 text-xs text-app-text-muted">
+              <summary className="cursor-pointer font-semibold text-app-text">
+                Last binding verify
+              </summary>
+              <p className="mt-2">
                 Last binding verify: {lastBindingVerifyStatus.status}
                 {lastBindingVerifyStatus.errorCode
                   ? ` | ${lastBindingVerifyStatus.errorCode}`
@@ -881,15 +881,15 @@ export function ReminderCandidatesSection({
                   : ""}
                 {lastBindingVerifyStatus.diagnosticIsInference ? " (inference)" : ""}
               </p>
-            </div>
+            </details>
           )}
 
           {recentAttempts.length > 0 && (
-            <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                Recent Attempts
-              </p>
-              <p className="mt-1 text-xs text-app-text-muted">
+            <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                Recent attempts ({recentAttempts.length})
+              </summary>
+              <p className="mt-2 text-xs text-app-text-muted">
                 Auto-refreshed by `Refresh delivery status`.
               </p>
               <ul className="mt-2 space-y-1">
@@ -922,7 +922,7 @@ export function ReminderCandidatesSection({
                   );
                 })}
               </ul>
-            </div>
+            </details>
           )}
             </>
           )}

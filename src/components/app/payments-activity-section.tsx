@@ -246,7 +246,7 @@ export function PaymentsActivitySection({
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">Activity</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 11B
+          Phase 11C
         </span>
       </div>
 
@@ -256,28 +256,27 @@ export function PaymentsActivitySection({
         </p>
       ) : (
         <>
-          <div className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              {isFamilyWorkspace
-                ? "Family workspace activity"
-                : "Personal workspace activity"}
-            </p>
-            <p className="mt-1 text-xs text-app-text-muted">
-              Payments in scope: {scopedPaymentsCount}. Recent items shown:{" "}
-              {activityItems.length}.
-            </p>
-            {isFamilyWorkspace && sharedWhoPaysSummary && (
-              <p className="mt-1 text-xs text-app-text-muted">
-                Who pays assigned: {sharedWhoPaysSummary.assignedCount}. Not assigned:{" "}
-                {sharedWhoPaysSummary.unassignedCount}.
-              </p>
-            )}
-            {isFamilyWorkspace && (
-              <p className="mt-1 text-xs text-app-text-muted">
-                Paid-cycle mismatch hints: {paidByMismatchCount}.
-              </p>
-            )}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-app-surface-soft p-2">
+              <p className="text-[11px] text-app-text-muted">In scope</p>
+              <p className="text-base font-semibold text-app-text">{scopedPaymentsCount}</p>
+            </div>
+            <div className="rounded-xl bg-app-surface-soft p-2">
+              <p className="text-[11px] text-app-text-muted">Recent events</p>
+              <p className="text-base font-semibold text-app-text">{activityItems.length}</p>
+            </div>
           </div>
+          {isFamilyWorkspace && sharedWhoPaysSummary && (
+            <details className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                Family activity context
+              </summary>
+              <p className="mt-2 text-xs text-app-text-muted">
+                Who pays assigned: {sharedWhoPaysSummary.assignedCount}. Missing:{" "}
+                {sharedWhoPaysSummary.unassignedCount}. Mismatch hints: {paidByMismatchCount}.
+              </p>
+            </details>
+          )}
 
           <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
             {scopedPaymentsCount === 0 ? (
@@ -317,18 +316,20 @@ export function PaymentsActivitySection({
                     return (
                       <li
                         key={item.id}
-                        className="rounded-xl bg-app-surface px-2 py-1.5 text-xs text-app-text"
+                        className="rounded-xl bg-app-surface px-2 py-2 text-xs text-app-text"
                       >
-                        <p>
-                          <span className="font-semibold">{item.label}</span>{" "}
-                          <span className="font-medium">{item.title}</span>
-                        </p>
-                        <p className="text-app-text-muted">
-                          {formatDateTime(item.timestamp)}
-                        </p>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="rounded-full border border-app-border px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
+                            {item.label}
+                          </span>
+                          <span className="text-[11px] text-app-text-muted">
+                            {formatDateTime(item.timestamp)}
+                          </span>
+                        </div>
+                        <p className="mt-1 font-medium text-app-text">{item.title}</p>
                         {isFamilyWorkspace && (
-                          <p className="text-app-text-muted">
-                            Scope: shared payment. Who pays: {responsiblePayerName}
+                          <p className="mt-1 text-app-text-muted">
+                            Who pays: {responsiblePayerName}
                             {item.kind === "paid_cycle"
                               ? `. Paid by: ${paidByName ?? "not captured"}`
                               : "."}

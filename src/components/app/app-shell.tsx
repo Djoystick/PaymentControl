@@ -143,7 +143,7 @@ export function AppShell({ screens }: AppShellProps) {
             Foundation for recurring payments and household tracking
           </p>
           <span className="rounded-full bg-app-warm px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-app-text">
-            Phase 11B
+            Phase 11C
           </span>
         </div>
       </header>

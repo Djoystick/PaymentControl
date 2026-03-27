@@ -143,7 +143,7 @@ export function PaymentsDashboardSection({
           {isCompact ? "Payment snapshot" : "Dashboard"}
         </h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 11B
+          Phase 11C
         </span>
       </div>
 
@@ -155,18 +155,8 @@ export function PaymentsDashboardSection({
         <>
           {isCompact ? (
             <>
-              <p className="mb-3 text-xs text-app-text-muted">
-                {isFamilyWorkspace
-                  ? "Compact family snapshot for quick decision-making."
-                  : "Compact personal snapshot for quick decision-making."}
-              </p>
-
               {dashboard && (
-                <div
-                  className={`grid grid-cols-3 gap-2 ${
-                    isFamilyWorkspace ? "md:grid-cols-6" : "md:grid-cols-5"
-                  }`}
-                >
+                <div className="grid grid-cols-3 gap-2">
                   <div className="rounded-xl bg-app-surface-soft p-2">
                     <p className="text-[11px] text-app-text-muted">Due today</p>
                     <p className="text-base font-semibold text-app-text">
@@ -185,41 +175,36 @@ export function PaymentsDashboardSection({
                       {dashboard.summary.overdueCount}
                     </p>
                   </div>
-                  <div className="rounded-xl bg-app-surface-soft p-2">
-                    <p className="text-[11px] text-app-text-muted">Paid</p>
-                    <p className="text-base font-semibold text-app-text">
-                      {dashboard.summary.paidThisCycleCount}
-                    </p>
-                  </div>
-                  <div className="rounded-xl bg-app-surface-soft p-2">
-                    <p className="text-[11px] text-app-text-muted">Unpaid</p>
-                    <p className="text-base font-semibold text-app-text">
-                      {dashboard.summary.unpaidThisCycleCount}
-                    </p>
-                  </div>
-                  {isFamilyWorkspace && (
-                    <div className="rounded-xl bg-app-surface-soft p-2">
-                      <p className="text-[11px] text-app-text-muted">Mismatch</p>
-                      <p className="text-base font-semibold text-app-text">
-                        {dashboard.summary.paidByMismatchCount}
-                      </p>
-                    </div>
-                  )}
                 </div>
               )}
 
-              <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
-                <DashboardBucket
-                  title="Due today"
-                  items={(dashboard?.dueToday ?? []).slice(0, 3)}
-                  emptyLabel="No unpaid payments due today."
-                />
-                <DashboardBucket
-                  title={`Upcoming (${dashboard?.summary.upcomingWindowDays ?? 0}d)`}
-                  items={(dashboard?.upcoming ?? []).slice(0, 3)}
-                  emptyLabel="No unpaid upcoming payments."
-                />
-              </div>
+              {dashboard && (
+                <p className="mt-2 text-xs text-app-text-muted">
+                  Paid {dashboard.summary.paidThisCycleCount} | Unpaid{" "}
+                  {dashboard.summary.unpaidThisCycleCount}
+                  {isFamilyWorkspace
+                    ? ` | Mismatch ${dashboard.summary.paidByMismatchCount}`
+                    : ""}
+                </p>
+              )}
+
+              <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                  Due now details
+                </summary>
+                <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+                  <DashboardBucket
+                    title="Due today"
+                    items={(dashboard?.dueToday ?? []).slice(0, 3)}
+                    emptyLabel="No unpaid payments due today."
+                  />
+                  <DashboardBucket
+                    title={`Overdue`}
+                    items={(dashboard?.overdue ?? []).slice(0, 3)}
+                    emptyLabel="No overdue unpaid payments."
+                  />
+                </div>
+              </details>
 
               <div className="mt-3 flex items-center gap-2">
                 <button
