@@ -544,7 +544,7 @@ export function RecurringPaymentsSection({
     setForm(formFromTemplate(template));
     setFeedback(
       tr('Template "{template}" applied. Review and add payment.', {
-        template: template.label,
+        template: tr(template.label),
       }),
     );
   };
@@ -725,7 +725,7 @@ export function RecurringPaymentsSection({
       </div>
       {workspace && (
         <p className="mb-3 text-xs text-app-text-muted">
-          {tr("Workspace")}: {workspace.title} ({workspace.kind})
+          {tr("Workspace")}: {workspace.title} ({tr(workspace.kind)})
         </p>
       )}
 
@@ -865,7 +865,7 @@ export function RecurringPaymentsSection({
                   disabled={isSaving}
                   className="rounded-full border border-app-border bg-white px-3 py-1 text-xs font-medium text-app-text disabled:opacity-60"
                 >
-                  {template.label}
+                  {tr(template.label)}
                   {template.isSubscription ? ` - ${tr("Sub")}` : ""}
                 </button>
               ))}
