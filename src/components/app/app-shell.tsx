@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useLocalization } from "@/lib/i18n/localization";
 
 type AppShellProps = {
   screens: Record<AppTab, React.ReactNode>;
@@ -51,6 +52,7 @@ const onboardingSteps: OnboardingStep[] = [
 ];
 
 export function AppShell({ screens }: AppShellProps) {
+  const { tr } = useLocalization();
   const [activeTab, setActiveTab] = useState<AppTab>("home");
   const [isOnboardingVisible, setIsOnboardingVisible] = useState(false);
   const [onboardingStepIndex, setOnboardingStepIndex] = useState(0);
@@ -133,17 +135,17 @@ export function AppShell({ screens }: AppShellProps) {
     <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-4 pt-5">
       <header className="rounded-3xl border border-app-border bg-app-surface/95 p-4 shadow-sm backdrop-blur">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-app-text-muted">
-          Telegram Mini App
+          {tr("Telegram Mini App")}
         </p>
         <h1 className="mt-2 text-2xl font-bold tracking-tight text-app-text">
-          Payment Control
+          {tr("Payment Control")}
         </h1>
         <div className="mt-1 flex items-center gap-2">
           <p className="text-sm text-app-text-muted">
-            Foundation for recurring payments and household tracking
+            {tr("Foundation for recurring payments and household tracking")}
           </p>
           <span className="rounded-full bg-app-warm px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-app-text">
-            Phase 11D
+            {tr("Phase 12A")}
           </span>
         </div>
       </header>
@@ -168,7 +170,7 @@ export function AppShell({ screens }: AppShellProps) {
                   : "bg-app-surface-soft text-app-text-muted"
               }`}
             >
-              {tab.label}
+              {tr(tab.label)}
             </button>
           ))}
         </div>
@@ -178,16 +180,19 @@ export function AppShell({ screens }: AppShellProps) {
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-3xl border border-app-border bg-app-surface p-4 shadow-lg">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-app-text-muted">
-              Quick start
+              {tr("Quick start")}
             </p>
             <p className="mt-1 text-base font-semibold text-app-text">
-              {activeOnboardingStep.title}
+              {tr(activeOnboardingStep.title)}
             </p>
             <p className="mt-1 text-sm text-app-text-muted">
-              {activeOnboardingStep.description}
+              {tr(activeOnboardingStep.description)}
             </p>
             <p className="mt-2 text-[11px] text-app-text-muted">
-              Step {onboardingStepIndex + 1} of {onboardingSteps.length}
+              {tr("Step {current} of {total}", {
+                current: onboardingStepIndex + 1,
+                total: onboardingSteps.length,
+              })}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button
@@ -195,7 +200,7 @@ export function AppShell({ screens }: AppShellProps) {
                 onClick={closeOnboarding}
                 className="rounded-xl border border-app-border px-3 py-2 text-xs font-semibold text-app-text"
               >
-                Skip
+                {tr("Skip")}
               </button>
               {onboardingStepIndex > 0 && (
                 <button
@@ -203,7 +208,7 @@ export function AppShell({ screens }: AppShellProps) {
                   onClick={() => setOnboardingStepIndex((current) => current - 1)}
                   className="rounded-xl border border-app-border px-3 py-2 text-xs font-semibold text-app-text"
                 >
-                  Back
+                  {tr("Back")}
                 </button>
               )}
               <button
@@ -217,7 +222,7 @@ export function AppShell({ screens }: AppShellProps) {
                 }}
                 className="rounded-xl bg-app-accent px-3 py-2 text-xs font-semibold text-white"
               >
-                {isLastOnboardingStep ? "Finish" : "Next"}
+                {isLastOnboardingStep ? tr("Finish") : tr("Next")}
               </button>
             </div>
           </div>
@@ -226,3 +231,4 @@ export function AppShell({ screens }: AppShellProps) {
     </div>
   );
 }
+

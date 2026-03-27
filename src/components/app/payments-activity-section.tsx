@@ -6,6 +6,7 @@ import {
   PAYMENTS_CHANGED_EVENT,
   listRecurringPayments,
 } from "@/lib/payments/client";
+import { useLocalization } from "@/lib/i18n/localization";
 import type {
   RecurringPaymentPayload,
   WorkspaceResponsiblePayerOptionPayload,
@@ -40,9 +41,10 @@ const formatDateTime = (value: string): string => {
 const resolveResponsiblePayerDisplayName = (
   responsibleProfileId: string | null,
   responsiblePayerOptions: WorkspaceResponsiblePayerOptionPayload[],
+  labels: { notAssigned: string; missingMember: string },
 ): string => {
   if (!responsibleProfileId) {
-    return "Not assigned yet";
+    return labels.notAssigned;
   }
 
   const responsible = responsiblePayerOptions.find(
@@ -52,7 +54,7 @@ const resolveResponsiblePayerDisplayName = (
     return responsible.displayName;
   }
 
-  return "Assigned member is no longer in this family workspace";
+  return labels.missingMember;
 };
 
 const buildActivityItems = (
@@ -130,6 +132,7 @@ export function PaymentsActivitySection({
   workspace,
   initData,
 }: PaymentsActivitySectionProps) {
+  const { tr } = useLocalization();
   const [payments, setPayments] = useState<RecurringPaymentPayload[]>([]);
   const [responsiblePayerOptions, setResponsiblePayerOptions] = useState<
     WorkspaceResponsiblePayerOptionPayload[]
@@ -141,18 +144,20 @@ export function PaymentsActivitySection({
 
   const workspaceUnavailable = useMemo(() => {
     if (!workspace) {
-      return "Load current workspace first to view activity.";
+      return tr("Load current workspace first to view activity.");
     }
 
     if (
       workspace.kind === "personal" &&
       workspace.id.startsWith("virtual-personal-")
     ) {
-      return "Workspace persistence is not initialized. Apply workspace migrations first.";
+      return tr(
+        "Workspace persistence is not initialized. Apply workspace migrations first.",
+      );
     }
 
     return null;
-  }, [workspace]);
+  }, [workspace, tr]);
 
   const activityItems = useMemo(
     () => buildActivityItems(payments, isFamilyWorkspace),
@@ -219,12 +224,12 @@ export function PaymentsActivitySection({
       setPayments(result.payments);
       setResponsiblePayerOptions(result.responsiblePayerOptions);
     } catch {
-      setFeedback("Failed to load recent activity.");
+      setFeedback(tr("Failed to load recent activity."));
       setResponsiblePayerOptions([]);
     } finally {
       setIsLoading(false);
     }
-  }, [initData, workspaceUnavailable]);
+  }, [initData, tr, workspaceUnavailable]);
 
   useEffect(() => {
     loadActivity();
@@ -244,9 +249,9 @@ export function PaymentsActivitySection({
   return (
     <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-app-text">History</h2>
+        <h2 className="text-base font-semibold text-app-text">{tr("History")}</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 11D
+          {tr("Phase 12A")}
         </span>
       </div>
 
@@ -258,22 +263,22 @@ export function PaymentsActivitySection({
         <>
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-xl bg-app-surface-soft p-2">
-              <p className="text-[11px] text-app-text-muted">In scope</p>
+              <p className="text-[11px] text-app-text-muted">{tr("In scope")}</p>
               <p className="text-base font-semibold text-app-text">{scopedPaymentsCount}</p>
             </div>
             <div className="rounded-xl bg-app-surface-soft p-2">
-              <p className="text-[11px] text-app-text-muted">Recent events</p>
+              <p className="text-[11px] text-app-text-muted">{tr("Recent events")}</p>
               <p className="text-base font-semibold text-app-text">{activityItems.length}</p>
             </div>
           </div>
           {isFamilyWorkspace && sharedWhoPaysSummary && (
             <details className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
               <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                Family activity context
+                {tr("Family activity context")}
               </summary>
               <p className="mt-2 text-xs text-app-text-muted">
-                Who pays assigned: {sharedWhoPaysSummary.assignedCount}. Missing:{" "}
-                {sharedWhoPaysSummary.unassignedCount}. Mismatch hints: {paidByMismatchCount}.
+                {tr("Who pays assigned")}: {sharedWhoPaysSummary.assignedCount}. {tr("Missing")}:{" "}
+                {sharedWhoPaysSummary.unassignedCount}. {tr("Mismatch hints")}: {paidByMismatchCount}.
               </p>
             </details>
           )}
@@ -281,18 +286,22 @@ export function PaymentsActivitySection({
           <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
             {scopedPaymentsCount === 0 ? (
               <div className="space-y-1">
-                <p className="text-sm font-semibold text-app-text">History is empty</p>
+                <p className="text-sm font-semibold text-app-text">{tr("History is empty")}</p>
                 <p className="text-sm text-app-text-muted">
                   {isFamilyWorkspace
-                    ? "Add the first shared payment in Reminders. Events will appear here after updates."
-                    : "Add your first payment in Reminders. Events will appear here after updates."}
+                    ? tr(
+                        "Add the first shared payment in Reminders. Events will appear here after updates.",
+                      )
+                    : tr(
+                        "Add your first payment in Reminders. Events will appear here after updates.",
+                      )}
                 </p>
               </div>
             ) : activityItems.length === 0 ? (
               <div className="space-y-1">
-                <p className="text-sm font-semibold text-app-text">No recent updates yet</p>
+                <p className="text-sm font-semibold text-app-text">{tr("No recent updates yet")}</p>
                 <p className="text-sm text-app-text-muted">
-                  Mark paid or edit a payment in Reminders to populate History.
+                  {tr("Mark paid or edit a payment in Reminders to populate History.")}
                 </p>
               </div>
             ) : (
@@ -303,6 +312,12 @@ export function PaymentsActivitySection({
                       ? resolveResponsiblePayerDisplayName(
                           item.responsibleProfileId,
                           responsiblePayerOptions,
+                          {
+                            notAssigned: tr("Not assigned yet"),
+                            missingMember: tr(
+                              "Assigned member is no longer in this family workspace",
+                            ),
+                          },
                         )
                       : null;
                     const paidByName =
@@ -310,6 +325,12 @@ export function PaymentsActivitySection({
                         ? resolveResponsiblePayerDisplayName(
                             item.paidByProfileId,
                             responsiblePayerOptions,
+                            {
+                              notAssigned: tr("Not assigned yet"),
+                              missingMember: tr(
+                                "Assigned member is no longer in this family workspace",
+                              ),
+                            },
                           )
                         : null;
                     const hasPaidMismatch =
@@ -326,7 +347,7 @@ export function PaymentsActivitySection({
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="rounded-full border border-app-border px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
-                            {item.label}
+                            {tr(item.label)}
                           </span>
                           <span className="text-[11px] text-app-text-muted">
                             {formatDateTime(item.timestamp)}
@@ -335,16 +356,17 @@ export function PaymentsActivitySection({
                         <p className="mt-1 font-medium text-app-text">{item.title}</p>
                         {isFamilyWorkspace && (
                           <p className="mt-1 text-app-text-muted">
-                            Who pays: {responsiblePayerName}
+                            {tr("Who pays")}: {responsiblePayerName}
                             {item.kind === "paid_cycle"
-                              ? `. Paid by: ${paidByName ?? "not captured"}`
+                              ? `. ${tr("Paid by")}: ${paidByName ?? tr("Not captured")}`
                               : "."}
                           </p>
                         )}
                         {hasPaidMismatch && (
                           <p className="mt-1 text-[11px] font-medium text-amber-700">
-                            Economics hint: {paidByName ?? "Another member"} paid, while
-                            responsibility is on {responsiblePayerName ?? "another member"}.
+                            {tr("Economics hint")}: {paidByName ?? tr("Another member")}{" "}
+                            {tr("paid while responsibility is on")}{" "}
+                            {responsiblePayerName ?? tr("another member")}.
                           </p>
                         )}
                       </li>
@@ -362,13 +384,13 @@ export function PaymentsActivitySection({
               disabled={isLoading}
               className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
             >
-              {isFamilyWorkspace ? "Refresh family section" : "Refresh activity"}
+              {isFamilyWorkspace ? tr("Refresh family section") : tr("Refresh activity")}
             </button>
             {isLoading && (
               <p className="text-xs text-app-text-muted">
                 {isFamilyWorkspace
-                  ? "Loading family activity..."
-                  : "Loading activity..."}
+                  ? tr("Loading family activity...")
+                  : tr("Loading activity...")}
               </p>
             )}
           </div>
@@ -381,3 +403,4 @@ export function PaymentsActivitySection({
     </section>
   );
 }
+

@@ -6,6 +6,7 @@ import {
   PAYMENTS_CHANGED_EVENT,
   readPaymentsDashboard,
 } from "@/lib/payments/client";
+import { useLocalization } from "@/lib/i18n/localization";
 import type {
   DashboardPaymentItemPayload,
   PaymentsDashboardPayload,
@@ -34,10 +35,12 @@ const DashboardBucket = ({
   title,
   items,
   emptyLabel,
+  dueLabel,
 }: {
   title: string;
   items: DashboardPaymentItemPayload[];
   emptyLabel: string;
+  dueLabel: string;
 }) => {
   return (
     <article className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
@@ -53,7 +56,7 @@ const DashboardBucket = ({
             >
               <p className="font-medium">{item.title}</p>
               <p className="text-app-text-muted">
-                {formatAmount(item)} - due {formatDueDate(item.dueDate)}
+                {formatAmount(item)} - {dueLabel} {formatDueDate(item.dueDate)}
               </p>
             </li>
           ))}
@@ -68,6 +71,7 @@ export function PaymentsDashboardSection({
   initData,
   variant = "full",
 }: PaymentsDashboardSectionProps) {
+  const { tr } = useLocalization();
   const [dashboard, setDashboard] = useState<PaymentsDashboardPayload | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -76,18 +80,20 @@ export function PaymentsDashboardSection({
 
   const workspaceUnavailable = useMemo(() => {
     if (!workspace) {
-      return "Load current workspace first to view dashboard.";
+      return tr("Load current workspace first to view dashboard.");
     }
 
     if (
       workspace.kind === "personal" &&
       workspace.id.startsWith("virtual-personal-")
     ) {
-      return "Workspace persistence is not initialized. Apply workspace migrations first.";
+      return tr(
+        "Workspace persistence is not initialized. Apply workspace migrations first.",
+      );
     }
 
     return null;
-  }, [workspace]);
+  }, [workspace, tr]);
 
   const hasAnyActivePayments = useMemo(() => {
     if (!dashboard) {
@@ -115,11 +121,11 @@ export function PaymentsDashboardSection({
 
       setDashboard(result.dashboard);
     } catch {
-      setFeedback("Failed to load dashboard summary.");
+      setFeedback(tr("Failed to load dashboard summary."));
     } finally {
       setIsLoading(false);
     }
-  }, [initData, workspaceUnavailable]);
+  }, [initData, tr, workspaceUnavailable]);
 
   useEffect(() => {
     loadDashboard();
@@ -140,10 +146,10 @@ export function PaymentsDashboardSection({
     <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">
-          {isCompact ? "Payment snapshot" : "Dashboard"}
+          {isCompact ? tr("Payment snapshot") : tr("Dashboard")}
         </h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 11D
+          {tr("Phase 12A")}
         </span>
       </div>
 
@@ -158,19 +164,19 @@ export function PaymentsDashboardSection({
               {dashboard && (
                 <div className="grid grid-cols-3 gap-2">
                   <div className="rounded-xl bg-app-surface-soft p-2">
-                    <p className="text-[11px] text-app-text-muted">Due today</p>
+                    <p className="text-[11px] text-app-text-muted">{tr("Due today")}</p>
                     <p className="text-base font-semibold text-app-text">
                       {dashboard.summary.dueTodayCount}
                     </p>
                   </div>
                   <div className="rounded-xl bg-app-surface-soft p-2">
-                    <p className="text-[11px] text-app-text-muted">Upcoming</p>
+                    <p className="text-[11px] text-app-text-muted">{tr("Upcoming")}</p>
                     <p className="text-base font-semibold text-app-text">
                       {dashboard.summary.upcomingCount}
                     </p>
                   </div>
                   <div className="rounded-xl bg-app-surface-soft p-2">
-                    <p className="text-[11px] text-app-text-muted">Overdue</p>
+                    <p className="text-[11px] text-app-text-muted">{tr("Overdue")}</p>
                     <p className="text-base font-semibold text-app-text">
                       {dashboard.summary.overdueCount}
                     </p>
@@ -181,20 +187,20 @@ export function PaymentsDashboardSection({
               {dashboard && !hasAnyActivePayments && (
                 <div className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
                   <p className="text-sm font-semibold text-app-text">
-                    No payments yet
+                    {tr("No payments yet")}
                   </p>
                   <p className="mt-1 text-xs text-app-text-muted">
-                    Open Reminders and add your first recurring payment.
+                    {tr("Open Reminders and add your first recurring payment.")}
                   </p>
                 </div>
               )}
 
               {dashboard && hasAnyActivePayments && (
                 <p className="mt-2 text-xs text-app-text-muted">
-                  Paid {dashboard.summary.paidThisCycleCount} | Unpaid{" "}
+                  {tr("Paid")} {dashboard.summary.paidThisCycleCount} | {tr("Unpaid")}{" "}
                   {dashboard.summary.unpaidThisCycleCount}
                   {isFamilyWorkspace
-                    ? ` | Mismatch ${dashboard.summary.paidByMismatchCount}`
+                    ? ` | ${tr("Mismatch")} ${dashboard.summary.paidByMismatchCount}`
                     : ""}
                 </p>
               )}
@@ -202,18 +208,20 @@ export function PaymentsDashboardSection({
               {hasAnyActivePayments && (
                 <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
                   <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                    Due now details
+                    {tr("Due now details")}
                   </summary>
                   <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
                     <DashboardBucket
-                      title="Due today"
+                      title={tr("Due today")}
                       items={(dashboard?.dueToday ?? []).slice(0, 3)}
-                      emptyLabel="No unpaid payments due today."
+                      emptyLabel={tr("No unpaid payments due today.")}
+                      dueLabel={tr("Due")}
                     />
                     <DashboardBucket
-                      title={`Overdue`}
+                      title={tr("Overdue")}
                       items={(dashboard?.overdue ?? []).slice(0, 3)}
-                      emptyLabel="No overdue unpaid payments."
+                      emptyLabel={tr("No overdue unpaid payments.")}
+                      dueLabel={tr("Due")}
                     />
                   </div>
                 </details>
@@ -226,10 +234,10 @@ export function PaymentsDashboardSection({
                   disabled={isLoading}
                   className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
                 >
-                  Refresh snapshot
+                  {tr("Refresh snapshot")}
                 </button>
                 {isLoading && (
-                  <p className="text-xs text-app-text-muted">Loading snapshot...</p>
+                  <p className="text-xs text-app-text-muted">{tr("Loading snapshot...")}</p>
                 )}
               </div>
             </>
@@ -238,8 +246,8 @@ export function PaymentsDashboardSection({
               <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                   {isFamilyWorkspace
-                    ? "Family workspace overview"
-                    : "Personal workspace overview"}
+                    ? tr("Family workspace overview")
+                    : tr("Personal workspace overview")}
                 </p>
               </div>
 
@@ -251,7 +259,9 @@ export function PaymentsDashboardSection({
                 >
                   <div className="rounded-xl bg-app-surface-soft p-2">
                     <p className="text-[11px] text-app-text-muted">
-                      {isFamilyWorkspace ? "Shared due today" : "Due today"}
+                      {isFamilyWorkspace
+                        ? `${tr("Shared")} ${tr("Due today").toLowerCase()}`
+                        : tr("Due today")}
                     </p>
                     <p className="text-base font-semibold text-app-text">
                       {dashboard.summary.dueTodayCount}
@@ -259,7 +269,9 @@ export function PaymentsDashboardSection({
                   </div>
                   <div className="rounded-xl bg-app-surface-soft p-2">
                     <p className="text-[11px] text-app-text-muted">
-                      {isFamilyWorkspace ? "Shared upcoming" : "Upcoming"} (
+                      {isFamilyWorkspace
+                        ? `${tr("Shared")} ${tr("Upcoming").toLowerCase()}`
+                        : tr("Upcoming")} (
                       {dashboard.summary.upcomingWindowDays}d)
                     </p>
                     <p className="text-base font-semibold text-app-text">
@@ -268,7 +280,9 @@ export function PaymentsDashboardSection({
                   </div>
                   <div className="rounded-xl bg-app-surface-soft p-2">
                     <p className="text-[11px] text-app-text-muted">
-                      {isFamilyWorkspace ? "Shared overdue" : "Overdue"}
+                      {isFamilyWorkspace
+                        ? `${tr("Shared")} ${tr("Overdue").toLowerCase()}`
+                        : tr("Overdue")}
                     </p>
                     <p className="text-base font-semibold text-app-text">
                       {dashboard.summary.overdueCount}
@@ -276,7 +290,9 @@ export function PaymentsDashboardSection({
                   </div>
                   <div className="rounded-xl bg-app-surface-soft p-2">
                     <p className="text-[11px] text-app-text-muted">
-                      {isFamilyWorkspace ? "Shared paid this cycle" : "Paid this cycle"}
+                      {isFamilyWorkspace
+                        ? `${tr("Shared")} ${tr("Paid").toLowerCase()}`
+                        : tr("Paid")}
                     </p>
                     <p className="text-base font-semibold text-app-text">
                       {dashboard.summary.paidThisCycleCount}
@@ -285,8 +301,8 @@ export function PaymentsDashboardSection({
                   <div className="rounded-xl bg-app-surface-soft p-2">
                     <p className="text-[11px] text-app-text-muted">
                       {isFamilyWorkspace
-                        ? "Shared unpaid this cycle"
-                        : "Unpaid this cycle"}
+                        ? `${tr("Shared")} ${tr("Unpaid").toLowerCase()}`
+                        : tr("Unpaid")}
                     </p>
                     <p className="text-base font-semibold text-app-text">
                       {dashboard.summary.unpaidThisCycleCount}
@@ -295,7 +311,7 @@ export function PaymentsDashboardSection({
                   {isFamilyWorkspace && (
                     <div className="rounded-xl bg-app-surface-soft p-2">
                       <p className="text-[11px] text-app-text-muted">
-                        Paid mismatch hints
+                        {tr("Paid mismatch hints")}
                       </p>
                       <p className="text-base font-semibold text-app-text">
                         {dashboard.summary.paidByMismatchCount}
@@ -307,43 +323,59 @@ export function PaymentsDashboardSection({
 
               {isFamilyWorkspace && dashboard && !hasAnyActivePayments && (
                 <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-                  <p className="text-sm font-semibold text-app-text">
-                    No shared payments yet
+                    <p className="text-sm font-semibold text-app-text">
+                    {tr("No shared recurring payments yet")}
                   </p>
                   <p className="mt-1 text-xs text-app-text-muted">
-                    Add your first shared payment in the recurring section to start
-                    family tracking here.
+                    {tr(
+                      "Add your first shared payment below. Invite members from Profile when needed.",
+                    )}
                   </p>
                 </div>
               )}
 
               <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
                 <DashboardBucket
-                  title={isFamilyWorkspace ? "Shared due today" : "Due today"}
+                  title={
+                    isFamilyWorkspace
+                      ? `${tr("Shared")} ${tr("Due today").toLowerCase()}`
+                      : tr("Due today")
+                  }
                   items={dashboard?.dueToday ?? []}
                   emptyLabel={
                     isFamilyWorkspace
-                      ? "No unpaid shared payments due today."
-                      : "No unpaid payments due today."
+                      ? tr("No unpaid payments due today.")
+                      : tr("No unpaid payments due today.")
                   }
+                  dueLabel={tr("Due")}
                 />
                 <DashboardBucket
-                  title={`${isFamilyWorkspace ? "Shared upcoming" : "Upcoming"} (${dashboard?.summary.upcomingWindowDays ?? 0}d)`}
+                  title={`${
+                    isFamilyWorkspace
+                      ? `${tr("Shared")} ${tr("Upcoming").toLowerCase()}`
+                      : tr("Upcoming")
+                  } (${dashboard?.summary.upcomingWindowDays ?? 0}d)`}
                   items={dashboard?.upcoming ?? []}
                   emptyLabel={
                     isFamilyWorkspace
-                      ? "No unpaid shared payments in upcoming window."
-                      : "No unpaid payments in upcoming window."
+                      ? tr("No unpaid payments in upcoming window.")
+                      : tr("No unpaid payments in upcoming window.")
                   }
+                  dueLabel={tr("Due")}
                 />
                 <DashboardBucket
-                  title={isFamilyWorkspace ? "Shared overdue" : "Overdue"}
+                  title={
+                    isFamilyWorkspace
+                      ? `${tr("Shared")} ${tr("Overdue").toLowerCase()}`
+                      : tr("Overdue")
+                  }
                   items={dashboard?.overdue ?? []}
                   emptyLabel={
                     isFamilyWorkspace
-                      ? "No overdue unpaid shared payments."
-                      : "No overdue unpaid payments."
+                      ? tr("No overdue unpaid payments.")
+                      : tr("No overdue unpaid payments.")
                   }
+                  dueLabel={tr("Due")}
                 />
               </div>
 
@@ -354,13 +386,13 @@ export function PaymentsDashboardSection({
                   disabled={isLoading}
                   className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
                 >
-                  {isFamilyWorkspace ? "Refresh family section" : "Refresh dashboard"}
+                  {isFamilyWorkspace ? tr("Refresh family section") : tr("Refresh dashboard")}
                 </button>
                 {isLoading && (
                   <p className="text-xs text-app-text-muted">
                     {isFamilyWorkspace
-                      ? "Loading family overview..."
-                      : "Loading dashboard..."}
+                      ? tr("Loading family overview...")
+                      : tr("Loading dashboard...")}
                   </p>
                 )}
               </div>
@@ -375,3 +407,4 @@ export function PaymentsDashboardSection({
     </section>
   );
 }
+

@@ -15,6 +15,7 @@ import {
   ONBOARDING_REPLAY_EVENT,
   ONBOARDING_STORAGE_KEY,
 } from "@/components/app/app-shell";
+import { LocalizationProvider, useLocalization } from "@/lib/i18n/localization";
 import { LandingScreen } from "@/components/app/landing-screen";
 import { PaymentsDashboardSection } from "@/components/app/payments-dashboard-section";
 import { PaymentsActivitySection } from "@/components/app/payments-activity-section";
@@ -57,9 +58,9 @@ const inviteStatusHints: Record<FamilyWorkspaceInviteStatus, string> = {
   revoked: "This invite was turned off.",
 };
 
-const formatDateTime = (value: string | null): string => {
+const formatDateTime = (value: string | null, noExpiryLabel = "No expiry"): string => {
   if (!value) {
-    return "No expiry";
+    return noExpiryLabel;
   }
 
   const parsed = new Date(value);
@@ -70,7 +71,8 @@ const formatDateTime = (value: string | null): string => {
   return parsed.toLocaleString();
 };
 
-export function ProfileScenariosPlaceholder() {
+function ProfileScenariosContent() {
+  const { tr, language, setLanguage } = useLocalization();
   const readOnboardingFlagState = (): boolean | null => {
     if (typeof window === "undefined") {
       return null;
@@ -111,15 +113,15 @@ export function ProfileScenariosPlaceholder() {
 
   const sourceLabel = useMemo(() => {
     if (source === "telegram") {
-      return "Telegram verified";
+      return tr("Telegram verified");
     }
 
     if (source === "dev_fallback") {
-      return "Dev fallback";
+      return tr("Dev fallback");
     }
 
-    return "Not identified";
-  }, [source]);
+    return tr("Not identified");
+  }, [source, tr]);
 
   const isVirtualWorkspace = Boolean(
     workspace?.id.startsWith("virtual-personal-"),
@@ -184,27 +186,52 @@ export function ProfileScenariosPlaceholder() {
   const profileScreen = (
     <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-app-text">Profile</h2>
+        <h2 className="text-base font-semibold text-app-text">{tr("Profile")}</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 11D
+          {tr("Phase 12A")}
         </span>
       </div>
       <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-          Quick start
+          {tr("Quick start")}
         </p>
         <p className="mt-1 text-sm text-app-text">
-          Start in Reminders: add a payment, then use Mark paid when done.
+          {tr("Start in Reminders: add a payment, then use Mark paid when done.")}
         </p>
       </div>
       <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-          Session
+          {tr("Session")}
         </p>
         <p className="mt-1 text-sm font-semibold text-app-text">{sourceLabel}</p>
         <p className="mt-1 text-sm text-app-text-muted">
-          {isLoading ? "Loading current app context..." : stateLabel}
+          {isLoading ? tr("Loading current app context...") : tr(stateLabel)}
         </p>
+        <div className="mt-2 flex items-center gap-2">
+          <p className="text-xs font-semibold text-app-text-muted">{tr("Language")}:</p>
+          <button
+            type="button"
+            onClick={() => setLanguage("ru")}
+            className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+              language === "ru"
+                ? "border-app-accent bg-app-accent text-white"
+                : "border-app-border text-app-text"
+            }`}
+          >
+            {tr("Russian")}
+          </button>
+          <button
+            type="button"
+            onClick={() => setLanguage("en")}
+            className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+              language === "en"
+                ? "border-app-accent bg-app-accent text-white"
+                : "border-app-border text-app-text"
+            }`}
+          >
+            {tr("English")}
+          </button>
+        </div>
         {profile && (
           <p className="mt-2 text-sm text-app-text">
             {profile.firstName} {profile.lastName ?? ""}
@@ -217,40 +244,44 @@ export function ProfileScenariosPlaceholder() {
             onClick={replayOnboarding}
             className="rounded-xl border border-app-border px-3 py-1.5 text-xs font-semibold text-app-text"
           >
-            Show onboarding again
+            {tr("Show onboarding again")}
           </button>
         </div>
         <details className="mt-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-xs text-app-text">
           <summary className="cursor-pointer font-semibold text-app-text">
-            Onboarding verification notes
+            {tr("Onboarding verification notes")}
           </summary>
           <p className="mt-2 text-app-text-muted">
-            Local onboarding flag:{" "}
+            {tr("Local onboarding flag")}:{" "}
             {isOnboardingFlagCompleted === null
-              ? "unknown (storage unavailable)"
+              ? tr("unknown (storage unavailable)")
               : isOnboardingFlagCompleted
-                ? "completed"
-                : "not completed"}
+                ? tr("completed")
+                : tr("not completed")}
             .
           </p>
           <p className="mt-1 text-app-text-muted">
-            Show onboarding again is replay-only. It does not prove true first-run behavior.
+            {tr(
+              "Show onboarding again is replay-only. It does not prove true first-run behavior.",
+            )}
           </p>
           <p className="mt-1 text-app-text-muted">
-            True first-run check requires a clean Telegram profile/device storage state and
-            first open of Mini App.
+            {tr(
+              "True first-run check requires a clean Telegram profile/device storage state and first open of Mini App.",
+            )}
           </p>
         </details>
         {!profile && !isLoading && !isTelegramContext && (
           <p className="mt-2 text-xs text-app-text-muted">
-            Open this app in Telegram to verify identity, or enable explicit
-            dev fallback for local testing.
+            {tr(
+              "Open this app in Telegram to verify identity, or enable explicit dev fallback for local testing.",
+            )}
           </p>
         )}
       </div>
       <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-          Workspace state
+          {tr("Workspace state")}
         </p>
         {workspace ? (
           <>
@@ -258,18 +289,19 @@ export function ProfileScenariosPlaceholder() {
               {workspace.title}
             </p>
             <p className="mt-1 text-sm text-app-text-muted">
-              {workspace.kind} workspace. Role: {workspace.memberRole}. Members: {workspace.memberCount}.
+              {tr("Type")}: {tr(workspace.kind)}. {tr("Role")}: {tr(workspace.memberRole)}.{" "}
+              {tr("Members")}: {workspace.memberCount}.
             </p>
           </>
         ) : (
           <p className="mt-1 text-sm text-app-text-muted">
-            No active workspace resolved yet.
+            {tr("No active workspace resolved yet.")}
           </p>
         )}
         {workspaces.length > 0 && (
           <div className="mt-3 space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              Workspace switch
+              {tr("Workspace switch")}
             </p>
             <div className="space-y-1">
               {workspaces.map((workspaceOption) => (
@@ -278,7 +310,7 @@ export function ProfileScenariosPlaceholder() {
                   className="flex items-center justify-between rounded-xl border border-app-border bg-white px-3 py-2"
                 >
                   <p className="text-sm text-app-text">
-                    {workspaceOption.title} ({workspaceOption.kind})
+                    {workspaceOption.title} ({tr(workspaceOption.kind)})
                   </p>
                   <button
                     type="button"
@@ -290,7 +322,7 @@ export function ProfileScenariosPlaceholder() {
                     }
                     className="rounded-full border border-app-border px-2 py-0.5 text-[11px] font-medium text-app-text-muted disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {workspace?.id === workspaceOption.id ? "Current" : "Switch"}
+                    {workspace?.id === workspaceOption.id ? tr("Current") : tr("Switch")}
                   </button>
                 </div>
               ))}
@@ -300,7 +332,7 @@ export function ProfileScenariosPlaceholder() {
         {isFamilyWorkspace ? (
           <div className="mt-3 space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              Family invite
+              {tr("Family invite")}
             </p>
             <button
               type="button"
@@ -310,59 +342,61 @@ export function ProfileScenariosPlaceholder() {
               }
               className="rounded-xl border border-app-border px-3 py-2 text-sm font-semibold text-app-text disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Create invite
+              {tr("Create invite")}
             </button>
             {currentFamilyInvite ? (
               <div className="rounded-xl border border-app-border bg-white px-3 py-2 text-xs text-app-text">
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-semibold">
-                    Current invite for {workspace.title}
+                    {tr("Current invite for {workspace}", { workspace: workspace.title })}
                   </p>
                   <span className="rounded-full border border-app-border px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
-                    {inviteStatusLabels[currentFamilyInvite.inviteStatus]}
+                    {tr(inviteStatusLabels[currentFamilyInvite.inviteStatus])}
                   </span>
                 </div>
                 <p className="mt-1 text-app-text-muted">
-                  {inviteStatusHints[currentFamilyInvite.inviteStatus]}
+                  {tr(inviteStatusHints[currentFamilyInvite.inviteStatus])}
                 </p>
-                <p className="mt-1 font-semibold">Invite token</p>
+                <p className="mt-1 font-semibold">{tr("Invite token")}</p>
                 <p className="mt-1 break-all rounded-lg bg-app-surface px-2 py-1 font-mono text-[11px]">
                   {currentFamilyInvite.inviteToken}
                 </p>
                 <p className="mt-2 text-app-text-muted">
-                  Expires: {formatDateTime(currentFamilyInvite.expiresAt)}
+                  {tr("Expires")}: {formatDateTime(currentFamilyInvite.expiresAt, tr("No expiry"))}
                 </p>
                 <p className="text-app-text-muted">
-                  Created: {formatDateTime(currentFamilyInvite.createdAt)}
+                  {tr("Created at")}: {formatDateTime(currentFamilyInvite.createdAt, tr("No expiry"))}
                 </p>
               </div>
             ) : (
               <p className="text-xs text-app-text-muted">
-                No active invite for this family workspace yet. Create one when
-                you are ready to invite a member.
+                {tr(
+                  "No active invite for this family workspace yet. Create one when you are ready to invite a member.",
+                )}
               </p>
             )}
           </div>
         ) : (
           <details className="mt-3 rounded-2xl border border-app-border bg-app-surface p-3">
             <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              Family workspace (optional)
+              {tr("Family workspace (optional)")}
             </summary>
             <div className="mt-2 space-y-2">
               <p className="text-xs text-app-text-muted">
-                Create family workspace or join by invite token.
+                {tr("Create family workspace or join by invite token.")}
               </p>
               {isVirtualWorkspace ? (
                 <p className="text-xs text-app-text-muted">
-                  Workspace persistence is not initialized yet. Apply workspace migrations
-                  to enable family workspace creation.
+                  {tr(
+                    "Workspace persistence is not initialized yet. Apply workspace migrations to enable family workspace creation.",
+                  )}
                 </p>
               ) : (
                 <>
                   <input
                     value={familyWorkspaceTitle}
                     onChange={(event) => setFamilyWorkspaceTitle(event.target.value)}
-                    placeholder="Family workspace title"
+                    placeholder={tr("Family workspace title")}
                     className="w-full rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
                   />
                   <button
@@ -371,30 +405,30 @@ export function ProfileScenariosPlaceholder() {
                     disabled={!profile || isSavingWorkspace}
                     className="rounded-xl border border-app-border px-3 py-2 text-sm font-semibold text-app-text disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Create family workspace
+                    {tr("Create family workspace")}
                   </button>
                 </>
               )}
               <div className="space-y-2 rounded-xl border border-app-border bg-white px-3 py-2">
-                <p className="text-xs font-semibold text-app-text">Join by invite token</p>
+                <p className="text-xs font-semibold text-app-text">{tr("Join by invite token")}</p>
                 <input
                   value={inviteTokenInput}
                   onChange={(event) => {
                     setInviteTokenInput(event.target.value);
                     clearInviteAcceptDiagnostic();
                   }}
-                  placeholder="Paste family invite token"
+                  placeholder={tr("Paste family invite token")}
                   className="w-full rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
                 />
                 <p className="text-[11px] text-app-text-muted">
-                  Preview:{" "}
+                  {tr("Preview")}:{" "}
                   {inviteTokenInput.trim()
                     ? maskInviteToken(inviteTokenInput)
-                    : "empty"}
-                  {". "}Normalized:{" "}
+                    : tr("empty")}
+                  {". "}{tr("Normalized")}:{" "}
                   {normalizedInviteToken
                     ? maskInviteToken(normalizedInviteToken)
-                    : "not detected"}
+                    : tr("not detected")}
                 </p>
                 <button
                   type="button"
@@ -407,12 +441,12 @@ export function ProfileScenariosPlaceholder() {
                   disabled={isSavingInvite || !profile}
                   className="rounded-xl border border-app-border px-3 py-2 text-sm font-semibold text-app-text disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Accept invite
+                  {tr("Accept invite")}
                 </button>
                 {inviteAcceptDiagnostic && (
                   <details className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-xs text-app-text">
                     <summary className="cursor-pointer font-semibold text-app-text">
-                      Accept invite diagnostic
+                      {tr("Accept invite diagnostic")}
                     </summary>
                     <p
                       className={
@@ -422,42 +456,46 @@ export function ProfileScenariosPlaceholder() {
                       }
                     >
                       {inviteAcceptDiagnostic.status === "success"
-                        ? "Accept invite: SUCCESS"
-                        : "Accept invite: FAILED"}
+                        ? tr("Accept invite: SUCCESS")
+                        : tr("Accept invite: FAILED")}
                     </p>
                     <p className="mt-1 text-app-text-muted">
-                      {inviteAcceptDiagnostic.message}
+                      {tr(inviteAcceptDiagnostic.message)}
                     </p>
                     <p className="mt-1 text-app-text-muted">
-                      Code: {inviteAcceptDiagnostic.code}. Attempted:{" "}
+                      {tr("Code")}: {inviteAcceptDiagnostic.code}. {tr("Attempted")}:{" "}
                       {new Date(inviteAcceptDiagnostic.attemptedAt).toLocaleString()}
                     </p>
                     <p className="mt-1 text-app-text-muted">
-                      Raw token: {inviteAcceptDiagnostic.rawTokenPreview}. Normalized:{" "}
+                      {tr("Raw token")}: {inviteAcceptDiagnostic.rawTokenPreview}. {tr("Normalized")}:{" "}
                       {inviteAcceptDiagnostic.normalizedTokenPreview}
                     </p>
                     {inviteAcceptDiagnostic.status === "success" && (
                       <>
                         <p className="mt-1 text-app-text-muted">
-                          Joined workspace:{" "}
-                          {inviteAcceptDiagnostic.workspaceTitle ?? "unknown"}. Invite status:{" "}
-                          {inviteAcceptDiagnostic.inviteStatus ?? "unknown"}
+                          {tr("Joined workspace")}:{" "}
+                          {inviteAcceptDiagnostic.workspaceTitle ?? tr("unknown")}. {tr("Invite status")}:{" "}
+                          {inviteAcceptDiagnostic.inviteStatus
+                            ? tr(inviteStatusLabels[inviteAcceptDiagnostic.inviteStatus])
+                            : tr("unknown")}
                         </p>
                         <p className="mt-1 text-app-text-muted">
-                          Workspace list updated:{" "}
-                          {inviteAcceptDiagnostic.workspaceAdded ? "yes" : "no"}. Household members:{" "}
-                          {inviteAcceptDiagnostic.memberCount ?? "unknown"}
+                          {tr("Workspace list updated")}:{" "}
+                          {inviteAcceptDiagnostic.workspaceAdded ? tr("yes") : tr("no")}.{" "}
+                          {tr("Household members")}: {inviteAcceptDiagnostic.memberCount ?? tr("unknown")}
                         </p>
                         <p className="mt-1 text-app-text-muted">
-                          Next check: family workspace should appear in Workspace switch and
-                          household members should no longer be owner-only.
+                          {tr(
+                            "Next check: family workspace should appear in Workspace switch and household members should no longer be owner-only.",
+                          )}
                         </p>
                       </>
                     )}
                     {inviteAcceptDiagnostic.status === "error" && (
                       <p className="mt-1 text-app-text-muted">
-                        Check token validity/status with owner and retry. If state looks stale,
-                        use Refresh context below.
+                        {tr(
+                          "Check token validity/status with owner and retry. If state looks stale, use Refresh context below.",
+                        )}
                       </p>
                     )}
                     <button
@@ -466,7 +504,7 @@ export function ProfileScenariosPlaceholder() {
                       disabled={isLoading}
                       className="mt-2 rounded-lg border border-app-border px-2 py-1 text-[11px] font-semibold text-app-text disabled:opacity-60"
                     >
-                      Refresh context
+                      {tr("Refresh context")}
                     </button>
                   </details>
                 )}
@@ -477,20 +515,21 @@ export function ProfileScenariosPlaceholder() {
       </div>
       <details className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
         <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-          Scenario cards
+          {tr("Scenario cards")}
         </summary>
         <div className="mt-2 rounded-2xl border border-app-border bg-app-surface px-3 py-2">
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-            Scenario cards (informational)
+            {tr("Scenario cards (informational)")}
           </p>
           <p className="mt-1 text-xs text-app-text-muted">
-            Cards below are informational in this phase. To change active context,
-            use Workspace switch above.
+            {tr(
+              "Cards below are informational in this phase. To change active context, use Workspace switch above.",
+            )}
           </p>
           {profile && (
             <p className="mt-1 text-xs text-app-text-muted">
-              Profile scenario field: {profile.selectedScenario} (auto-synced with
-              active workspace where possible).
+              {tr("Profile scenario field")}: {tr(profile.selectedScenario)}{" "}
+              ({tr("auto-synced with active workspace where possible")}).
             </p>
           )}
         </div>
@@ -502,22 +541,24 @@ export function ProfileScenariosPlaceholder() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-semibold text-app-text">{scenario.title}</h3>
-                  <p className="text-sm text-app-text-muted">{scenario.caption}</p>
+                  <h3 className="font-semibold text-app-text">{tr(scenario.title)}</h3>
+                  <p className="text-sm text-app-text-muted">{tr(scenario.caption)}</p>
                 </div>
                 <span className="rounded-full border border-app-border px-2 py-0.5 text-[11px] font-medium text-app-text-muted">
-                  {activeContextScenario === scenario.key ? "Active context" : "Not active"}
+                  {activeContextScenario === scenario.key
+                    ? tr("Active context")
+                    : tr("Not active")}
                 </span>
               </div>
               <p className="mt-2 text-sm text-app-text-muted">
-                {scenario.description}
+                {tr(scenario.description)}
               </p>
             </article>
           ))}
         </div>
       </details>
       {actionMessage && (
-        <p className="mt-2 text-xs font-medium text-app-text">{actionMessage}</p>
+        <p className="mt-2 text-xs font-medium text-app-text">{tr(actionMessage)}</p>
       )}
     </section>
   );
@@ -533,3 +574,12 @@ export function ProfileScenariosPlaceholder() {
     />
   );
 }
+
+export function ProfileScenariosPlaceholder() {
+  return (
+    <LocalizationProvider>
+      <ProfileScenariosContent />
+    </LocalizationProvider>
+  );
+}
+

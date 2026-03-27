@@ -22,6 +22,7 @@ import {
   starterPaymentTemplates,
   type StarterPaymentTemplate,
 } from "@/lib/payments/starter-templates";
+import { useLocalization } from "@/lib/i18n/localization";
 import type {
   RecurringPaymentPayload,
   WorkspaceResponsiblePayerOptionPayload,
@@ -144,9 +145,10 @@ const formatDueDate = (value: string): string => {
 const resolveResponsiblePayerDisplayName = (
   responsibleProfileId: string | null,
   responsiblePayerOptions: WorkspaceResponsiblePayerOptionPayload[],
+  labels: { notAssigned: string; missingMember: string },
 ): string => {
   if (!responsibleProfileId) {
-    return "Not assigned yet";
+    return labels.notAssigned;
   }
 
   const responsible = responsiblePayerOptions.find(
@@ -156,7 +158,7 @@ const resolveResponsiblePayerDisplayName = (
     return responsible.displayName;
   }
 
-  return "Assigned member is no longer in this family workspace";
+  return labels.missingMember;
 };
 
 const isCycleToggleDisabled = (
@@ -231,6 +233,7 @@ export function RecurringPaymentsSection({
   initData,
   currentFamilyInvite,
 }: RecurringPaymentsSectionProps) {
+  const { tr } = useLocalization();
   const [payments, setPayments] = useState<RecurringPaymentPayload[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -376,11 +379,16 @@ export function RecurringPaymentsSection({
       (payment) => !payment.remindersEnabled,
     );
 
-    const attentionItems: Array<{ id: string; label: string }> = [];
+    const attentionItems: Array<{
+      id: string;
+      title: string;
+      reason: "overdue" | "reminders_off";
+    }> = [];
     for (const payment of subscriptionRenewals.overdue.slice(0, 3)) {
       attentionItems.push({
         id: `overdue-${payment.id}`,
-        label: `${payment.title} - overdue`,
+        title: payment.title,
+        reason: "overdue",
       });
     }
 
@@ -396,7 +404,8 @@ export function RecurringPaymentsSection({
 
         attentionItems.push({
           id: `reminders-off-${payment.id}`,
-          label: `${payment.title} - reminders off`,
+          title: payment.title,
+          reason: "reminders_off",
         });
       }
     }
@@ -449,18 +458,20 @@ export function RecurringPaymentsSection({
 
   const workspaceUnavailable = useMemo(() => {
     if (!workspace) {
-      return "Load current workspace first to manage recurring payments.";
+      return tr("Load current workspace first to manage recurring payments.");
     }
 
     if (
       workspace.kind === "personal" &&
       workspace.id.startsWith("virtual-personal-")
     ) {
-      return "Workspace persistence is not initialized. Apply workspace migrations first.";
+      return tr(
+        "Workspace persistence is not initialized. Apply workspace migrations first.",
+      );
     }
 
     return null;
-  }, [workspace]);
+  }, [workspace, tr]);
 
   const loadPayments = useCallback(async () => {
     if (workspaceUnavailable || !activeWorkspaceId) {
@@ -482,12 +493,12 @@ export function RecurringPaymentsSection({
       setPayments(result.payments);
       setResponsiblePayerOptions(result.responsiblePayerOptions);
     } catch {
-      setFeedback("Failed to load recurring payments.");
+      setFeedback(tr("Failed to load recurring payments."));
       setResponsiblePayerOptions([]);
     } finally {
       setIsLoading(false);
     }
-  }, [activeWorkspaceId, initData, workspaceUnavailable]);
+  }, [activeWorkspaceId, initData, tr, workspaceUnavailable]);
 
   useEffect(() => {
     loadPayments();
@@ -531,7 +542,11 @@ export function RecurringPaymentsSection({
     setEditingPaymentId(null);
     setIsComposerExpanded(true);
     setForm(formFromTemplate(template));
-    setFeedback(`Template "${template.label}" applied. Review and add payment.`);
+    setFeedback(
+      tr('Template "{template}" applied. Review and add payment.', {
+        template: template.label,
+      }),
+    );
   };
 
   const submitForm = async () => {
@@ -542,7 +557,7 @@ export function RecurringPaymentsSection({
 
     const validationError = validateForm(form);
     if (validationError) {
-      setFeedback(validationError);
+      setFeedback(tr(validationError));
       return;
     }
 
@@ -577,11 +592,11 @@ export function RecurringPaymentsSection({
       }
 
       setPayments((current) => replacePaymentInList(current, result.payment));
-      setFeedback(editingPaymentId ? "Payment updated." : "Payment created.");
+      setFeedback(tr(editingPaymentId ? "Payment updated." : "Payment created."));
       emitPaymentsChanged();
       resetForm();
     } catch {
-      setFeedback("Failed to save recurring payment.");
+      setFeedback(tr("Failed to save recurring payment."));
     } finally {
       setIsSaving(false);
     }
@@ -603,10 +618,10 @@ export function RecurringPaymentsSection({
       }
 
       setPayments((current) => replacePaymentInList(current, result.payment));
-      setFeedback("Payment archived.");
+      setFeedback(tr("Payment archived."));
       emitPaymentsChanged();
     } catch {
-      setFeedback("Failed to archive recurring payment.");
+      setFeedback(tr("Failed to archive recurring payment."));
     } finally {
       setIsSaving(false);
     }
@@ -628,11 +643,11 @@ export function RecurringPaymentsSection({
       }
 
       setPayments((current) => replacePaymentInList(current, result.payment));
-      setFeedback("Current cycle marked as paid.");
+      setFeedback(tr("Current cycle marked as paid."));
       emitPaymentsChanged();
       void loadPayments();
     } catch {
-      setFeedback("Failed to mark current cycle as paid.");
+      setFeedback(tr("Failed to mark current cycle as paid."));
     } finally {
       setIsSaving(false);
     }
@@ -654,11 +669,11 @@ export function RecurringPaymentsSection({
       }
 
       setPayments((current) => replacePaymentInList(current, result.payment));
-      setFeedback("Current cycle marked as unpaid.");
+      setFeedback(tr("Current cycle marked as unpaid."));
       emitPaymentsChanged();
       void loadPayments();
     } catch {
-      setFeedback("Failed to mark current cycle as unpaid.");
+      setFeedback(tr("Failed to mark current cycle as unpaid."));
     } finally {
       setIsSaving(false);
     }
@@ -685,13 +700,15 @@ export function RecurringPaymentsSection({
       }
 
       setPayments((current) => replacePaymentInList(current, result.payment));
-      setFeedback(nextPausedState ? "Subscription paused." : "Subscription resumed.");
+      setFeedback(
+        tr(nextPausedState ? "Subscription paused." : "Subscription resumed."),
+      );
       emitPaymentsChanged();
     } catch {
       setFeedback(
         nextPausedState
-          ? "Failed to pause subscription."
-          : "Failed to resume subscription.",
+          ? tr("Failed to pause subscription.")
+          : tr("Failed to resume subscription."),
       );
     } finally {
       setIsSaving(false);
@@ -701,14 +718,14 @@ export function RecurringPaymentsSection({
   return (
     <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-app-text">Recurring Payments</h2>
+        <h2 className="text-base font-semibold text-app-text">{tr("Recurring Payments")}</h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 11D
+          {tr("Phase 12A")}
         </span>
       </div>
       {workspace && (
         <p className="mb-3 text-xs text-app-text-muted">
-          Workspace: {workspace.title} ({workspace.kind})
+          {tr("Workspace")}: {workspace.title} ({workspace.kind})
         </p>
       )}
 
@@ -722,67 +739,72 @@ export function RecurringPaymentsSection({
             <div className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
               <p className="text-sm font-semibold text-app-text">
                 {isFamilyWorkspace
-                  ? "No shared recurring payments yet"
-                  : "No recurring payments yet"}
+                  ? tr("No shared recurring payments yet")
+                  : tr("No recurring payments yet")}
               </p>
               <p className="mt-1 text-xs text-app-text-muted">
                 {isFamilyWorkspace
                   ? familyReadinessSummary.hasCurrentInvite
-                    ? "Invite is ready. Add your first shared payment below."
-                    : "Add your first shared payment below. Invite members from Profile when needed."
-                  : "Add your first payment below. Reminders and History will update after that."}
+                    ? tr("Invite is ready. Add your first shared payment below.")
+                    : tr(
+                        "Add your first shared payment below. Invite members from Profile when needed.",
+                      )
+                  : tr(
+                      "Add your first payment below. Reminders and History will update after that.",
+                    )}
               </p>
               <button
                 type="button"
                 onClick={() => setIsComposerExpanded(true)}
                 className="mt-2 rounded-xl border border-app-border bg-white px-3 py-1.5 text-xs font-semibold text-app-text"
               >
-                Open add payment form
+                {tr("Open add payment form")}
               </button>
             </div>
           )}
           {isFamilyWorkspace && (
             <details className="mb-2 rounded-xl border border-app-border bg-app-surface-soft px-3 py-2">
               <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                Shared payment help
+                {tr("Shared payment help")}
               </summary>
               <p className="mt-1 text-xs text-app-text-muted">
-                Shared cards use Who pays for responsibility and Paid by for who marked
-                the cycle paid.
+                {tr(
+                  "Shared cards use Who pays for responsibility and Paid by for who marked the cycle paid.",
+                )}
               </p>
             </details>
           )}
           {isFamilyWorkspace && (
             <div className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                Family readiness snapshot
+                {tr("Family readiness snapshot")}
               </p>
               <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
                 <div className="rounded-xl bg-white p-2">
-                  <p className="text-[11px] text-app-text-muted">Members</p>
+                  <p className="text-[11px] text-app-text-muted">{tr("Members")}</p>
                   <p className="text-sm font-semibold text-app-text">
                     {familyReadinessSummary.householdMembersCount}
                   </p>
                 </div>
                 <div className="rounded-xl bg-white p-2">
-                  <p className="text-[11px] text-app-text-muted">Invite</p>
+                  <p className="text-[11px] text-app-text-muted">{tr("Invite")}</p>
                   <p className="text-sm font-semibold text-app-text">
-                    {familyReadinessSummary.inviteStatus}
+                    {tr(familyReadinessSummary.inviteStatus)}
                   </p>
                 </div>
                 <div className="rounded-xl bg-white p-2">
-                  <p className="text-[11px] text-app-text-muted">Shared payments</p>
+                  <p className="text-[11px] text-app-text-muted">{tr("Shared payments")}</p>
                   <p className="text-sm font-semibold text-app-text">
                     {isLoading
-                      ? "Loading..."
+                      ? tr("Loading...")
                       : familyReadinessSummary.sharedRecurringPaymentsCount}
                   </p>
                 </div>
                 <div className="rounded-xl bg-white p-2">
-                  <p className="text-[11px] text-app-text-muted">Who pays not assigned</p>
+                  <p className="text-[11px] text-app-text-muted">{tr("Who pays not assigned")}</p>
                   <p className="text-sm font-semibold text-app-text">
                     {isLoading
-                      ? "Loading..."
+                      ? tr("Loading...")
                       : familyReadinessSummary.unassignedResponsibleCount}
                   </p>
                 </div>
@@ -792,16 +814,16 @@ export function RecurringPaymentsSection({
           {isFamilyWorkspace && (
             <details className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
               <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                Household members for who pays
+                {tr("Household members for who pays")}
               </summary>
               <p className="mt-2 text-sm text-app-text">
-                Members: <span className="font-semibold">{workspace?.memberCount ?? 0}</span>
+                {tr("Members")}: <span className="font-semibold">{workspace?.memberCount ?? 0}</span>
               </p>
               {responsiblePayerOptions.length === 0 ? (
                 <p className="mt-2 text-xs text-app-text-muted">
                   {(workspace?.memberCount ?? 0) > 0
-                    ? "Member list is temporarily unavailable. Try Refresh."
-                    : "No members are visible yet."}
+                    ? tr("Member list is temporarily unavailable. Try Refresh.")
+                    : tr("No members are visible yet.")}
                 </p>
               ) : (
                 <>
@@ -813,7 +835,7 @@ export function RecurringPaymentsSection({
                       >
                         <span>{option.displayName}</span>
                         <span className="rounded-full border border-app-border px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
-                          {option.memberRole === "owner" ? "Owner" : "Member"}
+                          {option.memberRole === "owner" ? tr("Owner") : tr("Member")}
                         </span>
                       </li>
                     ))}
@@ -821,7 +843,7 @@ export function RecurringPaymentsSection({
                   {responsiblePayerOptions.length === 1 &&
                     responsiblePayerOptions[0]?.memberRole === "owner" && (
                       <p className="mt-2 text-xs text-app-text-muted">
-                        This household currently has only the owner.
+                        {tr("This household currently has only the owner.")}
                       </p>
                     )}
                 </>
@@ -831,8 +853,8 @@ export function RecurringPaymentsSection({
           <div className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {isFamilyWorkspace
-                ? "Quick Add shared payment templates"
-                : "Quick Add templates"}
+                ? tr("Quick Add shared payment templates")
+                : tr("Quick Add templates")}
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               {starterPaymentTemplates.map((template) => (
@@ -844,7 +866,7 @@ export function RecurringPaymentsSection({
                   className="rounded-full border border-app-border bg-white px-3 py-1 text-xs font-medium text-app-text disabled:opacity-60"
                 >
                   {template.label}
-                  {template.isSubscription ? " - Sub" : ""}
+                  {template.isSubscription ? ` - ${tr("Sub")}` : ""}
                 </button>
               ))}
             </div>
@@ -853,26 +875,29 @@ export function RecurringPaymentsSection({
           {payments.length > 0 && (
             <details className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
               <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                Subscription insights - active {subscriptionSummary.activeSubscriptionsCount}, unpaid {subscriptionSummary.unpaidSubscriptionsCount}
+                {tr("Subscription insights - active {active}, unpaid {unpaid}", {
+                  active: subscriptionSummary.activeSubscriptionsCount,
+                  unpaid: subscriptionSummary.unpaidSubscriptionsCount,
+                })}
               </summary>
 
               <div className="mt-2 space-y-2">
           <div className="rounded-2xl border border-app-border bg-app-surface p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              Subscriptions Summary
+              {tr("Subscriptions Summary")}
             </p>
               <p className="mt-1 text-sm text-app-text">
-                Active: <span className="font-semibold">{subscriptionSummary.activeSubscriptionsCount}</span>
+                {tr("Active")}: <span className="font-semibold">{subscriptionSummary.activeSubscriptionsCount}</span>
               {" - "}
-              Unpaid this cycle:{" "}
+              {tr("Unpaid this cycle")}:{" "}
               <span className="font-semibold">{subscriptionSummary.unpaidSubscriptionsCount}</span>
             </p>
             <p className="mt-1 text-xs text-app-text-muted">
-              Monthly total (weekly cadence uses 52/12 monthly equivalent):
+              {tr("Monthly total (weekly cadence uses 52/12 monthly equivalent):")}
             </p>
             {subscriptionSummary.monthlyTotalsByCurrency.length === 0 ? (
               <p className="mt-1 text-xs text-app-text-muted">
-                No active subscriptions yet.
+                {tr("No active subscriptions yet.")}
               </p>
             ) : (
               <p className="mt-1 text-sm text-app-text">
@@ -885,45 +910,48 @@ export function RecurringPaymentsSection({
 
           <div className="rounded-2xl border border-app-border bg-app-surface p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              Subscription Health
+              {tr("Subscription Health")}
             </p>
             <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-4">
               <div className="rounded-xl bg-white p-2">
-                <p className="text-[11px] text-app-text-muted">Overdue</p>
+                <p className="text-[11px] text-app-text-muted">{tr("Overdue")}</p>
                 <p className="text-sm font-semibold text-app-text">
                   {subscriptionHealth.overdueCount}
                 </p>
               </div>
               <div className="rounded-xl bg-white p-2">
-                <p className="text-[11px] text-app-text-muted">Unpaid cycle</p>
+                <p className="text-[11px] text-app-text-muted">{tr("Unpaid cycle")}</p>
                 <p className="text-sm font-semibold text-app-text">
                   {subscriptionHealth.unpaidCurrentCycleCount}
                 </p>
               </div>
               <div className="rounded-xl bg-white p-2">
-                <p className="text-[11px] text-app-text-muted">Paused</p>
+                <p className="text-[11px] text-app-text-muted">{tr("Paused")}</p>
                 <p className="text-sm font-semibold text-app-text">
                   {subscriptionHealth.pausedCount}
                 </p>
               </div>
               <div className="rounded-xl bg-white p-2">
-                <p className="text-[11px] text-app-text-muted">Reminders off</p>
+                <p className="text-[11px] text-app-text-muted">{tr("Reminders off")}</p>
                 <p className="text-sm font-semibold text-app-text">
                   {subscriptionHealth.remindersOffCount}
                 </p>
               </div>
             </div>
             <div className="mt-2">
-              <p className="text-xs text-app-text-muted">Needs attention:</p>
+              <p className="text-xs text-app-text-muted">{tr("Needs attention")}:</p>
               {subscriptionHealth.attentionItems.length === 0 ? (
                 <p className="mt-1 text-xs text-app-text-muted">
-                  No immediate subscription issues detected.
+                  {tr("No immediate subscription issues detected.")}
                 </p>
               ) : (
                 <ul className="mt-1 space-y-1">
                   {subscriptionHealth.attentionItems.map((item) => (
                     <li key={item.id} className="text-xs text-app-text">
-                      {item.label}
+                      {item.title} -{" "}
+                      {item.reason === "overdue"
+                        ? tr("overdue")
+                        : tr("reminders off")}
                     </li>
                   ))}
                 </ul>
@@ -934,33 +962,33 @@ export function RecurringPaymentsSection({
           <div className="rounded-2xl border border-app-border bg-app-surface p-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                Subscription Renewals
+                {tr("Subscription Renewals")}
               </p>
               <button
                 type="button"
                 onClick={() => setShowSubscriptionsOnly(true)}
                 className="rounded-lg border border-app-border bg-white px-2 py-1 text-[11px] font-semibold text-app-text"
               >
-                Focus subscriptions
+                {tr("Focus subscriptions")}
               </button>
             </div>
             <div className="mt-2 grid grid-cols-3 gap-2">
               <div className="rounded-xl bg-white p-2">
-                <p className="text-[11px] text-app-text-muted">Due today</p>
+                <p className="text-[11px] text-app-text-muted">{tr("Due today")}</p>
                 <p className="text-sm font-semibold text-app-text">
                   {subscriptionRenewals.dueToday.length}
                 </p>
               </div>
               <div className="rounded-xl bg-white p-2">
                 <p className="text-[11px] text-app-text-muted">
-                  Upcoming ({SUBSCRIPTIONS_UPCOMING_WINDOW_DAYS}d)
+                  {tr("Upcoming")} ({SUBSCRIPTIONS_UPCOMING_WINDOW_DAYS}d)
                 </p>
                 <p className="text-sm font-semibold text-app-text">
                   {subscriptionRenewals.upcoming.length}
                 </p>
               </div>
               <div className="rounded-xl bg-white p-2">
-                <p className="text-[11px] text-app-text-muted">Overdue</p>
+                <p className="text-[11px] text-app-text-muted">{tr("Overdue")}</p>
                 <p className="text-sm font-semibold text-app-text">
                   {subscriptionRenewals.overdue.length}
                 </p>
@@ -969,10 +997,10 @@ export function RecurringPaymentsSection({
 
             <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
               <article className="rounded-xl border border-app-border bg-white p-2">
-                <p className="text-xs font-semibold text-app-text">Due today</p>
+                <p className="text-xs font-semibold text-app-text">{tr("Due today")}</p>
                 {subscriptionRenewals.dueToday.length === 0 ? (
                   <p className="mt-1 text-xs text-app-text-muted">
-                    No due-today subscription renewals.
+                    {tr("No due-today subscription renewals.")}
                   </p>
                 ) : (
                   <ul className="mt-1 space-y-1">
@@ -986,33 +1014,33 @@ export function RecurringPaymentsSection({
               </article>
               <article className="rounded-xl border border-app-border bg-white p-2">
                 <p className="text-xs font-semibold text-app-text">
-                  Upcoming ({SUBSCRIPTIONS_UPCOMING_WINDOW_DAYS}d)
+                  {tr("Upcoming")} ({SUBSCRIPTIONS_UPCOMING_WINDOW_DAYS}d)
                 </p>
                 {subscriptionRenewals.upcoming.length === 0 ? (
                   <p className="mt-1 text-xs text-app-text-muted">
-                    No upcoming subscription renewals.
+                    {tr("No upcoming subscription renewals.")}
                   </p>
                 ) : (
                   <ul className="mt-1 space-y-1">
                     {subscriptionRenewals.upcoming.slice(0, 3).map((payment) => (
                       <li key={`upcoming-${payment.id}`} className="text-xs text-app-text">
-                        {payment.title} - due {formatDueDate(payment.currentCycle.dueDate)}
+                        {payment.title} - {tr("due")} {formatDueDate(payment.currentCycle.dueDate)}
                       </li>
                     ))}
                   </ul>
                 )}
               </article>
               <article className="rounded-xl border border-app-border bg-white p-2">
-                <p className="text-xs font-semibold text-app-text">Overdue</p>
+                <p className="text-xs font-semibold text-app-text">{tr("Overdue")}</p>
                 {subscriptionRenewals.overdue.length === 0 ? (
                   <p className="mt-1 text-xs text-app-text-muted">
-                    No overdue subscription renewals.
+                    {tr("No overdue subscription renewals.")}
                   </p>
                 ) : (
                   <ul className="mt-1 space-y-1">
                     {subscriptionRenewals.overdue.slice(0, 3).map((payment) => (
                       <li key={`overdue-${payment.id}`} className="text-xs text-app-text">
-                        {payment.title} - due {formatDueDate(payment.currentCycle.dueDate)}
+                        {payment.title} - {tr("due")} {formatDueDate(payment.currentCycle.dueDate)}
                       </li>
                     ))}
                   </ul>
@@ -1023,26 +1051,26 @@ export function RecurringPaymentsSection({
 
           <div className="rounded-2xl border border-app-border bg-app-surface p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              Subscription Cost Pressure
+              {tr("Subscription Cost Pressure")}
             </p>
             <p className="mt-1 text-xs text-app-text-muted">
-              Active unpaid subscription renewals, grouped by currency (no FX conversion).
+              {tr("Active unpaid subscription renewals, grouped by currency (no FX conversion).")}
             </p>
             <div className="mt-2 space-y-1 text-sm text-app-text">
               <p>
-                Due today:{" "}
+                {tr("Due today")}:{" "}
                 <span className="font-semibold">
                   {formatCurrencyTotals(subscriptionCostPressure.dueTodayTotals)}
                 </span>
               </p>
               <p>
-                Upcoming ({SUBSCRIPTIONS_UPCOMING_WINDOW_DAYS}d):{" "}
+                {tr("Upcoming")} ({SUBSCRIPTIONS_UPCOMING_WINDOW_DAYS}d):{" "}
                 <span className="font-semibold">
                   {formatCurrencyTotals(subscriptionCostPressure.upcomingTotals)}
                 </span>
               </p>
               <p>
-                Overdue:{" "}
+                {tr("Overdue")}:{" "}
                 <span className="font-semibold">
                   {formatCurrencyTotals(subscriptionCostPressure.overdueTotals)}
                 </span>
@@ -1053,7 +1081,7 @@ export function RecurringPaymentsSection({
           <div className="rounded-2xl border border-app-border bg-app-surface p-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                Paused Subscriptions
+                {tr("Paused Subscriptions")}
               </p>
               <button
                 type="button"
@@ -1064,17 +1092,18 @@ export function RecurringPaymentsSection({
                 className="rounded-lg border border-app-border bg-white px-2 py-1 text-[11px] font-semibold text-app-text"
               >
                 {showPausedSubscriptionsOnly
-                  ? "Show all payments"
-                  : "Show paused subscriptions"}
+                  ? tr("Show all payments")
+                  : tr("Show paused subscriptions")}
               </button>
             </div>
             <p className="mt-1 text-sm text-app-text">
-              Paused now:{" "}
+              {tr("Paused now")}:{" "}
               <span className="font-semibold">{pausedSubscriptions.length}</span>
             </p>
             <p className="mt-1 text-xs text-app-text-muted">
-              Monthly savings/load relief (weekly uses 52/12 monthly equivalent, grouped by
-              currency):
+              {tr(
+                "Monthly savings/load relief (weekly uses 52/12 monthly equivalent, grouped by currency):",
+              )}
             </p>
             <p className="mt-1 text-sm text-app-text">
               <span className="font-semibold">
@@ -1084,7 +1113,7 @@ export function RecurringPaymentsSection({
             <div className="mt-2">
               {pausedSubscriptions.length === 0 ? (
                 <p className="text-xs text-app-text-muted">
-                  No paused subscriptions right now.
+                  {tr("No paused subscriptions right now.")}
                 </p>
               ) : (
                 <ul className="space-y-1">
@@ -1116,7 +1145,7 @@ export function RecurringPaymentsSection({
             }}
           >
             <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              {editingPaymentId ? "Edit payment" : "Add payment"}
+              {editingPaymentId ? tr("Edit payment") : tr("Add payment")}
             </summary>
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <input
@@ -1124,7 +1153,7 @@ export function RecurringPaymentsSection({
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, title: event.target.value }))
               }
-              placeholder="Payment title"
+              placeholder={tr("Payment title")}
               className="rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
             />
             <input
@@ -1132,7 +1161,7 @@ export function RecurringPaymentsSection({
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, amount: event.target.value }))
               }
-              placeholder="Amount"
+              placeholder={tr("Amount")}
               type="number"
               step="0.01"
               min="0"
@@ -1143,7 +1172,7 @@ export function RecurringPaymentsSection({
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, currency: event.target.value }))
               }
-              placeholder="Currency (USD)"
+              placeholder={tr("Currency (USD)")}
               className="rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
             />
             <input
@@ -1151,13 +1180,13 @@ export function RecurringPaymentsSection({
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, category: event.target.value }))
               }
-              placeholder="Category"
+              placeholder={tr("Category")}
               className="rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
             />
             {isFamilyWorkspace && (
               <label className="rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text">
                 <span className="block text-xs font-semibold text-app-text-muted">
-                  Who pays (responsible payer)
+                  {tr("Who pays (responsible payer)")}
                 </span>
                 <select
                   value={form.responsibleProfileId}
@@ -1169,11 +1198,11 @@ export function RecurringPaymentsSection({
                   }
                   className="mt-1 w-full rounded-lg border border-app-border bg-app-surface px-2 py-2 text-sm text-app-text outline-none"
                 >
-                  <option value="">Not assigned yet</option>
+                  <option value="">{tr("Not assigned yet")}</option>
                   {responsiblePayerOptions.map((option) => (
                     <option key={option.profileId} value={option.profileId}>
                       {option.displayName}
-                      {option.memberRole === "owner" ? " (owner)" : ""}
+                      {option.memberRole === "owner" ? ` (${tr("owner")})` : ""}
                     </option>
                   ))}
                 </select>
@@ -1190,15 +1219,19 @@ export function RecurringPaymentsSection({
               }
               className="rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
             >
-              <option value="monthly">Monthly</option>
-              <option value="weekly">Weekly</option>
+              <option value="monthly">{tr("Monthly")}</option>
+              <option value="weekly">{tr("Weekly")}</option>
             </select>
             <input
               value={form.dueDay}
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, dueDay: event.target.value }))
               }
-              placeholder={form.cadence === "weekly" ? "Due weekday (1-7)" : "Due day (1-31)"}
+              placeholder={
+                form.cadence === "weekly"
+                  ? tr("Due weekday (1-7)")
+                  : tr("Due day (1-31)")
+              }
               type="number"
               min="1"
               max={form.cadence === "weekly" ? "7" : "31"}
@@ -1212,7 +1245,7 @@ export function RecurringPaymentsSection({
                   setForm((prev) => ({ ...prev, isRequired: event.target.checked }))
                 }
               />
-              Required payment
+              {tr("Required payment")}
             </label>
 
             <label className="flex items-center gap-2 rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text">
@@ -1226,7 +1259,7 @@ export function RecurringPaymentsSection({
                   }))
                 }
               />
-              Mark as subscription
+              {tr("Mark as subscription")}
             </label>
 
             <label className="flex items-center gap-2 rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text">
@@ -1240,7 +1273,7 @@ export function RecurringPaymentsSection({
                   }))
                 }
               />
-              Reminders enabled
+              {tr("Reminders enabled")}
             </label>
 
             <select
@@ -1254,9 +1287,9 @@ export function RecurringPaymentsSection({
               disabled={!form.remindersEnabled}
               className="rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none disabled:bg-app-surface-soft disabled:text-app-text-muted"
             >
-              <option value="0">Remind 0 days before</option>
-              <option value="1">Remind 1 day before</option>
-              <option value="3">Remind 3 days before</option>
+              <option value="0">{tr("Remind 0 days before")}</option>
+              <option value="1">{tr("Remind 1 day before")}</option>
+              <option value="3">{tr("Remind 3 days before")}</option>
             </select>
 
             <label className="flex items-center gap-2 rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text">
@@ -1271,7 +1304,7 @@ export function RecurringPaymentsSection({
                   }))
                 }
               />
-              Remind on due day
+              {tr("Remind on due day")}
             </label>
 
             <label className="flex items-center gap-2 rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text">
@@ -1286,7 +1319,7 @@ export function RecurringPaymentsSection({
                   }))
                 }
               />
-              Remind if overdue
+              {tr("Remind if overdue")}
             </label>
           </div>
 
@@ -1295,7 +1328,7 @@ export function RecurringPaymentsSection({
             onChange={(event) =>
               setForm((prev) => ({ ...prev, notes: event.target.value }))
             }
-            placeholder="Notes (optional)"
+            placeholder={tr("Notes (optional)")}
             className="mt-2 h-20 w-full rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
           />
 
@@ -1306,7 +1339,7 @@ export function RecurringPaymentsSection({
               disabled={isSaving}
               className="rounded-xl bg-app-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-70"
             >
-              {editingPaymentId ? "Save changes" : "Add payment"}
+              {editingPaymentId ? tr("Save changes") : tr("Add payment")}
             </button>
             {editingPaymentId && (
               <button
@@ -1314,7 +1347,7 @@ export function RecurringPaymentsSection({
                 onClick={resetForm}
                 className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text"
               >
-                Cancel edit
+                {tr("Cancel edit")}
                 </button>
               )}
             <button
@@ -1323,7 +1356,7 @@ export function RecurringPaymentsSection({
                 disabled={isLoading}
                 className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text"
               >
-                Refresh section
+                {tr("Refresh section")}
               </button>
               <button
                 type="button"
@@ -1331,43 +1364,45 @@ export function RecurringPaymentsSection({
                 disabled={isSaving}
                 className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-70"
               >
-                Clear form
+                {tr("Clear form")}
               </button>
-              </div>
-            </details>
+            </div>
+          </details>
 
           {payments.length > 0 && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
-                  setShowSubscriptionsOnly((current) => !current);
-                  setShowPausedSubscriptionsOnly(false);
-                }}
-                className="rounded-xl border border-app-border px-3 py-1 text-xs font-semibold text-app-text"
-              >
-                {showSubscriptionsOnly ? "Show all payments" : "Show subscriptions only"}
+                setShowSubscriptionsOnly((current) => !current);
+                setShowPausedSubscriptionsOnly(false);
+              }}
+              className="rounded-xl border border-app-border px-3 py-1 text-xs font-semibold text-app-text"
+            >
+                {showSubscriptionsOnly
+                  ? tr("Show all payments")
+                  : tr("Show subscriptions only")}
               </button>
               <p className="text-xs text-app-text-muted">
-                Visible: {visiblePayments.length} / Total: {payments.length}
+                {tr("Visible")}: {visiblePayments.length} / {tr("Total")}: {payments.length}
               </p>
             </div>
           )}
 
           <div className="mt-3 space-y-2">
             {isLoading && (
-              <p className="text-sm text-app-text-muted">Loading payments...</p>
+              <p className="text-sm text-app-text-muted">{tr("Loading payments...")}</p>
             )}
             {!isLoading && payments.length === 0 && (
               <p className="text-sm text-app-text-muted">
-                Payments list is empty for now.
+                {tr("Payments list is empty for now.")}
               </p>
             )}
             {!isLoading && payments.length > 0 && visiblePayments.length === 0 && (
               <p className="text-sm text-app-text-muted">
                 {showPausedSubscriptionsOnly
-                  ? "No paused subscriptions found for the current filter."
-                  : "No subscription payments found for the current filter."}
+                  ? tr("No paused subscriptions found for the current filter.")
+                  : tr("No subscription payments found for the current filter.")}
               </p>
             )}
             {visiblePayments.map((payment) => (
@@ -1377,6 +1412,12 @@ export function RecurringPaymentsSection({
                     ? resolveResponsiblePayerDisplayName(
                         payment.responsibleProfileId,
                         responsiblePayerOptions,
+                        {
+                          notAssigned: tr("Not assigned yet"),
+                          missingMember: tr(
+                            "Assigned member is no longer in this family workspace",
+                          ),
+                        },
                       )
                     : null;
                 const paidByName =
@@ -1385,6 +1426,12 @@ export function RecurringPaymentsSection({
                     ? resolveResponsiblePayerDisplayName(
                         payment.currentCycle.paidByProfileId,
                         responsiblePayerOptions,
+                        {
+                          notAssigned: tr("Not assigned yet"),
+                          missingMember: tr(
+                            "Assigned member is no longer in this family workspace",
+                          ),
+                        },
                       )
                     : null;
                 const hasEconomicsMismatch =
@@ -1404,16 +1451,18 @@ export function RecurringPaymentsSection({
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-semibold text-app-text">{payment.title}</p>
                           <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] font-semibold text-app-text">
-                            {payment.paymentScope === "shared" ? "Family shared" : "Personal"}
+                            {payment.paymentScope === "shared"
+                              ? tr("Family shared")
+                              : tr("Personal")}
                           </span>
                           {payment.isSubscription && (
                             <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] font-semibold text-app-text">
-                              Subscription
+                              {tr("Subscription")}
                             </span>
                           )}
                           {payment.isSubscription && payment.isPaused && (
                             <span className="rounded-full border border-app-border bg-app-surface px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
-                              Paused
+                              {tr("Paused")}
                             </span>
                           )}
                         </div>
@@ -1422,33 +1471,33 @@ export function RecurringPaymentsSection({
                         </p>
                         <p className="text-sm text-app-text-muted">
                           {payment.cadence === "weekly"
-                            ? `Weekly, weekday ${payment.dueDay}`
-                            : `Monthly, day ${payment.dueDay}`}
-                          . {payment.isRequired ? "Required" : "Optional"}. Status: {payment.status}.
+                            ? `${tr("Weekly")}, ${tr("weekday")} ${payment.dueDay}`
+                            : `${tr("Monthly")}, ${tr("day")} ${payment.dueDay}`}
+                          . {payment.isRequired ? tr("Required") : tr("Optional")}. {tr("Status")}: {tr(payment.status)}.
                         </p>
                         {payment.paymentScope === "shared" ? (
                           <p className="text-sm text-app-text-muted">
-                            Who pays: {responsiblePayerName}
+                            {tr("Who pays")}: {responsiblePayerName}
                           </p>
                         ) : null}
                         <p className="text-sm text-app-text-muted">
-                          Current cycle: {payment.currentCycle.state}. Due{" "}
+                          {tr("Current cycle")}: {tr(payment.currentCycle.state)}. {tr("Due")}{" "}
                           {formatDueDate(payment.currentCycle.dueDate)}
-                          {payment.currentCycle.paidAt ? ". Paid this cycle." : "."}
+                          {payment.currentCycle.paidAt ? `. ${tr("Paid this cycle.")}` : "."}
                         </p>
                         {payment.paymentScope === "shared" &&
                           payment.currentCycle.state === "paid" && (
                             <p className="text-sm text-app-text-muted">
-                              Paid by: {paidByName ?? "Not captured"}
+                              {tr("Paid by")}: {paidByName ?? tr("Not captured")}
                             </p>
                           )}
                         {payment.paymentScope === "shared" &&
                           payment.currentCycle.state === "paid" &&
                           hasEconomicsMismatch && (
                             <p className="text-xs font-medium text-amber-700">
-                              Economics hint: {paidByName ?? "Another member"} covered this
-                              cycle, while responsibility is on{" "}
-                              {responsiblePayerName ?? "another member"}.
+                              {tr("Economics hint")}: {paidByName ?? tr("Another member")}{" "}
+                              {tr("covered this cycle, while responsibility is on")}{" "}
+                              {responsiblePayerName ?? tr("another member")}.
                             </p>
                           )}
                         {payment.paymentScope === "shared" &&
@@ -1459,17 +1508,17 @@ export function RecurringPaymentsSection({
                           payment.responsibleProfileId ===
                             payment.currentCycle.paidByProfileId && (
                             <p className="text-xs font-medium text-emerald-700">
-                              Economics: aligned (responsible payer paid this cycle).
+                              {tr("Economics: aligned (responsible payer paid this cycle).")}
                             </p>
                           )}
                         <details className="mt-1 rounded-xl border border-app-border bg-white px-2 py-1.5 text-xs text-app-text-muted">
                           <summary className="cursor-pointer font-semibold text-app-text">
-                            Reminder settings
+                            {tr("Reminder settings")}
                           </summary>
                           <p className="mt-1">
                             {payment.remindersEnabled
-                              ? `On (before ${payment.remindDaysBefore}d, due day ${payment.remindOnDueDay ? "yes" : "no"}, overdue ${payment.remindOnOverdue ? "yes" : "no"})`
-                              : "Off"}
+                              ? `${tr("On")} (${tr("before")} ${payment.remindDaysBefore}d, ${tr("due day")} ${payment.remindOnDueDay ? tr("yes") : tr("no")}, ${tr("overdue")} ${payment.remindOnOverdue ? tr("yes") : tr("no")})`
+                              : tr("Off")}
                           </p>
                           {payment.notes && <p className="mt-1">{payment.notes}</p>}
                         </details>
@@ -1481,7 +1530,7 @@ export function RecurringPaymentsSection({
                           disabled={isSaving || payment.status === "archived"}
                           className="rounded-lg border border-app-border px-2 py-1 text-xs text-app-text disabled:opacity-60"
                         >
-                          Edit
+                          {tr("Edit")}
                         </button>
                         <button
                           type="button"
@@ -1491,7 +1540,7 @@ export function RecurringPaymentsSection({
                           }
                           className="rounded-lg border border-app-border px-2 py-1 text-xs text-app-text disabled:opacity-60"
                         >
-                          Archive
+                          {tr("Archive")}
                         </button>
                         <button
                           type="button"
@@ -1507,7 +1556,9 @@ export function RecurringPaymentsSection({
                           )}
                           className="rounded-lg border border-app-border px-2 py-1 text-xs text-app-text disabled:opacity-60"
                         >
-                          {payment.currentCycle.state === "paid" ? "Undo paid" : "Mark paid"}
+                          {payment.currentCycle.state === "paid"
+                            ? tr("Undo paid")
+                            : tr("Mark paid")}
                         </button>
                         {payment.isSubscription && (
                           <button
@@ -1520,7 +1571,7 @@ export function RecurringPaymentsSection({
                             }
                             className="rounded-lg border border-app-border px-2 py-1 text-xs text-app-text disabled:opacity-60"
                           >
-                            {payment.isPaused ? "Resume" : "Pause"}
+                            {payment.isPaused ? tr("Resume") : tr("Pause")}
                           </button>
                         )}
                       </div>
@@ -1539,4 +1590,5 @@ export function RecurringPaymentsSection({
     </section>
   );
 }
+
 

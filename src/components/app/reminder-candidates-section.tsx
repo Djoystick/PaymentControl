@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { WorkspaceSummaryPayload } from "@/lib/auth/types";
 import { clientEnv } from "@/lib/config/client-env";
+import { useLocalization } from "@/lib/i18n/localization";
 import {
   PAYMENTS_CHANGED_EVENT,
   dispatchReminderCandidates,
@@ -67,9 +68,10 @@ const formatDateTime = (value: string): string => {
 const resolveResponsiblePayerDisplayName = (
   responsibleProfileId: string | null,
   responsiblePayerOptions: WorkspaceResponsiblePayerOptionPayload[],
+  labels: { notAssigned: string; missingMember: string },
 ): string => {
   if (!responsibleProfileId) {
-    return "Not assigned yet";
+    return labels.notAssigned;
   }
 
   const responsible = responsiblePayerOptions.find(
@@ -79,7 +81,7 @@ const resolveResponsiblePayerDisplayName = (
     return responsible.displayName;
   }
 
-  return "Assigned member is no longer in this family workspace";
+  return labels.missingMember;
 };
 
 const dispatchStatusMeta: Record<
@@ -98,6 +100,7 @@ export function ReminderCandidatesSection({
   workspace,
   initData,
 }: ReminderCandidatesSectionProps) {
+  const { tr } = useLocalization();
   const isFamilyWorkspace = workspace?.kind === "family";
   const isPersonalWorkspace = workspace?.kind === "personal";
   const [candidates, setCandidates] = useState<ReminderCandidatePayload[]>([]);
@@ -139,18 +142,20 @@ export function ReminderCandidatesSection({
 
   const workspaceUnavailable = useMemo(() => {
     if (!workspace) {
-      return "Load current workspace first to view reminder candidates.";
+      return tr("Load current workspace first to view reminder candidates.");
     }
 
     if (
       workspace.kind === "personal" &&
       workspace.id.startsWith("virtual-personal-")
     ) {
-      return "Workspace persistence is not initialized. Apply workspace migrations first.";
+      return tr(
+        "Workspace persistence is not initialized. Apply workspace migrations first.",
+      );
     }
 
     return null;
-  }, [workspace]);
+  }, [workspace, tr]);
 
   const summary = useMemo(() => {
     return {
@@ -248,11 +253,11 @@ export function ReminderCandidatesSection({
       setToday(result.today);
       setCandidates(result.candidates);
     } catch {
-      setFeedback("Failed to load reminder candidates.");
+      setFeedback(tr("Failed to load reminder candidates."));
     } finally {
       setIsLoading(false);
     }
-  }, [initData, isPersonalWorkspace, workspaceUnavailable]);
+  }, [initData, isPersonalWorkspace, tr, workspaceUnavailable]);
 
   const loadReadiness = useCallback(async () => {
     if (workspaceUnavailable || !isPersonalWorkspace) {
@@ -270,11 +275,11 @@ export function ReminderCandidatesSection({
       setReadiness(result.readiness);
       setRecentAttempts(result.recentAttempts);
     } catch {
-      setFeedback("Failed to load delivery readiness.");
+      setFeedback(tr("Failed to load delivery readiness."));
     } finally {
       setIsLoadingReadiness(false);
     }
-  }, [initData, isPersonalWorkspace, workspaceUnavailable]);
+  }, [initData, isPersonalWorkspace, tr, workspaceUnavailable]);
 
   const loadFamilyVisibility = useCallback(async () => {
     if (workspaceUnavailable || !isFamilyWorkspace) {
@@ -294,12 +299,12 @@ export function ReminderCandidatesSection({
       setFamilyPayments(result.payments);
       setResponsiblePayerOptions(result.responsiblePayerOptions);
     } catch {
-      setFeedback("Failed to load family reminder visibility.");
+      setFeedback(tr("Failed to load family reminder visibility."));
       setResponsiblePayerOptions([]);
     } finally {
       setIsLoading(false);
     }
-  }, [initData, isFamilyWorkspace, workspaceUnavailable]);
+  }, [initData, isFamilyWorkspace, tr, workspaceUnavailable]);
 
   const runDispatch = useCallback(async () => {
     if (workspaceUnavailable || !isPersonalWorkspace) {
@@ -317,12 +322,12 @@ export function ReminderCandidatesSection({
 
       setLastDispatchSummary(result.summary);
       setRecentAttempts(result.recentAttempts);
-      setFeedback("Controlled reminder dispatch completed.");
+      setFeedback(tr("Controlled reminder dispatch completed."));
       await loadCandidates();
       await loadReadiness();
       window.dispatchEvent(new Event(PAYMENTS_CHANGED_EVENT));
     } catch {
-      setFeedback("Failed to run controlled reminder dispatch.");
+      setFeedback(tr("Failed to run controlled reminder dispatch."));
     } finally {
       setIsDispatching(false);
     }
@@ -331,6 +336,7 @@ export function ReminderCandidatesSection({
     isPersonalWorkspace,
     loadCandidates,
     loadReadiness,
+    tr,
     workspaceUnavailable,
   ]);
 
@@ -351,15 +357,15 @@ export function ReminderCandidatesSection({
       setReadiness(result.readiness);
       setLastTestStatus(result.result);
       setRecentAttempts(result.recentAttempts);
-      setFeedback("Manual test send finished.");
+      setFeedback(tr("Manual test send finished."));
       await loadCandidates();
       window.dispatchEvent(new Event(PAYMENTS_CHANGED_EVENT));
     } catch {
-      setFeedback("Failed to run manual test send.");
+      setFeedback(tr("Failed to run manual test send."));
     } finally {
       setIsTestSending(false);
     }
-  }, [initData, isPersonalWorkspace, loadCandidates, workspaceUnavailable]);
+  }, [initData, isPersonalWorkspace, loadCandidates, tr, workspaceUnavailable]);
 
   const runBindingVerify = useCallback(async () => {
     if (workspaceUnavailable || !isPersonalWorkspace) {
@@ -380,11 +386,11 @@ export function ReminderCandidatesSection({
 
       setReadiness(result.readiness);
       setLastBindingVerifyStatus(result.result);
-      setFeedback("Binding verification finished.");
+      setFeedback(tr("Binding verification finished."));
       await loadReadiness();
       window.dispatchEvent(new Event(PAYMENTS_CHANGED_EVENT));
     } catch {
-      setFeedback("Failed to verify Telegram recipient binding.");
+      setFeedback(tr("Failed to verify Telegram recipient binding."));
     } finally {
       setIsVerifyingBinding(false);
     }
@@ -393,6 +399,7 @@ export function ReminderCandidatesSection({
     initData,
     isPersonalWorkspace,
     loadReadiness,
+    tr,
     workspaceUnavailable,
   ]);
 
@@ -432,10 +439,10 @@ export function ReminderCandidatesSection({
     <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-base font-semibold text-app-text">
-          {isFamilyWorkspace ? "Reminder Visibility" : "Reminder Candidates"}
+          {isFamilyWorkspace ? tr("Reminder Visibility") : tr("Reminder Candidates")}
         </h2>
         <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          Phase 11D
+          {tr("Phase 12A")}
         </span>
       </div>
 
@@ -449,65 +456,65 @@ export function ReminderCandidatesSection({
             <>
               <div className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                  Family reminder visibility
+                  {tr("Family reminder visibility")}
                 </p>
               </div>
 
               <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-6">
                 <div className="rounded-xl bg-app-surface-soft p-2">
-                  <p className="text-[11px] text-app-text-muted">Shared payments</p>
+                  <p className="text-[11px] text-app-text-muted">{tr("Shared payments")}</p>
                   <p className="text-base font-semibold text-app-text">
                     {familyVisibilitySummary.sharedActivePaymentsCount}
                   </p>
                 </div>
                 <div className="rounded-xl bg-app-surface-soft p-2">
-                  <p className="text-[11px] text-app-text-muted">Reminders on</p>
+                  <p className="text-[11px] text-app-text-muted">{tr("Reminders on")}</p>
                   <p className="text-base font-semibold text-app-text">
                     {familyVisibilitySummary.remindersEnabledCount}
                   </p>
                 </div>
                 <div className="rounded-xl bg-app-surface-soft p-2">
-                  <p className="text-[11px] text-app-text-muted">Reminders off</p>
+                  <p className="text-[11px] text-app-text-muted">{tr("Reminders off")}</p>
                   <p className="text-base font-semibold text-app-text">
                     {familyVisibilitySummary.remindersOffCount}
                   </p>
                 </div>
                 <div className="rounded-xl bg-app-surface-soft p-2">
-                  <p className="text-[11px] text-app-text-muted">Who pays missing</p>
+                  <p className="text-[11px] text-app-text-muted">{tr("Who pays missing")}</p>
                   <p className="text-base font-semibold text-app-text">
                     {familyVisibilitySummary.whoPaysUnassignedCount}
                   </p>
                 </div>
                 <div className="rounded-xl bg-app-surface-soft p-2">
-                  <p className="text-[11px] text-app-text-muted">Due today (unpaid)</p>
+                  <p className="text-[11px] text-app-text-muted">{tr("Due today (unpaid)")}</p>
                   <p className="text-base font-semibold text-app-text">
                     {familyVisibilitySummary.dueTodayUnpaidCount}
                   </p>
                 </div>
                 <div className="rounded-xl bg-app-surface-soft p-2">
-                  <p className="text-[11px] text-app-text-muted">Overdue (unpaid)</p>
+                  <p className="text-[11px] text-app-text-muted">{tr("Overdue (unpaid)")}</p>
                   <p className="text-base font-semibold text-app-text">
                     {familyVisibilitySummary.overdueUnpaidCount}
                   </p>
                 </div>
               </div>
               <p className="mt-2 text-xs text-app-text-muted">
-                Mismatch hints: {familyVisibilitySummary.paidByMismatchCount}.
+                {tr("Mismatch hints")}: {familyVisibilitySummary.paidByMismatchCount}.
               </p>
 
               <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
                 <p className="text-xs text-app-text-muted">
-                  Visibility date: {today || "not loaded"}.
+                  {tr("Visibility date")}: {today || tr("not loaded")}.
                 </p>
                 {familyVisibilitySummary.sharedActivePaymentsCount === 0 ? (
                   <p className="mt-2 text-sm text-app-text-muted">
-                    No shared payments yet in this family workspace. Add your first
-                    shared payment in the recurring section below.
+                    {tr(
+                      "No shared payments yet in this family workspace. Add your first shared payment in the recurring section below.",
+                    )}
                   </p>
                 ) : familyVisibilitySummary.remindersEnabledCount === 0 ? (
                   <p className="mt-2 text-sm text-app-text-muted">
-                    Shared payments exist, but reminders are turned off for all of
-                    them.
+                    {tr("Shared payments exist, but reminders are turned off for all of them.")}
                   </p>
                 ) : (
                   <>
@@ -520,12 +527,20 @@ export function ReminderCandidatesSection({
                           >
                             <p className="font-medium">{payment.title}</p>
                             <p className="text-app-text-muted">
-                              Due {formatDueDate(payment.currentCycle.dueDate)}.
-                              Reminders {payment.remindersEnabled ? "on" : "off"}.
-                              Who pays{" "}
+                              {tr("Due")} {formatDueDate(payment.currentCycle.dueDate)}.
+                              {" "}
+                              {tr("Reminders")} {payment.remindersEnabled ? tr("On") : tr("Off")}.
+                              {" "}
+                              {tr("Who pays")}{" "}
                               {resolveResponsiblePayerDisplayName(
                                 payment.responsibleProfileId,
                                 responsiblePayerOptions,
+                                {
+                                  notAssigned: tr("Not assigned yet"),
+                                  missingMember: tr(
+                                    "Assigned member is no longer in this family workspace",
+                                  ),
+                                },
                               )}
                               .
                             </p>
@@ -534,7 +549,7 @@ export function ReminderCandidatesSection({
                       </ul>
                     ) : (
                       <p className="mt-2 text-xs text-app-text-muted">
-                        No due-today or overdue unpaid shared payments right now.
+                        {tr("No due-today or overdue unpaid shared payments right now.")}
                       </p>
                     )}
                   </>
@@ -548,11 +563,11 @@ export function ReminderCandidatesSection({
                   disabled={isLoading}
                   className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
                 >
-                  Refresh family section
+                  {tr("Refresh family section")}
                 </button>
                 {isLoading && (
                   <p className="text-xs text-app-text-muted">
-                    Loading family reminders...
+                    {tr("Loading family reminders...")}
                   </p>
                 )}
               </div>
@@ -561,89 +576,93 @@ export function ReminderCandidatesSection({
             <>
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-xl bg-app-surface-soft p-2">
-              <p className="text-[11px] text-app-text-muted">Due today</p>
+              <p className="text-[11px] text-app-text-muted">{tr("Due today")}</p>
               <p className="text-base font-semibold text-app-text">{summary.dueToday}</p>
             </div>
             <div className="rounded-xl bg-app-surface-soft p-2">
-              <p className="text-[11px] text-app-text-muted">Advance</p>
+              <p className="text-[11px] text-app-text-muted">{tr("Advance")}</p>
               <p className="text-base font-semibold text-app-text">{summary.advance}</p>
             </div>
             <div className="rounded-xl bg-app-surface-soft p-2">
-              <p className="text-[11px] text-app-text-muted">Overdue</p>
+              <p className="text-[11px] text-app-text-muted">{tr("Overdue")}</p>
               <p className="text-base font-semibold text-app-text">{summary.overdue}</p>
             </div>
           </div>
           {summary.dueToday + summary.advance + summary.overdue === 0 && (
             <div className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-              <p className="text-sm font-semibold text-app-text">No reminders yet</p>
+              <p className="text-sm font-semibold text-app-text">{tr("No reminders yet")}</p>
               <p className="mt-1 text-xs text-app-text-muted">
-                Add your first recurring payment above. Reminders will appear here when due.
+                {tr(
+                  "Add your first recurring payment above. Reminders will appear here when due.",
+                )}
               </p>
             </div>
           )}
 
           <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              Delivery Readiness
+              {tr("Delivery Readiness")}
             </p>
             <p className="mt-1 text-xs text-app-text-muted">
-              Bot configured: {readiness?.botConfigured ? "yes" : "no"}. Recipient
-              resolved: {readiness?.recipientResolved ? "yes" : "no"}. Delivery ready:{" "}
-              {readiness?.deliveryReady ? "yes" : "no"}.
+              {tr("Bot configured")}: {readiness?.botConfigured ? tr("yes") : tr("no")}.{" "}
+              {tr("Recipient resolved")}: {readiness?.recipientResolved ? tr("yes") : tr("no")}.{" "}
+              {tr("Delivery ready")}: {readiness?.deliveryReady ? tr("yes") : tr("no")}.
             </p>
             <p className="mt-1 text-xs text-app-text-muted">
-              Status: {readiness?.code ?? "unknown"}
+              {tr("Status")}: {readiness?.code ?? tr("unknown")}
               {readiness?.message ? `. ${readiness.message}` : ""}
             </p>
             {readiness?.deliveryReady && !readiness.lastErrorCode && (
               <p className="mt-1 text-xs text-emerald-700">
-                Delivery path is healthy for the current recipient.
+                {tr("Delivery path is healthy for the current recipient.")}
               </p>
             )}
             <details className="mt-2 rounded-xl border border-app-border bg-app-surface px-2 py-2 text-xs text-app-text-muted">
               <summary className="cursor-pointer font-semibold text-app-text">
-                Diagnostics and dispatch observation
+                {tr("Diagnostics and dispatch observation")}
               </summary>
               <p className="mt-2">
-                Source: {readiness?.recipientSource ?? "unknown"}. Binding:{" "}
-                {readiness?.bindingStatus ?? "unknown"}
+                {tr("Source")}: {readiness?.recipientSource ?? tr("unknown")}. {tr("Binding")}:{" "}
+                {readiness?.bindingStatus ?? tr("unknown")}
                 {readiness?.bindingVerifiedAt
-                  ? `. Verified at ${new Date(readiness.bindingVerifiedAt).toLocaleString()}`
+                  ? `. ${tr("Verified at")} ${new Date(readiness.bindingVerifiedAt).toLocaleString()}`
                   : ""}
                 .
               </p>
               <p className="mt-1">
-                Diagnostic source: {readiness?.recipientDiagnosticSource ?? "unknown"}.
-                Type: {readiness?.recipientType ?? "unknown"}. Preview:{" "}
-                {readiness?.recipientPreview ?? "none"}.
+                {tr("Diagnostic source")}: {readiness?.recipientDiagnosticSource ?? tr("unknown")}.
+                {" "}{tr("Type")}: {readiness?.recipientType ?? tr("unknown")}. {tr("Preview")}:{" "}
+                {readiness?.recipientPreview ?? tr("none")}.
               </p>
               <p className="mt-1">
-                Binding diagnostic status: {readiness?.bindingDiagnosticStatus ?? "unknown"}.
+                {tr("Binding diagnostic status")}: {readiness?.bindingDiagnosticStatus ?? tr("unknown")}.
               </p>
               <p className="mt-1">
-                Active recipient source:{" "}
+                {tr("Active recipient source")}:{" "}
                 {readiness?.bindingStatus === "verified" &&
                 readiness?.recipientSource === "stored_chat_id"
-                  ? "verified stored chat id (authoritative)"
-                  : readiness?.recipientSource ?? "unknown"}
+                  ? tr("verified stored chat id (authoritative)")
+                  : readiness?.recipientSource ?? tr("unknown")}
                 .
               </p>
               {readiness?.bindingReason && (
                 <p className="mt-1">
-                  Binding reason: {readiness.bindingReason}
-                  {readiness.bindingReasonIsInference ? " (inference)" : ""}
+                  {tr("Binding reason")}: {readiness.bindingReason}
+                  {readiness.bindingReasonIsInference ? ` (${tr("inference")})` : ""}
                 </p>
               )}
               {readiness?.lastErrorCode && (
                 <p className="mt-1">
-                  Last error: {readiness.lastErrorCode}
+                  {tr("Last error")}: {readiness.lastErrorCode}
                   {readiness.lastErrorMessage ? `. ${readiness.lastErrorMessage}` : ""}
                 </p>
               )}
-              <p className="mt-2 font-semibold text-app-text">Scheduled dispatch observation</p>
+              <p className="mt-2 font-semibold text-app-text">
+                {tr("Scheduled dispatch observation")}
+              </p>
               {scheduledDispatchObservation.latestScheduledAttempt ? (
                 <p className="mt-1">
-                  Last scheduled attempt:{" "}
+                  {tr("Last scheduled attempt")}:{" "}
                   {formatDateTime(
                     scheduledDispatchObservation.latestScheduledAttempt.createdAt,
                   )}{" "}
@@ -656,30 +675,32 @@ export function ReminderCandidatesSection({
                   ).
                 </p>
               ) : (
-                <p className="mt-1">No scheduled attempts in current snapshot.</p>
+                <p className="mt-1">{tr("No scheduled attempts in current snapshot.")}</p>
               )}
               <p className="mt-1">
-                Snapshot: {scheduledDispatchObservation.scheduledAttemptsCountInSnapshot}{" "}
-                scheduled rows out of {scheduledDispatchObservation.snapshotSize} recent attempts.
+                {tr("Snapshot")}: {scheduledDispatchObservation.scheduledAttemptsCountInSnapshot}{" "}
+                {tr("scheduled rows out of")} {scheduledDispatchObservation.snapshotSize}{" "}
+                {tr("recent attempts rows")}.
               </p>
               <p className="mt-1">
-                This is an operational snapshot only. Long-horizon cron health still requires
-                repeated production checks over time.
+                {tr(
+                  "This is an operational snapshot only. Long-horizon cron health still requires repeated production checks over time.",
+                )}
               </p>
             </details>
           </div>
 
           <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
             <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              Telegram onboarding help
+              {tr("Telegram onboarding help")}
             </summary>
             <p className="mt-2 text-xs text-app-text-muted">
-              To receive reminders, open the bot in Telegram and press Start.
+              {tr("To receive reminders, open the bot in Telegram and press Start.")}
             </p>
             {clientEnv.telegramBotUsername ? (
               <>
                 <p className="mt-2 text-xs text-app-text-muted">
-                  Bot username: @{clientEnv.telegramBotUsername}
+                  {tr("Bot username")}: @{clientEnv.telegramBotUsername}
                 </p>
                 <a
                   href={`https://t.me/${clientEnv.telegramBotUsername}?start=reminders`}
@@ -687,30 +708,33 @@ export function ReminderCandidatesSection({
                   rel="noreferrer"
                   className="mt-2 inline-block rounded-xl border border-app-border px-3 py-1 text-xs font-semibold text-app-text"
                 >
-                  Open Telegram bot
+                  {tr("Open Telegram bot")}
                 </a>
               </>
             ) : (
               <p className="mt-1 text-xs text-app-text-muted">
-                Bot username is not configured in public env. Set
-                ` NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ` and restart dev server.
+                {tr(
+                  "Bot username is not configured in public env. Set `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` and restart dev server.",
+                )}
                 </p>
               )}
           </details>
 
           <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
             <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              Recipient binding verification
+              {tr("Recipient binding verification")}
             </summary>
             <p className="mt-2 text-xs text-app-text-muted">
-              Optional: enter numeric private chat id to override recipient binding and verify delivery path.
+              {tr(
+                "Optional: enter numeric private chat id to override recipient binding and verify delivery path.",
+              )}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <input
                 type="text"
                 value={bindingChatIdInput}
                 onChange={(event) => setBindingChatIdInput(event.target.value)}
-                placeholder="Telegram private chat id"
+                placeholder={tr("Telegram private chat id")}
                 className="min-w-[220px] flex-1 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
               />
               <button
@@ -725,18 +749,18 @@ export function ReminderCandidatesSection({
                 }
                 className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
               >
-                Verify binding
+                {tr("Verify binding")}
               </button>
             </div>
           </details>
 
           <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
             <p className="text-xs text-app-text-muted">
-              Evaluation date: {today || "not loaded"}
+              {tr("Evaluation date")}: {today || tr("not loaded")}
             </p>
             {candidates.length === 0 ? (
               <p className="mt-2 text-sm text-app-text-muted">
-                No reminder candidates right now.
+                {tr("No reminder candidates right now.")}
               </p>
             ) : (
               <ul className="mt-2 space-y-1">
@@ -744,7 +768,7 @@ export function ReminderCandidatesSection({
                   <li key={`${candidate.paymentId}-${candidate.reason}`} className="text-sm">
                     <span className="font-medium text-app-text">{candidate.title}</span>{" "}
                     <span className="text-app-text-muted">
-                      - {reasonLabel[candidate.reason]}, due{" "}
+                      - {tr(reasonLabel[candidate.reason])}, {tr("due")}{" "}
                       {formatDueDate(candidate.dueDate)}
                     </span>
                   </li>
@@ -760,7 +784,7 @@ export function ReminderCandidatesSection({
               disabled={isLoading || isDispatching || isTestSending || isVerifyingBinding}
               className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
             >
-              Refresh candidates
+              {tr("Refresh candidates")}
             </button>
             <button
               type="button"
@@ -770,7 +794,7 @@ export function ReminderCandidatesSection({
               }
               className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
             >
-              Refresh delivery status
+              {tr("Refresh delivery status")}
             </button>
             <button
               type="button"
@@ -778,7 +802,7 @@ export function ReminderCandidatesSection({
               disabled={isLoading || isDispatching || isTestSending || isVerifyingBinding}
               className="rounded-xl bg-app-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
             >
-              Run dispatch
+              {tr("Run dispatch")}
             </button>
             <button
               type="button"
@@ -786,29 +810,29 @@ export function ReminderCandidatesSection({
               disabled={isLoading || isDispatching || isTestSending || isVerifyingBinding}
               className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
             >
-              Send test message
+              {tr("Send test message")}
             </button>
             {isLoading && (
-              <p className="text-xs text-app-text-muted">Loading reminders...</p>
+              <p className="text-xs text-app-text-muted">{tr("Loading reminders...")}</p>
             )}
             {isLoadingReadiness && (
-              <p className="text-xs text-app-text-muted">Loading readiness...</p>
+              <p className="text-xs text-app-text-muted">{tr("Loading readiness...")}</p>
             )}
             {isDispatching && (
-              <p className="text-xs text-app-text-muted">Dispatching reminders...</p>
+              <p className="text-xs text-app-text-muted">{tr("Dispatching reminders...")}</p>
             )}
             {isTestSending && (
-              <p className="text-xs text-app-text-muted">Sending test message...</p>
+              <p className="text-xs text-app-text-muted">{tr("Sending test message...")}</p>
             )}
             {isVerifyingBinding && (
-              <p className="text-xs text-app-text-muted">Verifying binding...</p>
+              <p className="text-xs text-app-text-muted">{tr("Verifying binding...")}</p>
             )}
           </div>
 
           {lastDispatchSummary && (
             <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3 text-xs text-app-text-muted">
               <summary className="cursor-pointer font-semibold text-app-text">
-                Last dispatch result
+                {tr("Last dispatch result")}
               </summary>
               <p
                 className={`mt-2 ${
@@ -818,21 +842,21 @@ export function ReminderCandidatesSection({
                     : "font-semibold text-app-text"
                 }`}
               >
-                Dispatch result:{" "}
+                {tr("Dispatch result")}:{" "}
                 {lastDispatchSummary.failedCount === 0 &&
                 lastDispatchSummary.sentCount > 0
-                  ? "success"
+                  ? tr("success")
                   : lastDispatchSummary.failedCount > 0
-                    ? "completed with failures"
-                    : "completed"}
+                    ? tr("completed with failures")
+                    : tr("completed")}
               </p>
               <p className="mt-1">
-                Last dispatch ({lastDispatchSummary.evaluationDate}): seen{" "}
-                {lastDispatchSummary.totalCandidatesSeen}, new{" "}
-                {lastDispatchSummary.newAttemptsCreated}, duplicates{" "}
-                {lastDispatchSummary.duplicatesSkipped}, sent{" "}
-                {lastDispatchSummary.sentCount}, skipped{" "}
-                {lastDispatchSummary.skippedCount}, failed{" "}
+                {tr("Last dispatch")} ({lastDispatchSummary.evaluationDate}): {tr("seen")}{" "}
+                {lastDispatchSummary.totalCandidatesSeen}, {tr("new")}{" "}
+                {lastDispatchSummary.newAttemptsCreated}, {tr("duplicates")}{" "}
+                {lastDispatchSummary.duplicatesSkipped}, {tr("sent")}{" "}
+                {lastDispatchSummary.sentCount}, {tr("skipped")}{" "}
+                {lastDispatchSummary.skippedCount}, {tr("failed")}{" "}
                 {lastDispatchSummary.failedCount}.
               </p>
             </details>
@@ -841,7 +865,7 @@ export function ReminderCandidatesSection({
           {lastTestStatus && (
             <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3 text-xs text-app-text-muted">
               <summary className="cursor-pointer font-semibold text-app-text">
-                Last test send
+                {tr("Last test send")}
               </summary>
               <p
                 className={`mt-2 ${
@@ -852,7 +876,7 @@ export function ReminderCandidatesSection({
                       : "font-semibold text-amber-700"
                 }`}
               >
-                Last test send: {lastTestStatus.status.toUpperCase()}
+                {tr("Last test send")}: {tr(lastTestStatus.status.toUpperCase())}
               </p>
               <p className="mt-1">
                 {lastTestStatus.errorCode ? ` | ${lastTestStatus.errorCode}` : ""}
@@ -863,7 +887,7 @@ export function ReminderCandidatesSection({
                 {lastTestStatus.diagnosticMessage
                   ? ` | ${lastTestStatus.diagnosticMessage}`
                   : ""}
-                {lastTestStatus.diagnosticIsInference ? " (inference)" : ""}
+                {lastTestStatus.diagnosticIsInference ? ` (${tr("inference")})` : ""}
               </p>
             </details>
           )}
@@ -871,10 +895,10 @@ export function ReminderCandidatesSection({
           {lastBindingVerifyStatus && (
             <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3 text-xs text-app-text-muted">
               <summary className="cursor-pointer font-semibold text-app-text">
-                Last binding verify
+                {tr("Last binding verify")}
               </summary>
               <p className="mt-2">
-                Last binding verify: {lastBindingVerifyStatus.status}
+                {tr("Last binding verify")}: {tr(lastBindingVerifyStatus.status)}
                 {lastBindingVerifyStatus.errorCode
                   ? ` | ${lastBindingVerifyStatus.errorCode}`
                   : ""}
@@ -887,7 +911,7 @@ export function ReminderCandidatesSection({
                 {lastBindingVerifyStatus.diagnosticMessage
                   ? ` | ${lastBindingVerifyStatus.diagnosticMessage}`
                   : ""}
-                {lastBindingVerifyStatus.diagnosticIsInference ? " (inference)" : ""}
+                {lastBindingVerifyStatus.diagnosticIsInference ? ` (${tr("inference")})` : ""}
               </p>
             </details>
           )}
@@ -895,10 +919,10 @@ export function ReminderCandidatesSection({
           {recentAttempts.length > 0 && (
             <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
               <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                Recent attempts ({recentAttempts.length})
+                {tr("Recent attempts")} ({recentAttempts.length})
               </summary>
               <p className="mt-2 text-xs text-app-text-muted">
-                Auto-refreshed by `Refresh delivery status`.
+                {tr("Auto-refreshed by `Refresh delivery status`.")}
               </p>
               <ul className="mt-2 space-y-1">
                 {recentAttempts.map((attempt) => {
@@ -910,21 +934,21 @@ export function ReminderCandidatesSection({
                     >
                       <p>
                         <span className={`font-semibold ${statusMeta.className}`}>
-                          {statusMeta.label}
+                          {tr(statusMeta.label)}
                         </span>{" "}
-                        {reasonLabel[attempt.reminderReason]}
+                        {tr(reasonLabel[attempt.reminderReason])}
                       </p>
                       <p className="text-app-text-muted">
-                        Due {formatDueDate(attempt.cycleDueDate)}.{" "}
+                        {tr("Due")} {formatDueDate(attempt.cycleDueDate)}.{" "}
                         {formatDateTime(attempt.createdAt)}.
                       </p>
                       <p className="text-app-text-muted">
-                        Source: {triggerSourceLabel[attempt.triggerSource]}.
+                        {tr("Source")}: {tr(triggerSourceLabel[attempt.triggerSource])}.
                       </p>
                       <p className="text-app-text-muted">
                         {attempt.errorCode
                           ? `${attempt.errorCode}${attempt.errorMessage ? `. ${attempt.errorMessage}` : ""}`
-                          : "ok"}
+                          : tr("ok")}
                       </p>
                     </li>
                   );
@@ -943,3 +967,4 @@ export function ReminderCandidatesSection({
     </section>
   );
 }
+
