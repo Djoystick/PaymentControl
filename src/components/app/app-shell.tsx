@@ -14,6 +14,13 @@ type OnboardingStep = {
   tab: AppTab;
 };
 
+const tabItems: ReadonlyArray<{ key: AppTab; label: string }> = [
+  { key: "home", label: "Home" },
+  { key: "reminders", label: "Reminders" },
+  { key: "history", label: "History" },
+  { key: "profile", label: "Profile" },
+];
+
 const ONBOARDING_STORAGE_KEY = "payment_control_onboarding_v10c_done";
 const ONBOARDING_REPLAY_EVENT = "payment-control-replay-onboarding";
 
@@ -141,58 +148,29 @@ export function AppShell({ screens }: AppShellProps) {
         </div>
       </header>
 
-      <main className="relative z-0 mt-4 flex-1 pb-24">{screens[activeTab]}</main>
+      <main className="relative z-0 mt-4 flex-1 pb-24">
+        <div key={activeTab} className="space-y-3">
+          {screens[activeTab]}
+        </div>
+      </main>
 
       <footer className="sticky bottom-2 z-40 mt-4 rounded-3xl border border-app-border bg-app-surface p-2 shadow-sm [padding-bottom:calc(env(safe-area-inset-bottom)+0.5rem)]">
         <div className="grid grid-cols-4 gap-2 text-xs font-medium">
-          <button
-            type="button"
-            onClick={() => handleTabClick("home")}
-            aria-current={activeTab === "home" ? "page" : undefined}
-            className={`touch-manipulation rounded-2xl px-2 py-3 text-center ${
-              activeTab === "home"
-                ? "bg-app-accent text-white"
-                : "bg-app-surface-soft text-app-text-muted"
-            }`}
-          >
-            Home
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabClick("reminders")}
-            aria-current={activeTab === "reminders" ? "page" : undefined}
-            className={`touch-manipulation rounded-2xl px-2 py-3 text-center ${
-              activeTab === "reminders"
-                ? "bg-app-accent text-white"
-                : "bg-app-surface-soft text-app-text-muted"
-            }`}
-          >
-            Reminders
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabClick("history")}
-            aria-current={activeTab === "history" ? "page" : undefined}
-            className={`touch-manipulation rounded-2xl px-2 py-3 text-center ${
-              activeTab === "history"
-                ? "bg-app-accent text-white"
-                : "bg-app-surface-soft text-app-text-muted"
-            }`}
-          >
-            History
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabClick("profile")}
-            aria-current={activeTab === "profile" ? "page" : undefined}
-            className={`touch-manipulation rounded-2xl px-2 py-3 text-center ${
-              activeTab === "profile"
-                ? "bg-app-accent text-white"
-                : "bg-app-surface-soft text-app-text-muted"
-            }`}
-          >
-            Profile
-          </button>
+          {tabItems.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => handleTabClick(tab.key)}
+              aria-current={activeTab === tab.key ? "page" : undefined}
+              className={`touch-manipulation rounded-2xl px-2 py-3 text-center ${
+                activeTab === tab.key
+                  ? "bg-app-accent text-white"
+                  : "bg-app-surface-soft text-app-text-muted"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </footer>
 
