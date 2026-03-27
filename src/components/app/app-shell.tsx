@@ -51,6 +51,83 @@ const onboardingSteps: OnboardingStep[] = [
   },
 ];
 
+const renderTabIcon = (tab: AppTab) => {
+  const iconClassName = "h-[18px] w-[18px]";
+
+  if (tab === "home") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={iconClassName}
+        aria-hidden="true"
+      >
+        <path d="M3.5 10.5 12 4l8.5 6.5" />
+        <path d="M6.5 9.5V20h11V9.5" />
+      </svg>
+    );
+  }
+
+  if (tab === "reminders") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={iconClassName}
+        aria-hidden="true"
+      >
+        <path d="M8 5h8a4 4 0 0 1 4 4v10H4V9a4 4 0 0 1 4-4Z" />
+        <path d="M9 3h6" />
+        <path d="M9 11h6" />
+        <path d="M9 15h4" />
+      </svg>
+    );
+  }
+
+  if (tab === "history") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={iconClassName}
+        aria-hidden="true"
+      >
+        <path d="M12 6v6l4 2" />
+        <path d="M4.5 12A7.5 7.5 0 1 0 7 6.5" />
+        <path d="M4 6.5h3v3" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={iconClassName}
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5.5 20a6.5 6.5 0 0 1 13 0" />
+    </svg>
+  );
+};
+
 export function AppShell({ screens }: AppShellProps) {
   const { tr } = useLocalization();
   const [activeTab, setActiveTab] = useState<AppTab>("home");
@@ -132,8 +209,8 @@ export function AppShell({ screens }: AppShellProps) {
   const isLastOnboardingStep = onboardingStepIndex === onboardingSteps.length - 1;
 
   return (
-    <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col px-4 pb-4 pt-5">
-      <header className="rounded-3xl border border-app-border bg-app-surface/95 p-4 shadow-sm backdrop-blur">
+    <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col px-3 pb-4 pt-4 sm:px-4 sm:pt-5">
+      <header className="rounded-[28px] border border-app-border/90 bg-app-surface/95 p-4 shadow-[0_10px_26px_rgba(19,32,20,0.08)] backdrop-blur">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-app-text-muted">
           {tr("Telegram Mini App")}
         </p>
@@ -150,27 +227,44 @@ export function AppShell({ screens }: AppShellProps) {
         </div>
       </header>
 
-      <main className="relative z-0 mt-4 flex-1 pb-24">
-        <div key={activeTab} className="space-y-3">
+      <main className="relative z-0 mt-3.5 flex-1 pb-24">
+        <div key={activeTab} className="space-y-2.5">
           {screens[activeTab]}
         </div>
       </main>
 
-      <footer className="sticky bottom-2 z-40 mt-4 rounded-3xl border border-app-border bg-app-surface p-2 shadow-sm [padding-bottom:calc(env(safe-area-inset-bottom)+0.5rem)]">
-        <div className="grid grid-cols-4 gap-2 text-xs font-medium">
+      <footer className="sticky bottom-2 z-40 mt-4 rounded-[26px] border border-app-border/80 bg-app-surface/95 p-1.5 shadow-[0_12px_28px_rgba(19,32,20,0.12)] backdrop-blur supports-[backdrop-filter]:bg-app-surface/90 [padding-bottom:calc(env(safe-area-inset-bottom)+0.35rem)]">
+        <div className="grid grid-cols-4 gap-1">
           {tabItems.map((tab) => (
             <button
               key={tab.key}
               type="button"
               onClick={() => handleTabClick(tab.key)}
               aria-current={activeTab === tab.key ? "page" : undefined}
-              className={`touch-manipulation rounded-2xl px-2 py-3 text-center ${
+              className={`group flex min-h-14 touch-manipulation flex-col items-center justify-center rounded-2xl border px-1.5 py-1.5 text-center transition ${
                 activeTab === tab.key
-                  ? "bg-app-accent text-white"
-                  : "bg-app-surface-soft text-app-text-muted"
+                  ? "border-app-accent bg-app-accent text-white shadow-[0_8px_16px_rgba(31,122,67,0.28)]"
+                  : "border-transparent bg-transparent text-app-text-muted"
               }`}
             >
-              {tr(tab.label)}
+              <span
+                className={`transition ${
+                  activeTab === tab.key
+                    ? "text-white"
+                    : "text-app-text-muted group-hover:text-app-text"
+                }`}
+              >
+                {renderTabIcon(tab.key)}
+              </span>
+              <span
+                className={`mt-1 w-full whitespace-nowrap text-[11px] font-semibold leading-4 ${
+                  activeTab === tab.key
+                    ? "text-white"
+                    : "text-app-text-muted group-hover:text-app-text"
+                }`}
+              >
+                {tr(tab.label)}
+              </span>
             </button>
           ))}
         </div>
