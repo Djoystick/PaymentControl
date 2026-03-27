@@ -117,6 +117,9 @@ export function ProfileScenariosPlaceholder() {
     () => normalizeFamilyInviteToken(inviteTokenInput),
     [inviteTokenInput],
   );
+  const replayOnboarding = () => {
+    window.dispatchEvent(new Event("payment-control-replay-onboarding"));
+  };
 
   return (
     <div className="space-y-3">
@@ -153,6 +156,15 @@ export function ProfileScenariosPlaceholder() {
               {profile.username ? ` (@${profile.username})` : ""}
             </p>
           )}
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={replayOnboarding}
+              className="rounded-xl border border-app-border px-3 py-1.5 text-xs font-semibold text-app-text"
+            >
+              Show onboarding again
+            </button>
+          </div>
           {!profile && !isLoading && !isTelegramContext && (
             <p className="mt-2 text-xs text-app-text-muted">
               Open this app in Telegram to verify identity, or enable explicit

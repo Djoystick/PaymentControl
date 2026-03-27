@@ -33,6 +33,7 @@ const hashToTab: Record<string, AppTab> = {
 };
 
 const ONBOARDING_STORAGE_KEY = "payment_control_onboarding_v10c_done";
+const ONBOARDING_REPLAY_EVENT = "payment-control-replay-onboarding";
 
 const onboardingSteps: OnboardingStep[] = [
   {
@@ -101,6 +102,18 @@ export function AppShell({ children }: AppShellProps) {
       if (frame) {
         window.cancelAnimationFrame(frame);
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleOnboardingReplay = () => {
+      setOnboardingStepIndex(0);
+      setIsOnboardingVisible(true);
+    };
+
+    window.addEventListener(ONBOARDING_REPLAY_EVENT, handleOnboardingReplay);
+    return () => {
+      window.removeEventListener(ONBOARDING_REPLAY_EVENT, handleOnboardingReplay);
     };
   }, []);
 

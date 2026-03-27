@@ -1376,7 +1376,7 @@ export function RecurringPaymentsSection({
                     key={payment.id}
                     className="rounded-2xl border border-app-border bg-app-surface-soft p-3"
                   >
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="font-semibold text-app-text">{payment.title}</p>
@@ -1453,7 +1453,7 @@ export function RecurringPaymentsSection({
                           </p>
                         )}
                       </div>
-                      <div className="flex flex-wrap justify-end gap-2">
+                      <div className="flex flex-wrap gap-2 sm:justify-end">
                         <button
                           type="button"
                           onClick={() => startEdit(payment)}
