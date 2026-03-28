@@ -333,9 +333,6 @@ function ProfileScenariosContent() {
           <AppIcon name="profile" className="h-4 w-4" />
           {tr("Profile")}
         </h2>
-        <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          {tr("Phase 16A")}
-        </span>
       </div>
       <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">

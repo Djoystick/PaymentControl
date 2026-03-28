@@ -441,9 +441,6 @@ export function ReminderCandidatesSection({
         <h2 className="text-base font-semibold text-app-text">
           {isFamilyWorkspace ? tr("Reminder Visibility") : tr("Reminder Candidates")}
         </h2>
-        <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          {tr("Phase 14A")}
-        </span>
       </div>
 
       {workspaceUnavailable ? (

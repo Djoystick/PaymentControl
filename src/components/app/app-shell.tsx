@@ -165,15 +165,15 @@ export function AppShell({ screens }: AppShellProps) {
   const isLastOnboardingStep = onboardingStepIndex === onboardingSteps.length - 1;
 
   return (
-    <div className="relative mx-auto flex min-h-dvh w-full max-w-md flex-col px-3 pb-4 pt-2 sm:px-4 sm:pt-3">
-      <div className="relative flex min-h-[calc(100dvh-1.5rem)] flex-1 flex-col rounded-[30px] border border-app-border/80 bg-app-surface/70 p-2 shadow-[0_18px_40px_var(--app-frame-shadow)] backdrop-blur">
+    <div className="relative mx-auto flex min-h-dvh w-full max-w-[420px] flex-col px-2.5 pb-3 pt-2 sm:px-3">
+      <div className="relative flex min-h-[calc(100dvh-1.15rem)] flex-1 flex-col rounded-[32px] border border-app-border/80 bg-app-surface/75 p-2.5 shadow-[0_20px_48px_var(--app-frame-shadow)] backdrop-blur">
         <main className="relative z-0 flex-1 pb-24 pt-1">
           <div key={activeTab} className="space-y-2.5">
             {screens[activeTab]}
           </div>
         </main>
 
-        <footer className="sticky bottom-2 z-40 mt-4 rounded-[26px] border border-app-border/80 bg-app-surface/95 p-1.5 shadow-[0_12px_28px_var(--app-frame-shadow)] backdrop-blur supports-[backdrop-filter]:bg-app-surface/90 [padding-bottom:calc(env(safe-area-inset-bottom)+0.35rem)]">
+        <footer className="sticky bottom-1.5 z-40 mt-3 rounded-[26px] border border-app-border/80 bg-app-surface/95 p-1.5 shadow-[0_12px_30px_var(--app-frame-shadow)] backdrop-blur supports-[backdrop-filter]:bg-app-surface/90 [padding-bottom:calc(env(safe-area-inset-bottom)+0.35rem)]">
           <div className="grid grid-cols-4 gap-1">
             {tabItems.map((tab) => (
               <button

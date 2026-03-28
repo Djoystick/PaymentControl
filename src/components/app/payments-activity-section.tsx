@@ -254,9 +254,6 @@ export function PaymentsActivitySection({
           <AppIcon name="history" className="h-4 w-4" />
           {tr("History")}
         </h2>
-        <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          {tr("Phase 16A")}
-        </span>
       </div>
 
       {workspaceUnavailable ? (

@@ -1,26 +1,18 @@
 import { clientEnv } from "@/lib/config/client-env";
 import { useLocalization } from "@/lib/i18n/localization";
-import { AppIcon } from "@/components/app/app-icon";
 
 export function LandingScreen() {
   const { tr } = useLocalization();
 
   return (
     <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
-      <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-app-text-muted">
-        <AppIcon name="home" className="h-3.5 w-3.5" />
-        {tr("Home")}
-      </p>
       <h1 className="mt-1 text-xl font-semibold tracking-tight text-app-text">
         {tr("Payment Control")}
       </h1>
-      <p className="mt-1 text-xs text-app-text-muted">
-        {tr("Keep it simple: Reminders for actions, History for updates.")}
-      </p>
       <p className="mt-2 rounded-xl border border-app-border bg-app-surface-soft px-3 py-2 text-sm text-app-text">
         {tr("First step: open Reminders and add your first payment.")}
       </p>
-      <p className="mt-2 text-xs text-app-text-muted">
+      <p className="mt-2 text-[11px] text-app-text-muted">
         {tr("Runtime stage")}: <span className="font-semibold">{clientEnv.appStage}</span>
       </p>
     </section>

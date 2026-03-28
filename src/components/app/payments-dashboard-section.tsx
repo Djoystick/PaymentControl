@@ -150,9 +150,6 @@ export function PaymentsDashboardSection({
           <AppIcon name={isCompact ? "home" : "payments"} className="h-4 w-4" />
           {isCompact ? tr("Payment snapshot") : tr("Dashboard")}
         </h2>
-        <span className="rounded-full bg-app-warm px-2 py-1 text-[11px] font-semibold text-app-text">
-          {tr("Phase 16A")}
-        </span>
       </div>
 
       {workspaceUnavailable ? (

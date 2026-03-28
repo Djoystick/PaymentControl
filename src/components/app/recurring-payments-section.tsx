@@ -54,6 +54,7 @@ type PaymentFormState = {
 
 type TemplateScenario = "personal" | "family";
 type PaymentListView = "payments" | "subscriptions";
+type RemindersScreenMode = "act" | "setup";
 
 type CustomTemplateStorageShape = Record<TemplateScenario, StarterPaymentTemplate[]>;
 
@@ -293,6 +294,7 @@ export function RecurringPaymentsSection({
   const [feedback, setFeedback] = useState<string | null>(null);
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [paymentListView, setPaymentListView] = useState<PaymentListView>("payments");
+  const [screenMode, setScreenMode] = useState<RemindersScreenMode>("act");
   const [showPausedSubscriptionsOnly, setShowPausedSubscriptionsOnly] = useState(false);
   const [isComposerExpanded, setIsComposerExpanded] = useState(false);
   const [isAdvancedFormExpanded, setIsAdvancedFormExpanded] = useState(false);
@@ -543,6 +545,26 @@ export function RecurringPaymentsSection({
     () => payments.filter((payment) => payment.isSubscription).length,
     [payments],
   );
+  const remindersActSummary = useMemo(() => {
+    const todayKey = toUtcDateKey(new Date());
+    const actionable = payments.filter((payment) => payment.status === "active");
+    const dueTodayCount = actionable.filter(
+      (payment) =>
+        payment.currentCycle.state === "unpaid" &&
+        payment.currentCycle.dueDate === todayKey,
+    ).length;
+    const overdueCount = actionable.filter(
+      (payment) =>
+        payment.currentCycle.state === "unpaid" &&
+        payment.currentCycle.dueDate < todayKey,
+    ).length;
+
+    return {
+      activeCount: actionable.length,
+      dueTodayCount,
+      overdueCount,
+    };
+  }, [payments]);
 
   const activeWorkspaceId = workspace?.id ?? null;
 
@@ -623,6 +645,12 @@ export function RecurringPaymentsSection({
     setShowPausedSubscriptionsOnly(false);
   }, [paymentListView]);
 
+  useEffect(() => {
+    if (payments.length === 0) {
+      setScreenMode("setup");
+    }
+  }, [payments.length]);
+
   const resetForm = () => {
     setForm(createDefaultForm());
     setEditingPaymentId(null);
@@ -631,6 +659,7 @@ export function RecurringPaymentsSection({
   };
 
   const startEdit = (payment: RecurringPaymentPayload) => {
+    setScreenMode("setup");
     setEditingPaymentId(payment.id);
     setIsComposerExpanded(true);
     setIsAdvancedFormExpanded(true);
@@ -926,6 +955,7 @@ export function RecurringPaymentsSection({
   };
 
   const openComposer = () => {
+    setScreenMode("setup");
     setIsComposerExpanded(true);
     window.requestAnimationFrame(() => {
       composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -971,6 +1001,61 @@ export function RecurringPaymentsSection({
         </p>
       ) : (
         <>
+          <div className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-2">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setScreenMode("act")}
+                className={`min-h-11 touch-manipulation rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                  screenMode === "act"
+                    ? "border-app-accent bg-app-accent text-white"
+                    : "border-app-border bg-app-surface text-app-text"
+                }`}
+              >
+                {tr("Main action")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setScreenMode("setup")}
+                className={`min-h-11 touch-manipulation rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                  screenMode === "setup"
+                    ? "border-app-accent bg-app-accent text-white"
+                    : "border-app-border bg-app-surface text-app-text"
+                }`}
+              >
+                {tr("Setup and templates")}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-app-text-muted">
+              {screenMode === "act"
+                ? tr("Use Mark paid / Undo paid directly from payment cards.")
+                : tr("Add or edit recurring payments in one compact form.")}
+            </p>
+          </div>
+
+          {screenMode === "act" && (
+            <div className="mb-2 grid grid-cols-3 gap-2">
+              <article className="rounded-xl border border-app-border bg-app-surface px-2 py-2">
+                <p className="text-[11px] text-app-text-muted">{tr("Due today")}</p>
+                <p className="text-base font-semibold text-app-text">
+                  {remindersActSummary.dueTodayCount}
+                </p>
+              </article>
+              <article className="rounded-xl border border-app-border bg-app-surface px-2 py-2">
+                <p className="text-[11px] text-app-text-muted">{tr("Overdue")}</p>
+                <p className="text-base font-semibold text-app-text">
+                  {remindersActSummary.overdueCount}
+                </p>
+              </article>
+              <article className="rounded-xl border border-app-border bg-app-surface px-2 py-2">
+                <p className="text-[11px] text-app-text-muted">{tr("Visible")}</p>
+                <p className="text-base font-semibold text-app-text">
+                  {visiblePayments.length}
+                </p>
+              </article>
+            </div>
+          )}
+
           <div className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
@@ -991,7 +1076,7 @@ export function RecurringPaymentsSection({
               <button
                 type="button"
                 onClick={openComposer}
-                className="rounded-xl bg-app-accent px-3 py-1.5 text-xs font-semibold text-white"
+                className="min-h-11 touch-manipulation rounded-xl bg-app-accent px-3 py-1.5 text-xs font-semibold text-white"
               >
                 {editingPaymentId ? tr("Continue editing") : tr("Open payment form")}
               </button>
@@ -999,14 +1084,14 @@ export function RecurringPaymentsSection({
                 type="button"
                 onClick={loadPayments}
                 disabled={isLoading}
-                className="rounded-xl border border-app-border bg-white px-3 py-1.5 text-xs font-semibold text-app-text disabled:opacity-70"
+                className="min-h-11 touch-manipulation rounded-xl border border-app-border bg-white px-3 py-1.5 text-xs font-semibold text-app-text disabled:opacity-70"
               >
                 {tr("Refresh section")}
               </button>
             </div>
           </div>
 
-          {!isLoading && payments.length === 0 && (
+          {screenMode === "act" && !isLoading && payments.length === 0 && (
             <div className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
               <p className="text-sm font-semibold text-app-text">
                 {isFamilyWorkspace
@@ -1025,12 +1110,14 @@ export function RecurringPaymentsSection({
               <button
                 type="button"
                 onClick={openComposer}
-                className="mt-2 rounded-xl border border-app-border bg-white px-3 py-1.5 text-xs font-semibold text-app-text"
+                className="mt-2 min-h-11 touch-manipulation rounded-xl border border-app-border bg-white px-3 py-1.5 text-xs font-semibold text-app-text"
               >
                 {tr("Open add payment form")}
               </button>
             </div>
           )}
+
+          {screenMode === "setup" && (
           <details className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
             <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {tr("Setup and templates")}
@@ -1168,20 +1255,39 @@ export function RecurringPaymentsSection({
                           return (
                             <div
                               key={template.id}
-                              className="flex items-center justify-between gap-2 rounded-xl border border-app-border bg-app-surface px-2 py-1"
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => {
+                                if (isSaving) {
+                                  return;
+                                }
+                                applyTemplate(template);
+                              }}
+                              onKeyDown={(event) => {
+                                if (isSaving) {
+                                  return;
+                                }
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  applyTemplate(template);
+                                }
+                              }}
+                              className={`flex min-h-[44px] touch-manipulation items-center justify-between gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 transition ${
+                                isSaving
+                                  ? "cursor-not-allowed opacity-60"
+                                  : "cursor-pointer hover:bg-app-surface-soft"
+                              }`}
                             >
-                              <button
-                                type="button"
-                                onClick={() => applyTemplate(template)}
-                                disabled={isSaving}
-                                className="flex-1 rounded-lg px-2 py-1.5 text-left text-xs font-medium text-app-text hover:bg-app-surface-soft disabled:opacity-60"
-                              >
+                              <p className="flex-1 text-left text-xs font-medium text-app-text">
                                 {resolveTemplateLabel(template)}
-                              </button>
+                              </p>
                               {customTemplate && (
                                 <button
                                   type="button"
-                                  onClick={() => deleteCustomTemplate(template.id)}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    deleteCustomTemplate(template.id);
+                                  }}
                                   className="rounded-lg border border-app-border px-2 py-0.5 text-[11px] font-semibold text-app-text-muted"
                                 >
                                   {tr("Delete")}
@@ -1208,20 +1314,39 @@ export function RecurringPaymentsSection({
                           return (
                             <div
                               key={template.id}
-                              className="flex items-center justify-between gap-2 rounded-xl border border-app-border bg-app-surface px-2 py-1"
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => {
+                                if (isSaving) {
+                                  return;
+                                }
+                                applyTemplate(template);
+                              }}
+                              onKeyDown={(event) => {
+                                if (isSaving) {
+                                  return;
+                                }
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  applyTemplate(template);
+                                }
+                              }}
+                              className={`flex min-h-[44px] touch-manipulation items-center justify-between gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 transition ${
+                                isSaving
+                                  ? "cursor-not-allowed opacity-60"
+                                  : "cursor-pointer hover:bg-app-surface-soft"
+                              }`}
                             >
-                              <button
-                                type="button"
-                                onClick={() => applyTemplate(template)}
-                                disabled={isSaving}
-                                className="flex-1 rounded-lg px-2 py-1.5 text-left text-xs font-medium text-app-text hover:bg-app-surface-soft disabled:opacity-60"
-                              >
+                              <p className="flex-1 text-left text-xs font-medium text-app-text">
                                 {resolveTemplateLabel(template)}
-                              </button>
+                              </p>
                               {customTemplate && (
                                 <button
                                   type="button"
-                                  onClick={() => deleteCustomTemplate(template.id)}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    deleteCustomTemplate(template.id);
+                                  }}
                                   className="rounded-lg border border-app-border px-2 py-0.5 text-[11px] font-semibold text-app-text-muted"
                                 >
                                   {tr("Delete")}
@@ -1237,8 +1362,9 @@ export function RecurringPaymentsSection({
               </details>
             </div>
           </details>
+          )}
 
-          {payments.length > 0 && paymentListView === "subscriptions" && (
+          {screenMode === "act" && payments.length > 0 && paymentListView === "subscriptions" && (
             <details className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
               <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                 {tr("Subscription insights - active {active}, unpaid {unpaid}", {
@@ -1499,6 +1625,7 @@ export function RecurringPaymentsSection({
           </details>
           )}
 
+          {screenMode === "setup" && (
           <details
             ref={composerRef}
             className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3"
@@ -1722,22 +1849,22 @@ export function RecurringPaymentsSection({
           </details>
 
           <div className="mt-2 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={submitForm}
-              disabled={isSaving}
-              className="rounded-xl bg-app-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-70"
-            >
-              {editingPaymentId ? tr("Save changes") : tr("Add payment")}
-            </button>
-            <button
-              type="button"
-              onClick={saveCurrentFormAsTemplate}
-              disabled={isSaving}
-              className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-70"
-            >
-              {tr("Save as template")}
-            </button>
+              <button
+                type="button"
+                onClick={submitForm}
+                disabled={isSaving}
+                className="min-h-11 touch-manipulation rounded-xl bg-app-accent px-4 py-2 text-sm font-semibold text-white disabled:opacity-70"
+              >
+                {editingPaymentId ? tr("Save changes") : tr("Add payment")}
+              </button>
+              <button
+                type="button"
+                onClick={saveCurrentFormAsTemplate}
+                disabled={isSaving}
+                className="min-h-11 touch-manipulation rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-70"
+              >
+                {tr("Save as template")}
+              </button>
             {editingPaymentId && (
               <button
                 type="button"
@@ -1751,14 +1878,15 @@ export function RecurringPaymentsSection({
                 type="button"
                 onClick={resetForm}
                 disabled={isSaving}
-                className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-70"
+                className="min-h-11 touch-manipulation rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-70"
               >
                 {tr("Clear form")}
               </button>
             </div>
           </details>
+          )}
 
-          {payments.length > 0 && (
+          {screenMode === "act" && payments.length > 0 && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button
                 type="button"
@@ -1790,6 +1918,7 @@ export function RecurringPaymentsSection({
             </div>
           )}
 
+          {screenMode === "act" && (
           <div className="mt-3 space-y-2">
             {isLoading && (
               <p className="text-sm text-app-text-muted">{tr("Loading payments...")}</p>
@@ -2002,6 +2131,7 @@ export function RecurringPaymentsSection({
               })()
             ))}
           </div>
+          )}
         </>
       )}
 

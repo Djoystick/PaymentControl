@@ -741,11 +741,7 @@ const isUiLanguage = (value: string | null): value is UiLanguage => {
   return value === "en" || value === "ru";
 };
 
-const resolveInitialLanguage = (): UiLanguage => {
-  if (typeof window === "undefined") {
-    return "en";
-  }
-
+const resolveClientLanguage = (): UiLanguage => {
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY);
     if (isUiLanguage(stored)) {
@@ -778,15 +774,32 @@ const interpolate = (
 };
 
 export function LocalizationProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<UiLanguage>(resolveInitialLanguage);
+  const [language, setLanguageState] = useState<UiLanguage>("en");
+  const [isLanguageHydrated, setIsLanguageHydrated] = useState(false);
 
   useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const resolvedLanguage = resolveClientLanguage();
+      setLanguageState(resolvedLanguage);
+      setIsLanguageHydrated(true);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isLanguageHydrated) {
+      return;
+    }
+
     try {
       window.localStorage.setItem(STORAGE_KEY, language);
     } catch {
       // Ignore storage write errors.
     }
-  }, [language]);
+  }, [isLanguageHydrated, language]);
 
   const setLanguage = useCallback((next: UiLanguage) => {
     setLanguageState(next);
