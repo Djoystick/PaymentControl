@@ -4,12 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { WorkspaceSummaryPayload } from "@/lib/auth/types";
 import {
   PAYMENTS_CHANGED_EVENT,
+  listRecurringPayments,
   readPaymentsDashboard,
 } from "@/lib/payments/client";
 import { useLocalization } from "@/lib/i18n/localization";
 import type {
   DashboardPaymentItemPayload,
   PaymentsDashboardPayload,
+  RecurringPaymentPayload,
 } from "@/lib/payments/types";
 import { AppIcon } from "@/components/app/app-icon";
 
@@ -18,6 +20,9 @@ type PaymentsDashboardSectionProps = {
   initData: string;
   variant?: "full" | "compact";
 };
+
+type CompactSummaryFilter = "none" | "all" | "upcoming" | "overdue";
+const WEEKLY_TO_MONTHLY_FACTOR = 52 / 12;
 
 const formatAmount = (item: DashboardPaymentItemPayload): string => {
   return `${item.amount.toFixed(2)} ${item.currency}`;
@@ -30,6 +35,17 @@ const formatDueDate = (value: string): string => {
   }
 
   return parsed.toLocaleDateString();
+};
+
+const sortByDueDateThenTitle = (
+  a: DashboardPaymentItemPayload,
+  b: DashboardPaymentItemPayload,
+): number => {
+  if (a.dueDate !== b.dueDate) {
+    return a.dueDate.localeCompare(b.dueDate);
+  }
+
+  return a.title.localeCompare(b.title);
 };
 
 const DashboardBucket = ({
@@ -74,6 +90,8 @@ export function PaymentsDashboardSection({
 }: PaymentsDashboardSectionProps) {
   const { tr } = useLocalization();
   const [dashboard, setDashboard] = useState<PaymentsDashboardPayload | null>(null);
+  const [activePayments, setActivePayments] = useState<RecurringPaymentPayload[]>([]);
+  const [compactFilter, setCompactFilter] = useState<CompactSummaryFilter>("none");
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const isFamilyWorkspace = workspace?.kind === "family";
@@ -96,6 +114,10 @@ export function PaymentsDashboardSection({
     return null;
   }, [workspace, tr]);
 
+  useEffect(() => {
+    setCompactFilter("none");
+  }, [workspace?.id]);
+
   const hasAnyActivePayments = useMemo(() => {
     if (!dashboard) {
       return false;
@@ -114,15 +136,29 @@ export function PaymentsDashboardSection({
     setIsLoading(true);
     setFeedback(null);
     try {
-      const result = await readPaymentsDashboard(initData);
-      if (!result.ok) {
-        setFeedback(result.error.message);
+      const [dashboardResult, paymentsResult] = await Promise.all([
+        readPaymentsDashboard(initData),
+        listRecurringPayments(initData),
+      ]);
+
+      if (!dashboardResult.ok) {
+        setFeedback(dashboardResult.error.message);
         return;
       }
 
-      setDashboard(result.dashboard);
+      setDashboard(dashboardResult.dashboard);
+
+      if (!paymentsResult.ok) {
+        setActivePayments([]);
+        return;
+      }
+
+      setActivePayments(
+        paymentsResult.payments.filter((payment) => payment.status === "active"),
+      );
     } catch {
       setFeedback(tr("Failed to load dashboard summary."));
+      setActivePayments([]);
     } finally {
       setIsLoading(false);
     }
@@ -143,6 +179,90 @@ export function PaymentsDashboardSection({
     };
   }, [loadDashboard]);
 
+  const totalActiveCount = useMemo(() => {
+    if (!dashboard) {
+      return 0;
+    }
+
+    return dashboard.summary.paidThisCycleCount + dashboard.summary.unpaidThisCycleCount;
+  }, [dashboard]);
+
+  const monthlyTotals = useMemo(() => {
+    const totalsByCurrency = new Map<string, number>();
+    for (const payment of activePayments) {
+      const monthlyAmount =
+        payment.cadence === "weekly"
+          ? payment.amount * WEEKLY_TO_MONTHLY_FACTOR
+          : payment.amount;
+      const current = totalsByCurrency.get(payment.currency) ?? 0;
+      totalsByCurrency.set(payment.currency, current + monthlyAmount);
+    }
+
+    return Array.from(totalsByCurrency.entries())
+      .map(([currency, total]) => ({ currency, total }))
+      .sort((a, b) => a.currency.localeCompare(b.currency));
+  }, [activePayments]);
+
+  const monthlyTotalLabel = useMemo(() => {
+    if (monthlyTotals.length === 0) {
+      return "0";
+    }
+
+    return monthlyTotals
+      .map((item) => `${item.total.toFixed(2)} ${item.currency}`)
+      .join(" | ");
+  }, [monthlyTotals]);
+
+  const allActiveDashboardItems = useMemo(() => {
+    return activePayments
+      .map((payment) => ({
+        id: payment.id,
+        title: payment.title,
+        amount: payment.amount,
+        currency: payment.currency,
+        category: payment.category,
+        dueDate: payment.currentCycle.dueDate,
+        cycleState: payment.currentCycle.state,
+      }))
+      .sort(sortByDueDateThenTitle);
+  }, [activePayments]);
+
+  const compactFilteredItems = useMemo(() => {
+    if (!dashboard) {
+      return [];
+    }
+
+    if (compactFilter === "all") {
+      return allActiveDashboardItems;
+    }
+
+    if (compactFilter === "upcoming") {
+      return dashboard.upcoming;
+    }
+
+    if (compactFilter === "overdue") {
+      return dashboard.overdue;
+    }
+
+    return [];
+  }, [allActiveDashboardItems, compactFilter, dashboard]);
+
+  const compactFilterLabel = useMemo(() => {
+    if (compactFilter === "all") {
+      return tr("Total");
+    }
+
+    if (compactFilter === "upcoming") {
+      return tr("Upcoming");
+    }
+
+    if (compactFilter === "overdue") {
+      return tr("Overdue");
+    }
+
+    return "";
+  }, [compactFilter, tr]);
+
   return (
     <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
@@ -161,24 +281,80 @@ export function PaymentsDashboardSection({
           {isCompact ? (
             <>
               {dashboard && (
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="rounded-xl bg-app-surface-soft p-2">
-                    <p className="text-[11px] text-app-text-muted">{tr("Due today")}</p>
-                    <p className="text-base font-semibold text-app-text">
-                      {dashboard.summary.dueTodayCount}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCompactFilter((current) => (current === "all" ? "none" : "all"))
+                    }
+                    className={`rounded-xl border p-2 text-left ${
+                      compactFilter === "all"
+                        ? "border-app-accent bg-app-accent text-white"
+                        : "border-app-border bg-app-surface-soft text-app-text"
+                    }`}
+                  >
+                    <p
+                      className={`text-[11px] ${
+                        compactFilter === "all" ? "text-white/90" : "text-app-text-muted"
+                      }`}
+                    >
+                      {tr("Total")}
                     </p>
-                  </div>
-                  <div className="rounded-xl bg-app-surface-soft p-2">
-                    <p className="text-[11px] text-app-text-muted">{tr("Upcoming")}</p>
-                    <p className="text-base font-semibold text-app-text">
+                    <p className="text-base font-semibold">{totalActiveCount}</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCompactFilter((current) =>
+                        current === "upcoming" ? "none" : "upcoming",
+                      )
+                    }
+                    className={`rounded-xl border p-2 text-left ${
+                      compactFilter === "upcoming"
+                        ? "border-app-accent bg-app-accent text-white"
+                        : "border-app-border bg-app-surface-soft text-app-text"
+                    }`}
+                  >
+                    <p
+                      className={`text-[11px] ${
+                        compactFilter === "upcoming" ? "text-white/90" : "text-app-text-muted"
+                      }`}
+                    >
+                      {tr("Upcoming")}
+                    </p>
+                    <p className="text-base font-semibold">
                       {dashboard.summary.upcomingCount}
                     </p>
-                  </div>
-                  <div className="rounded-xl bg-app-surface-soft p-2">
-                    <p className="text-[11px] text-app-text-muted">{tr("Overdue")}</p>
-                    <p className="text-base font-semibold text-app-text">
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCompactFilter((current) =>
+                        current === "overdue" ? "none" : "overdue",
+                      )
+                    }
+                    className={`rounded-xl border p-2 text-left ${
+                      compactFilter === "overdue"
+                        ? "border-app-accent bg-app-accent text-white"
+                        : "border-app-border bg-app-surface-soft text-app-text"
+                    }`}
+                  >
+                    <p
+                      className={`text-[11px] ${
+                        compactFilter === "overdue" ? "text-white/90" : "text-app-text-muted"
+                      }`}
+                    >
+                      {tr("Overdue")}
+                    </p>
+                    <p className="text-base font-semibold">
                       {dashboard.summary.overdueCount}
                     </p>
+                  </button>
+                  <div className="rounded-xl border border-app-border bg-app-surface-soft p-2">
+                    <p className="text-[11px] text-app-text-muted">
+                      {tr("Monthly payment cost")}
+                    </p>
+                    <p className="text-sm font-semibold text-app-text">{monthlyTotalLabel}</p>
                   </div>
                 </div>
               )}
@@ -194,7 +370,7 @@ export function PaymentsDashboardSection({
                 </div>
               )}
 
-              {dashboard && hasAnyActivePayments && (
+              {dashboard && hasAnyActivePayments && compactFilter === "none" && (
                 <p className="mt-2 text-xs text-app-text-muted">
                   {tr("Paid")} {dashboard.summary.paidThisCycleCount} | {tr("Unpaid")}{" "}
                   {dashboard.summary.unpaidThisCycleCount}
@@ -204,7 +380,34 @@ export function PaymentsDashboardSection({
                 </p>
               )}
 
-              {hasAnyActivePayments && (
+              {hasAnyActivePayments && compactFilter !== "none" && (
+                <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                    {tr("Filtered by")}: {compactFilterLabel}
+                  </p>
+                  {compactFilteredItems.length === 0 ? (
+                    <p className="mt-2 text-xs text-app-text-muted">
+                      {tr("No matching cards in this segment.")}
+                    </p>
+                  ) : (
+                    <ul className="mt-2 space-y-1.5">
+                      {compactFilteredItems.map((item) => (
+                        <li
+                          key={item.id}
+                          className="rounded-xl bg-app-surface px-2 py-1.5 text-xs text-app-text"
+                        >
+                          <p className="font-medium">{item.title}</p>
+                          <p className="text-app-text-muted">
+                            {formatAmount(item)} - {tr("Due")} {formatDueDate(item.dueDate)}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              {hasAnyActivePayments && compactFilter === "none" && (
                 <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
                   <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                     {tr("Due now details")}
