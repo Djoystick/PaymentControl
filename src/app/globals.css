@@ -1,18 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --app-bg: #f4f6f3;
+  --app-bg: #f1f4f0;
   --app-surface: #ffffff;
-  --app-surface-soft: #ecf1ea;
+  --app-surface-soft: #e9efe7;
   --app-surface-elevated: #ffffff;
-  --app-border: #d0ddd0;
+  --app-border: #c9d9cb;
   --app-text: #132014;
-  --app-text-muted: #4b5f4d;
+  --app-text-muted: #485d4a;
   --app-accent: #1f7a43;
   --app-accent-strong: #14552e;
   --app-warm: #f9efe2;
-  --app-bg-glow-a: #d9efdf;
-  --app-bg-glow-b: #dce6ff;
+  --app-bg-glow-a: #d5ecdc;
+  --app-bg-glow-b: #d9e4fb;
   --app-frame-shadow: rgba(19, 32, 20, 0.12);
 }
 
@@ -54,6 +54,7 @@
 body {
   margin: 0;
   min-height: 100dvh;
+  overflow-x: hidden;
   background:
     radial-gradient(circle at 8% 0%, var(--app-bg-glow-a) 0%, transparent 42%),
     radial-gradient(circle at 94% 100%, var(--app-bg-glow-b) 0%, transparent 40%),

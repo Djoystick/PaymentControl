@@ -358,24 +358,31 @@ export function PaymentsDashboardSection({
           {isCompact ? (
             <>
               {dashboard && (
-                <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                    {tr("Today snapshot")}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() =>
                       setCompactFilter((current) => (current === "all" ? "none" : "all"))
                     }
+                    aria-pressed={compactFilter === "all"}
                     className={`rounded-xl border p-2 text-left transition ${
                       compactFilter === "all"
-                        ? "border-app-accent bg-app-accent text-white"
+                        ? "border-app-accent bg-app-accent text-white shadow-[0_8px_18px_rgba(31,122,67,0.28)]"
                         : "border-app-border bg-app-surface-soft text-app-text"
                     }`}
                   >
+                    <p className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-white/15">
+                      <AppIcon name="payments" className="h-3.5 w-3.5" />
+                    </p>
                     <p
-                      className={`inline-flex items-center gap-1 text-[11px] ${
+                      className={`mt-1 inline-flex items-center gap-1 text-[11px] ${
                         compactFilter === "all" ? "text-white/90" : "text-app-text-muted"
                       }`}
                     >
-                      <AppIcon name="payments" className="h-3.5 w-3.5" />
                       {tr("Total")}
                     </p>
                     <p className="text-base font-semibold">{totalActiveCount}</p>
@@ -387,18 +394,21 @@ export function PaymentsDashboardSection({
                         current === "upcoming" ? "none" : "upcoming",
                       )
                     }
+                    aria-pressed={compactFilter === "upcoming"}
                     className={`rounded-xl border p-2 text-left transition ${
                       compactFilter === "upcoming"
-                        ? "border-app-accent bg-app-accent text-white"
+                        ? "border-app-accent bg-app-accent text-white shadow-[0_8px_18px_rgba(31,122,67,0.28)]"
                         : "border-app-border bg-app-surface-soft text-app-text"
                     }`}
                   >
+                    <p className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-white/15">
+                      <AppIcon name="clock" className="h-3.5 w-3.5" />
+                    </p>
                     <p
-                      className={`inline-flex items-center gap-1 text-[11px] ${
+                      className={`mt-1 inline-flex items-center gap-1 text-[11px] ${
                         compactFilter === "upcoming" ? "text-white/90" : "text-app-text-muted"
                       }`}
                     >
-                      <AppIcon name="clock" className="h-3.5 w-3.5" />
                       {tr("Upcoming")}
                     </p>
                     <p className="text-base font-semibold">
@@ -412,31 +422,37 @@ export function PaymentsDashboardSection({
                         current === "overdue" ? "none" : "overdue",
                       )
                     }
+                    aria-pressed={compactFilter === "overdue"}
                     className={`rounded-xl border p-2 text-left transition ${
                       compactFilter === "overdue"
-                        ? "border-app-accent bg-app-accent text-white"
+                        ? "border-app-accent bg-app-accent text-white shadow-[0_8px_18px_rgba(31,122,67,0.28)]"
                         : "border-app-border bg-app-surface-soft text-app-text"
                     }`}
                   >
+                    <p className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-white/15">
+                      <AppIcon name="alert" className="h-3.5 w-3.5" />
+                    </p>
                     <p
-                      className={`inline-flex items-center gap-1 text-[11px] ${
+                      className={`mt-1 inline-flex items-center gap-1 text-[11px] ${
                         compactFilter === "overdue" ? "text-white/90" : "text-app-text-muted"
                       }`}
                     >
-                      <AppIcon name="alert" className="h-3.5 w-3.5" />
                       {tr("Overdue")}
                     </p>
                     <p className="text-base font-semibold">
                       {dashboard.summary.overdueCount}
                     </p>
                   </button>
-                  <div className="rounded-xl border border-app-border bg-app-surface-soft p-2">
-                    <p className="inline-flex items-center gap-1 text-[11px] text-app-text-muted">
+                  <div className="rounded-xl border border-app-border bg-app-surface-soft p-2.5">
+                    <p className="inline-flex h-6 w-6 items-center justify-center rounded-lg border border-app-border bg-app-surface text-app-text-muted">
                       <AppIcon name="wallet" className="h-3.5 w-3.5" />
+                    </p>
+                    <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-app-text-muted">
                       {tr("Monthly payment cost")}
                     </p>
                     <p className="text-sm font-semibold text-app-text">{monthlyTotalLabel}</p>
                   </div>
+                </div>
                 </div>
               )}
 
@@ -487,6 +503,16 @@ export function PaymentsDashboardSection({
                       ))}
                     </ul>
                   )}
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setCompactFilter("none")}
+                      className="inline-flex items-center gap-1 rounded-lg border border-app-border bg-app-surface px-2.5 py-1 text-[11px] font-semibold text-app-text"
+                    >
+                      <AppIcon name="refresh" className="h-3.5 w-3.5" />
+                      {tr("Show all payments")}
+                    </button>
+                  </div>
                 </div>
               )}
 

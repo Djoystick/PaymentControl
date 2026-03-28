@@ -169,19 +169,25 @@ export function AppShell({ screens }: AppShellProps) {
   const isLastOnboardingStep = onboardingStepIndex === onboardingSteps.length - 1;
 
   return (
-    <div className="relative mx-auto flex min-h-dvh w-full max-w-[420px] flex-col px-2.5 pb-[calc(env(safe-area-inset-bottom)+0.35rem)] pt-2.5 sm:px-3">
-      <div className="relative flex min-h-[calc(100dvh-1.25rem)] flex-1 flex-col rounded-[34px] border border-app-border/80 bg-gradient-to-b from-app-surface/95 to-app-surface/82 p-2.5 shadow-[0_22px_54px_var(--app-frame-shadow)] backdrop-blur">
-        <div className="mb-2 flex items-center justify-between rounded-2xl border border-app-border/70 bg-app-surface/85 px-2.5 py-1.5">
-          <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-app-text">
-            <AppIcon name={activeTabItem.icon} className="h-3.5 w-3.5" />
-            {tr(activeTabItem.label)}
-          </p>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+    <div className="relative mx-auto flex min-h-dvh w-full max-w-[420px] flex-col px-2 pb-[calc(env(safe-area-inset-bottom)+0.35rem)] pt-2 sm:px-3">
+      <div className="relative flex min-h-[calc(100dvh-1rem)] flex-1 flex-col rounded-[34px] border border-app-border/80 bg-gradient-to-b from-app-surface/98 via-app-surface/94 to-app-surface/86 p-2.5 shadow-[0_22px_54px_var(--app-frame-shadow)] backdrop-blur">
+        <div className="mb-2 flex items-center justify-between rounded-2xl border border-app-border/70 bg-app-surface/90 px-2.5 py-1.5">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+              {tr("Payment Control")}
+            </p>
+            <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-app-text">
+              <AppIcon name={activeTabItem.icon} className="h-3.5 w-3.5" />
+              {tr(activeTabItem.label)}
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-1 rounded-full border border-app-border bg-app-surface-soft px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.11em] text-app-text-muted">
+            <AppIcon name="clock" className="h-3 w-3" />
             {tr("Today snapshot")}
           </span>
         </div>
 
-        <main className="relative z-0 flex-1 pb-24 pt-0.5">
+        <main className="relative z-0 flex-1 overflow-x-clip pb-24 pt-0.5">
           <div key={activeTab} className="space-y-3">
             {screens[activeTab]}
           </div>

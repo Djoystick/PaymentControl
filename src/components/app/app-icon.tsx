@@ -19,7 +19,12 @@ type AppIconName =
   | "refresh"
   | "clock"
   | "alert"
-  | "wallet";
+  | "wallet"
+  | "check"
+  | "undo"
+  | "edit"
+  | "archive"
+  | "template";
 
 type AppIconProps = {
   name: AppIconName;
@@ -223,6 +228,51 @@ export function AppIcon({
         <path d="M17 8h1a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-13a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12" />
         <path d="M15 8v-3a1 1 0 0 0 -1 -1h-10" />
         <path d="M18 13v.01" />
+      </svg>
+    );
+  }
+
+  if (name === "check") {
+    return (
+      <svg {...baseProps}>
+        <path d="M5 12l5 5l10 -10" />
+      </svg>
+    );
+  }
+
+  if (name === "undo") {
+    return (
+      <svg {...baseProps}>
+        <path d="M9 14l-4 -4l4 -4" />
+        <path d="M5 10h7a5 5 0 0 1 5 5v1" />
+      </svg>
+    );
+  }
+
+  if (name === "edit") {
+    return (
+      <svg {...baseProps}>
+        <path d="M8 20h-4a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 .293 -.707l10 -10a2.414 2.414 0 0 1 3.414 0l1.293 1.293a2.414 2.414 0 0 1 0 3.414l-10 10a1 1 0 0 1 -.707 .293z" />
+        <path d="M13.5 6.5l4 4" />
+      </svg>
+    );
+  }
+
+  if (name === "archive") {
+    return (
+      <svg {...baseProps}>
+        <path d="M3 4m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v2h-18z" />
+        <path d="M5 10v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-8" />
+        <path d="M10 12l4 0" />
+      </svg>
+    );
+  }
+
+  if (name === "template") {
+    return (
+      <svg {...baseProps}>
+        <path d="M8 8m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z" />
+        <path d="M6 16h-1a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v1" />
       </svg>
     );
   }

@@ -327,14 +327,14 @@ function ProfileScenariosContent() {
   );
 
   const profileScreen = (
-    <section className="space-y-3 rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
+    <section className="space-y-3 rounded-3xl border border-app-border bg-gradient-to-b from-app-surface to-app-surface-soft/40 p-3 shadow-sm">
       <div className="flex items-center justify-between">
         <h2 className="inline-flex items-center gap-2 text-base font-semibold text-app-text">
           <AppIcon name="profile" className="h-4 w-4" />
           {tr("Profile")}
         </h2>
       </div>
-      <div className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
+      <div className="rounded-2xl border border-app-border bg-app-surface p-3">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="home" className="h-3.5 w-3.5" />
           {tr("Quick start")}
@@ -343,7 +343,7 @@ function ProfileScenariosContent() {
           {tr("Start in Reminders: add a payment, then use Mark paid when done.")}
         </p>
       </div>
-      <div className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
+      <div className="rounded-2xl border border-app-border bg-app-surface p-3">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="workspace" className="h-3.5 w-3.5" />
           {tr("Session")}
@@ -420,8 +420,9 @@ function ProfileScenariosContent() {
           <button
             type="button"
             onClick={replayOnboarding}
-            className="rounded-xl border border-app-border px-3 py-1.5 text-xs font-semibold text-app-text"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-app-border bg-app-surface-soft px-3 py-1.5 text-xs font-semibold text-app-text"
           >
+            <AppIcon name="refresh" className="h-3.5 w-3.5" />
             {tr("Show onboarding again")}
           </button>
           <HelpPopover

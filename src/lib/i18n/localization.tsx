@@ -291,6 +291,7 @@ const ruTranslations: Record<string, string> = {
   "Current cycle": "Текущий цикл",
   "Paid by": "Оплатил",
   "Reminder settings": "Настройки напоминаний",
+  "Details and actions": "Детали и действия",
   "On": "Вкл",
   "Off": "Выкл",
   "Edit": "Редактировать",
