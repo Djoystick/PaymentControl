@@ -194,9 +194,9 @@ export function AppShell({ screens }: AppShellProps) {
   const isLastOnboardingStep = onboardingStepIndex === onboardingSteps.length - 1;
 
   return (
-    <div className="relative mx-auto flex min-h-dvh w-full max-w-[420px] flex-col px-2 pb-[calc(env(safe-area-inset-bottom)+0.35rem)] pt-2 sm:px-3">
-      <div className="relative flex min-h-[calc(100dvh-1rem)] flex-1 flex-col rounded-[34px] border border-app-border/80 bg-gradient-to-b from-app-surface via-app-surface/94 to-app-surface-soft/55 p-2.5 shadow-[0_22px_54px_var(--app-frame-shadow)] backdrop-blur">
-        <div className="mb-2 flex items-center justify-between rounded-2xl border border-app-border/80 bg-app-surface px-2.5 py-1.5 shadow-sm">
+    <div className="relative mx-auto flex min-h-dvh w-full max-w-[420px] flex-col px-1.5 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] pt-1.5 sm:px-2.5">
+      <div className="relative flex h-[calc(100dvh-0.75rem)] flex-1 flex-col rounded-[30px] border border-app-border/80 bg-gradient-to-b from-app-surface via-app-surface/94 to-app-surface-soft/55 p-2 shadow-[0_20px_48px_var(--app-frame-shadow)] backdrop-blur">
+        <div className="mb-1.5 flex items-center justify-between rounded-2xl border border-app-border/80 bg-app-surface px-2 py-1 shadow-sm">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {tr("Payment Control")}
@@ -212,13 +212,13 @@ export function AppShell({ screens }: AppShellProps) {
           </span>
         </div>
 
-        <main className="relative z-0 flex-1 overflow-x-clip pb-24 pt-1">
-          <div key={activeTab} className="app-screen-enter space-y-3">
+        <main className="relative z-0 flex-1 overflow-y-auto overflow-x-clip overscroll-contain pb-2 pt-0.5">
+          <div key={activeTab} className="app-screen-enter space-y-2">
             {screens[activeTab]}
           </div>
         </main>
 
-        <footer className="sticky bottom-1.5 z-40 mt-3 rounded-[26px] border border-app-border/80 bg-app-surface/95 p-1.5 shadow-[0_14px_34px_var(--app-frame-shadow)] backdrop-blur supports-[backdrop-filter]:bg-app-surface/90 [padding-bottom:calc(env(safe-area-inset-bottom)+0.35rem)]">
+        <footer className="sticky bottom-1 z-40 mt-2 rounded-[24px] border border-app-border/80 bg-app-surface/95 p-1.25 shadow-[0_12px_30px_var(--app-frame-shadow)] backdrop-blur supports-[backdrop-filter]:bg-app-surface/90 [padding-bottom:calc(env(safe-area-inset-bottom)+0.3rem)]">
           <div className="grid grid-cols-4 gap-1">
             {tabItems.map((tab) => (
               <button
@@ -226,7 +226,7 @@ export function AppShell({ screens }: AppShellProps) {
                 type="button"
                 onClick={() => handleTabClick(tab.key)}
                 aria-current={activeTab === tab.key ? "page" : undefined}
-                className={`group flex min-h-[58px] touch-manipulation flex-col items-center justify-center rounded-2xl border px-1.5 py-1.5 text-center transition ${
+                className={`group flex min-h-[52px] touch-manipulation flex-col items-center justify-center rounded-2xl border px-1.5 py-1 text-center transition ${
                   activeTab === tab.key
                     ? "border-app-accent bg-app-accent text-white shadow-[0_8px_16px_rgba(31,122,67,0.28)]"
                     : "border-transparent bg-app-surface-soft/30 text-app-text-muted"
@@ -242,7 +242,7 @@ export function AppShell({ screens }: AppShellProps) {
                   <AppIcon name={tab.icon} className="h-[18px] w-[18px]" />
                 </span>
                 <span
-                  className={`mt-1 w-full whitespace-nowrap text-[11px] font-semibold leading-4 ${
+                  className={`mt-0.5 w-full whitespace-nowrap text-[11px] font-semibold leading-4 ${
                     activeTab === tab.key
                       ? "text-white"
                       : "text-app-text-muted group-hover:text-app-text"

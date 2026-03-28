@@ -355,7 +355,7 @@ export function PaymentsDashboardSection({
 
   return (
     <section className="pc-surface">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between">
         <h2 className="inline-flex items-center gap-2 text-base font-semibold text-app-text">
           <AppIcon name={isCompact ? "home" : "payments"} className="h-4 w-4" />
           {isCompact ? tr("Payment snapshot") : tr("Dashboard")}
@@ -375,9 +375,6 @@ export function PaymentsDashboardSection({
                   <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                     {tr("Today snapshot")}
                   </p>
-                  <p className="mb-2 text-xs font-semibold text-app-text">
-                    {tr("Tap a segment to focus actionable cards.")}
-                  </p>
                   <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -385,7 +382,7 @@ export function PaymentsDashboardSection({
                       setCompactFilter((current) => (current === "all" ? "none" : "all"))
                     }
                     aria-pressed={compactFilter === "all"}
-                    className={`min-h-[76px] rounded-2xl border p-2.5 text-left transition ${
+                    className={`min-h-[68px] rounded-2xl border p-2 text-left transition ${
                       compactFilter === "all"
                         ? "border-app-accent bg-app-accent text-white shadow-[0_10px_22px_rgba(31,122,67,0.3)]"
                         : "border-app-border bg-app-surface text-app-text shadow-sm"
@@ -411,7 +408,7 @@ export function PaymentsDashboardSection({
                       )
                     }
                     aria-pressed={compactFilter === "upcoming"}
-                    className={`min-h-[76px] rounded-2xl border p-2.5 text-left transition ${
+                    className={`min-h-[68px] rounded-2xl border p-2 text-left transition ${
                       compactFilter === "upcoming"
                         ? "border-app-accent bg-app-accent text-white shadow-[0_10px_22px_rgba(31,122,67,0.3)]"
                         : "border-app-border bg-app-surface text-app-text shadow-sm"
@@ -439,7 +436,7 @@ export function PaymentsDashboardSection({
                       )
                     }
                     aria-pressed={compactFilter === "overdue"}
-                    className={`min-h-[76px] rounded-2xl border p-2.5 text-left transition ${
+                    className={`min-h-[68px] rounded-2xl border p-2 text-left transition ${
                       compactFilter === "overdue"
                         ? "border-app-accent bg-app-accent text-white shadow-[0_10px_22px_rgba(31,122,67,0.3)]"
                         : dashboard.summary.overdueCount > 0
@@ -461,7 +458,7 @@ export function PaymentsDashboardSection({
                       {dashboard.summary.overdueCount}
                     </p>
                   </button>
-                  <div className="pc-state-card bg-app-surface-soft p-2.5">
+                  <div className="pc-state-card bg-app-surface-soft p-2">
                     <p className="inline-flex h-6 w-6 items-center justify-center rounded-lg border border-app-border bg-app-surface text-app-text-muted">
                       <AppIcon name="wallet" className="h-3.5 w-3.5" />
                     </p>
@@ -508,7 +505,7 @@ export function PaymentsDashboardSection({
               )}
 
               {hasAnyActivePayments && compactFilter !== "none" && (
-                <div className="pc-detail-surface mt-3">
+                <div className="pc-detail-surface mt-2">
                   <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                     <AppIcon name="reminders" className="h-3.5 w-3.5" />
                     {tr("Filtered by")}: {compactFilterLabel}
@@ -520,10 +517,7 @@ export function PaymentsDashboardSection({
                   ) : (
                     <ul className="mt-2 space-y-1.5">
                       {compactFilteredItems.map((item) => (
-                        <li
-                          key={item.id}
-                          className="rounded-xl bg-app-surface px-2 py-1.5 text-xs text-app-text"
-                        >
+                        <li key={item.id} className="rounded-xl bg-app-surface px-2 py-1 text-xs text-app-text">
                           <p className="font-medium">{item.title}</p>
                           <p className="inline-flex items-center gap-1 text-app-text-muted">
                             <AppIcon name="clock" className="h-3.5 w-3.5" />
@@ -547,7 +541,7 @@ export function PaymentsDashboardSection({
               )}
 
               {hasAnyActivePayments && compactFilter === "none" && (
-                <details className="pc-detail-surface mt-3">
+                <details className="pc-detail-surface mt-2">
                   <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                     {tr("Due now details")}
                   </summary>
@@ -568,7 +562,7 @@ export function PaymentsDashboardSection({
                 </details>
               )}
 
-              <div className="mt-3 flex items-center gap-2">
+              <div className="mt-2 flex items-center gap-2">
                 <button
                   type="button"
                   onClick={loadDashboard}
@@ -588,7 +582,7 @@ export function PaymentsDashboardSection({
             </>
           ) : (
             <>
-              <div className="pc-detail-surface mb-3">
+              <div className="pc-detail-surface mb-2">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                   {isFamilyWorkspace
                     ? tr("Family workspace overview")
@@ -667,7 +661,7 @@ export function PaymentsDashboardSection({
               )}
 
               {isFamilyWorkspace && dashboard && !hasAnyActivePayments && (
-                <div className="pc-empty-state mt-3">
+                <div className="pc-empty-state mt-2">
                     <p className="text-sm font-semibold text-app-text">
                     {tr("No shared recurring payments yet")}
                   </p>
@@ -679,7 +673,7 @@ export function PaymentsDashboardSection({
                 </div>
               )}
 
-              <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+              <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-3">
                 <DashboardBucket
                   title={
                     isFamilyWorkspace
@@ -724,7 +718,7 @@ export function PaymentsDashboardSection({
                 />
               </div>
 
-              <div className="mt-3 flex items-center gap-2">
+              <div className="mt-2 flex items-center gap-2">
                 <button
                   type="button"
                   onClick={loadDashboard}
@@ -749,7 +743,7 @@ export function PaymentsDashboardSection({
       )}
 
       {feedback && (
-        <p className="pc-feedback pc-feedback-error mt-3">
+        <p className="pc-feedback pc-feedback-error mt-2">
           <AppIcon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>{feedback}</span>
         </p>

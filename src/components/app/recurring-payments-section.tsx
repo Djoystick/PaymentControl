@@ -875,14 +875,14 @@ export function RecurringPaymentsSection({
 
   return (
     <section className="pc-surface">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between">
         <h2 className="inline-flex items-center gap-2 text-base font-semibold text-app-text">
           <AppIcon name="reminders" className="h-4 w-4" />
           {tr("Recurring Payments")}
         </h2>
       </div>
       {workspace && (
-        <div className="pc-state-card mb-3 flex items-center justify-between gap-2 text-xs text-app-text-muted">
+        <div className="pc-state-card mb-2 flex items-center justify-between gap-2 text-xs text-app-text-muted">
           <p className="inline-flex items-center gap-1">
             <AppIcon name="workspace" className="h-3.5 w-3.5" />
             {tr("Workspace")}: {workspace.title} ({tr(workspace.kind)})
@@ -913,7 +913,7 @@ export function RecurringPaymentsSection({
       ) : (
         <>
           {screenMode === "act" && (
-            <div className="pc-detail-surface mb-2">
+            <div className="pc-detail-surface mb-1.5">
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
@@ -1390,7 +1390,7 @@ export function RecurringPaymentsSection({
           )}
 
           {screenMode === "act" && payments.length > 0 && (
-            <div className="pc-detail-surface mt-3">
+            <div className="pc-detail-surface mt-2">
               <div className="pc-segmented">
                 <button
                   type="button"
@@ -1424,7 +1424,7 @@ export function RecurringPaymentsSection({
           )}
 
           {screenMode === "act" && (
-          <div className="mt-3 space-y-2">
+          <div className="mt-2 space-y-1.5">
             {isLoading && (
               <p className="pc-empty-state text-sm">{tr("Loading payments...")}</p>
             )}
@@ -1493,7 +1493,7 @@ export function RecurringPaymentsSection({
                 return (
                   <article
                     key={payment.id}
-                    className={`rounded-2xl border p-3 ${
+                    className={`rounded-2xl border p-2.5 ${
                       isOverdueNow
                         ? "border-amber-300 bg-amber-50/55 shadow-[0_10px_20px_rgba(194,120,16,0.14)]"
                         : isDueTodayNow
@@ -1501,7 +1501,7 @@ export function RecurringPaymentsSection({
                           : "border-app-border bg-app-surface-soft shadow-sm"
                     }`}
                   >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
@@ -1597,7 +1597,7 @@ export function RecurringPaymentsSection({
                               {tr("Economics: aligned (responsible payer paid this cycle).")}
                             </p>
                           )}
-                        <details className="pc-state-card mt-2 bg-white px-2 py-1.5 text-xs text-app-text-muted">
+                        <details className="pc-state-card mt-1.5 bg-white px-2 py-1.5 text-xs text-app-text-muted">
                           <summary className="inline-flex cursor-pointer items-center gap-1 font-semibold text-app-text">
                             <AppIcon name="template" className="h-3.5 w-3.5 text-app-text-muted" />
                             {tr("Details and actions")}
@@ -1715,7 +1715,7 @@ export function RecurringPaymentsSection({
 
       {feedback && (
         <p
-          className={`pc-feedback mt-3 ${
+          className={`pc-feedback mt-2 ${
             feedbackTone === "success"
               ? "pc-feedback-success"
               : feedbackTone === "error"

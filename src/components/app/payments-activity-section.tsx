@@ -304,13 +304,13 @@ export function PaymentsActivitySection({
 
   return (
     <section className="pc-surface">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between">
         <h2 className="inline-flex items-center gap-2 text-base font-semibold text-app-text">
           <AppIcon name="history" className="h-4 w-4" />
           {tr("History")}
         </h2>
       </div>
-      <p className="mb-2 text-xs text-app-text-muted">
+      <p className="mb-1.5 text-xs text-app-text-muted">
         {tr("History is your lightweight activity feed.")}
       </p>
 
@@ -320,7 +320,7 @@ export function PaymentsActivitySection({
         </p>
       ) : (
         <>
-          <div className="pc-detail-surface mb-2">
+          <div className="pc-detail-surface mb-1.5">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {tr("History context")}
             </p>
@@ -345,7 +345,7 @@ export function PaymentsActivitySection({
             </div>
           </div>
 
-          <div className="pc-detail-surface mt-3">
+          <div className="pc-detail-surface mt-2">
             {scopedPaymentsCount === 0 ? (
               <div className="pc-empty-state space-y-1">
                 <p className="text-sm font-semibold text-app-text">{tr("History is empty")}</p>
@@ -405,7 +405,7 @@ export function PaymentsActivitySection({
                     return (
                       <li
                         key={item.id}
-                        className="pc-state-card px-2 py-2 text-xs text-app-text"
+                        className="pc-state-card px-2 py-1.5 text-xs text-app-text"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span
@@ -445,7 +445,7 @@ export function PaymentsActivitySection({
             )}
           </div>
 
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-2 flex items-center gap-2">
             <button
               type="button"
               onClick={loadActivity}
@@ -468,7 +468,7 @@ export function PaymentsActivitySection({
       )}
 
       {feedback && (
-        <p className="pc-feedback pc-feedback-error mt-3">
+        <p className="pc-feedback pc-feedback-error mt-2">
           <AppIcon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>{feedback}</span>
         </p>

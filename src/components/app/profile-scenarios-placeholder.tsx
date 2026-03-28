@@ -302,7 +302,7 @@ function ProfileScenariosContent() {
   };
 
   const homeScreen = (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <LandingScreen />
       <PaymentsDashboardSection
         workspace={workspace}
@@ -313,7 +313,7 @@ function ProfileScenariosContent() {
   );
 
   const remindersScreen = (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <RecurringPaymentsSection
         workspace={workspace}
         initData={initData}
@@ -322,13 +322,13 @@ function ProfileScenariosContent() {
   );
 
   const historyScreen = (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <PaymentsActivitySection workspace={workspace} initData={initData} />
     </div>
   );
 
   const profileScreen = (
-    <section className="space-y-3">
+    <section className="space-y-2">
       <div className="pc-surface">
         <div className="flex items-center justify-between">
           <h2 className="inline-flex items-center gap-2 text-base font-semibold text-app-text">
@@ -339,9 +339,7 @@ function ProfileScenariosContent() {
         <p className="mt-1 text-xs text-app-text-muted">
           {tr("Profile controls context and onboarding")}
         </p>
-      </div>
-      <div className="pc-surface">
-        <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+        <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="home" className="h-3.5 w-3.5" />
           {tr("Quick start")}
         </p>
@@ -673,7 +671,7 @@ function ProfileScenariosContent() {
           </p>
         )}
         {workspaces.length > 0 && (
-          <div className="mt-3 space-y-2">
+          <div className="mt-2 space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {tr("Workspace switch")}
             </p>
@@ -705,7 +703,7 @@ function ProfileScenariosContent() {
           </div>
         )}
         {isFamilyWorkspace ? (
-          <div className="mt-3 space-y-2">
+          <div className="mt-2 space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {tr("Family invite")}
             </p>
@@ -814,7 +812,7 @@ function ProfileScenariosContent() {
             )}
           </div>
         ) : (
-          <details className="pc-detail-surface mt-3 bg-app-surface">
+          <details className="pc-detail-surface mt-2 bg-app-surface">
             <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {tr("Family workspace (optional)")}
             </summary>
