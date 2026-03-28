@@ -1,9 +1,21 @@
 import { clientEnv } from "@/lib/config/client-env";
 import { useLocalization } from "@/lib/i18n/localization";
 import { AppIcon } from "@/components/app/app-icon";
+import { APP_TAB_NAVIGATE_EVENT, type AppTab } from "@/components/app/app-shell";
 
 export function LandingScreen() {
   const { tr } = useLocalization();
+  const openReminders = () => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.dispatchEvent(
+      new CustomEvent<{ tab: AppTab }>(APP_TAB_NAVIGATE_EVENT, {
+        detail: { tab: "reminders" },
+      }),
+    );
+  };
 
   return (
     <section className="rounded-3xl border border-app-border bg-gradient-to-b from-app-surface to-app-surface-soft/45 p-4 shadow-sm">
@@ -21,10 +33,18 @@ export function LandingScreen() {
         </span>
       </div>
 
-      <div className="mt-3 grid grid-cols-1 gap-2">
-        <p className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text">
-          {tr("First step: open Reminders and add your first payment.")}
+      <div className="mt-3 grid grid-cols-1 gap-2.5">
+        <p className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          {tr("Primary next action")}
         </p>
+        <button
+          type="button"
+          onClick={openReminders}
+          className="inline-flex min-h-11 touch-manipulation items-center justify-center gap-2 rounded-xl bg-app-accent px-3 py-2 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(31,122,67,0.3)] transition hover:bg-app-accent-strong"
+        >
+          <AppIcon name="add" className="h-4 w-4" />
+          {tr("Open Reminders and add payment")}
+        </button>
         <p className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-xs text-app-text-muted">
           {tr("Keep it simple: Reminders for actions, History for updates.")}
         </p>

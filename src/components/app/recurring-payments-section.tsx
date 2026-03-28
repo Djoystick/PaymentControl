@@ -381,16 +381,10 @@ export function RecurringPaymentsSection({
 
     return templatesForScenario
       .filter((template) => {
-        const name = isCustomTemplate(template)
+        const templateName = isCustomTemplate(template)
           ? template.label.trim() || template.title.trim()
-          : tr(template.label);
-        const title = isCustomTemplate(template)
-          ? template.title.trim()
-          : tr(template.title);
-        return (
-          name.toLocaleLowerCase().startsWith(query) ||
-          title.toLocaleLowerCase().startsWith(query)
-        );
+          : tr(template.label).trim();
+        return templateName.toLocaleLowerCase().startsWith(query);
       })
       .slice(0, 5);
   }, [editingPaymentId, form.title, isTemplateSuggestionsOpen, templatesForScenario, tr]);
@@ -903,7 +897,7 @@ export function RecurringPaymentsSection({
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                     {tr("Quick actions")}
                   </p>
-                  <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-app-text-muted">
+                  <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium text-app-text">
                     <AppIcon name="reminders" className="h-3.5 w-3.5" />
                     {tr("Use Mark paid / Undo paid directly from payment cards.")}
                   </p>
@@ -917,7 +911,7 @@ export function RecurringPaymentsSection({
               </div>
 
               <div className="mt-2 grid grid-cols-3 gap-2">
-                <article className="rounded-xl border border-app-border bg-app-surface px-2 py-2">
+                <article className="rounded-xl border border-app-border bg-app-surface px-2 py-2 shadow-sm">
                   <p className="inline-flex items-center gap-1 text-[11px] text-app-text-muted">
                     <AppIcon name="clock" className="h-3.5 w-3.5" />
                     {tr("Due today")}
@@ -926,7 +920,13 @@ export function RecurringPaymentsSection({
                     {remindersActSummary.dueTodayCount}
                   </p>
                 </article>
-                <article className="rounded-xl border border-app-border bg-app-surface px-2 py-2">
+                <article
+                  className={`rounded-xl border px-2 py-2 shadow-sm ${
+                    remindersActSummary.overdueCount > 0
+                      ? "border-amber-300 bg-amber-50/70"
+                      : "border-app-border bg-app-surface"
+                  }`}
+                >
                   <p className="inline-flex items-center gap-1 text-[11px] text-app-text-muted">
                     <AppIcon name="alert" className="h-3.5 w-3.5" />
                     {tr("Overdue")}
@@ -935,7 +935,7 @@ export function RecurringPaymentsSection({
                     {remindersActSummary.overdueCount}
                   </p>
                 </article>
-                <article className="rounded-xl border border-app-border bg-app-surface px-2 py-2">
+                <article className="rounded-xl border border-app-border bg-app-surface px-2 py-2 shadow-sm">
                   <p className="inline-flex items-center gap-1 text-[11px] text-app-text-muted">
                     <AppIcon name="payments" className="h-3.5 w-3.5" />
                     {tr("Visible")}
@@ -950,7 +950,7 @@ export function RecurringPaymentsSection({
                 <button
                   type="button"
                   onClick={openComposer}
-                  className="inline-flex min-h-11 touch-manipulation items-center gap-1.5 rounded-xl bg-app-accent px-3 py-1.5 text-xs font-semibold text-white"
+                  className="inline-flex min-h-11 w-full touch-manipulation items-center justify-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(31,122,67,0.3)] transition hover:bg-app-accent-strong"
                 >
                   <AppIcon name="add" className="h-3.5 w-3.5" />
                   {editingPaymentId ? tr("Continue editing") : tr("Open payment form")}
@@ -1363,13 +1363,13 @@ export function RecurringPaymentsSection({
           )}
 
           {screenMode === "act" && payments.length > 0 && (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-app-border bg-app-surface p-2">
               <button
                 type="button"
                 onClick={() => setPaymentListView("payments")}
-                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1 text-xs font-semibold ${
+                className={`inline-flex min-h-9 items-center gap-1.5 rounded-xl border px-3 py-1 text-xs font-semibold ${
                   paymentListView === "payments"
-                    ? "border-app-accent bg-app-accent text-white"
+                    ? "border-app-accent bg-app-accent text-white shadow-[0_8px_16px_rgba(31,122,67,0.28)]"
                     : "border-app-border bg-white text-app-text"
                 }`}
               >
@@ -1379,9 +1379,9 @@ export function RecurringPaymentsSection({
               <button
                 type="button"
                 onClick={() => setPaymentListView("subscriptions")}
-                className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1 text-xs font-semibold ${
+                className={`inline-flex min-h-9 items-center gap-1.5 rounded-xl border px-3 py-1 text-xs font-semibold ${
                   paymentListView === "subscriptions"
-                    ? "border-app-accent bg-app-accent text-white"
+                    ? "border-app-accent bg-app-accent text-white shadow-[0_8px_16px_rgba(31,122,67,0.28)]"
                     : "border-app-border bg-white text-app-text"
                 }`}
               >
@@ -1454,11 +1454,23 @@ export function RecurringPaymentsSection({
                   payment.currentCycle.dueDate,
                 );
                 const isPaidCurrentCycle = payment.currentCycle.state === "paid";
+                const todayDateKey = toUtcDateKey(new Date());
+                const isDueTodayNow =
+                  !isPaidCurrentCycle && payment.currentCycle.dueDate === todayDateKey;
+                const isOverdueNow =
+                  !isPaidCurrentCycle && payment.currentCycle.dueDate < todayDateKey;
+                const isActionableNow = isDueTodayNow || isOverdueNow;
 
                 return (
                   <article
                     key={payment.id}
-                    className="rounded-2xl border border-app-border bg-app-surface-soft p-3"
+                    className={`rounded-2xl border p-3 ${
+                      isOverdueNow
+                        ? "border-amber-300 bg-amber-50/55 shadow-[0_10px_20px_rgba(194,120,16,0.14)]"
+                        : isDueTodayNow
+                          ? "border-app-accent/45 bg-app-surface shadow-[0_10px_20px_var(--app-frame-shadow)]"
+                          : "border-app-border bg-app-surface-soft"
+                    }`}
                   >
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
@@ -1481,6 +1493,19 @@ export function RecurringPaymentsSection({
                           >
                             {isPaidCurrentCycle ? tr("Paid") : tr("Unpaid")}
                           </span>
+                          {isActionableNow && (
+                            <span
+                              className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                                isOverdueNow
+                                  ? "border-amber-300 bg-amber-50 text-amber-700"
+                                  : "border-app-accent/45 bg-emerald-50 text-emerald-700"
+                              }`}
+                            >
+                              {isOverdueNow
+                                ? tr("Action now: overdue")
+                                : tr("Action now: due today")}
+                            </span>
+                          )}
                           {payment.isSubscription && payment.isPaused && (
                             <span className="rounded-full border border-app-border bg-app-surface px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
                               {tr("Paused")}
@@ -1611,7 +1636,11 @@ export function RecurringPaymentsSection({
                             isFamilyWorkspace,
                             isSaving,
                           )}
-                          className="inline-flex min-h-11 touch-manipulation items-center gap-1.5 rounded-lg bg-app-accent px-3 py-1 text-xs font-semibold text-white disabled:opacity-60"
+                          className={`inline-flex min-h-11 flex-1 touch-manipulation items-center justify-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold text-white disabled:opacity-60 sm:flex-none ${
+                            isOverdueNow
+                              ? "bg-amber-600 shadow-[0_8px_18px_rgba(194,120,16,0.3)]"
+                              : "bg-app-accent shadow-[0_8px_18px_rgba(31,122,67,0.28)]"
+                          }`}
                         >
                           <AppIcon
                             name={isPaidCurrentCycle ? "undo" : "check"}

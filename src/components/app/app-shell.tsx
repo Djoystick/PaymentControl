@@ -30,6 +30,7 @@ const tabItems: ReadonlyArray<{
 
 export const ONBOARDING_STORAGE_KEY = "payment_control_onboarding_v10c_done";
 export const ONBOARDING_REPLAY_EVENT = "payment-control-replay-onboarding";
+export const APP_TAB_NAVIGATE_EVENT = "payment-control-navigate-tab";
 
 const onboardingSteps: OnboardingStep[] = [
   {
@@ -134,6 +135,30 @@ export function AppShell({ screens }: AppShellProps) {
     window.addEventListener(ONBOARDING_REPLAY_EVENT, handleOnboardingReplay);
     return () => {
       window.removeEventListener(ONBOARDING_REPLAY_EVENT, handleOnboardingReplay);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleTabNavigation = (event: Event) => {
+      const customEvent = event as CustomEvent<{ tab?: AppTab }>;
+      const targetTab = customEvent.detail?.tab;
+      if (!targetTab) {
+        return;
+      }
+
+      if (!tabItems.some((item) => item.key === targetTab)) {
+        return;
+      }
+
+      setActiveTab(targetTab);
+    };
+
+    window.addEventListener(APP_TAB_NAVIGATE_EVENT, handleTabNavigation as EventListener);
+    return () => {
+      window.removeEventListener(
+        APP_TAB_NAVIGATE_EVENT,
+        handleTabNavigation as EventListener,
+      );
     };
   }, []);
 

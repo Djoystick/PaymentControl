@@ -14,6 +14,7 @@ import {
   writeCachedPaymentsList,
 } from "@/lib/payments/client-cache";
 import { useLocalization } from "@/lib/i18n/localization";
+import { APP_TAB_NAVIGATE_EVENT, type AppTab } from "@/components/app/app-shell";
 import type {
   DashboardPaymentItemPayload,
   PaymentsDashboardPayload,
@@ -178,6 +179,18 @@ export function PaymentsDashboardSection({
       dashboard.summary.paidThisCycleCount + dashboard.summary.unpaidThisCycleCount > 0
     );
   }, [dashboard]);
+
+  const openRemindersTab = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.dispatchEvent(
+      new CustomEvent<{ tab: AppTab }>(APP_TAB_NAVIGATE_EVENT, {
+        detail: { tab: "reminders" },
+      }),
+    );
+  }, []);
 
   const loadDashboard = useCallback(async () => {
     if (workspaceUnavailable || !workspaceId) {
@@ -362,6 +375,9 @@ export function PaymentsDashboardSection({
                   <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                     {tr("Today snapshot")}
                   </p>
+                  <p className="mb-2 text-xs font-semibold text-app-text">
+                    {tr("Tap a segment to focus actionable cards.")}
+                  </p>
                   <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -369,10 +385,10 @@ export function PaymentsDashboardSection({
                       setCompactFilter((current) => (current === "all" ? "none" : "all"))
                     }
                     aria-pressed={compactFilter === "all"}
-                    className={`rounded-xl border p-2 text-left transition ${
+                    className={`min-h-[76px] rounded-2xl border p-2.5 text-left transition ${
                       compactFilter === "all"
-                        ? "border-app-accent bg-app-accent text-white shadow-[0_8px_18px_rgba(31,122,67,0.28)]"
-                        : "border-app-border bg-app-surface-soft text-app-text"
+                        ? "border-app-accent bg-app-accent text-white shadow-[0_10px_22px_rgba(31,122,67,0.3)]"
+                        : "border-app-border bg-app-surface text-app-text shadow-sm"
                     }`}
                   >
                     <p className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-white/15">
@@ -395,10 +411,10 @@ export function PaymentsDashboardSection({
                       )
                     }
                     aria-pressed={compactFilter === "upcoming"}
-                    className={`rounded-xl border p-2 text-left transition ${
+                    className={`min-h-[76px] rounded-2xl border p-2.5 text-left transition ${
                       compactFilter === "upcoming"
-                        ? "border-app-accent bg-app-accent text-white shadow-[0_8px_18px_rgba(31,122,67,0.28)]"
-                        : "border-app-border bg-app-surface-soft text-app-text"
+                        ? "border-app-accent bg-app-accent text-white shadow-[0_10px_22px_rgba(31,122,67,0.3)]"
+                        : "border-app-border bg-app-surface text-app-text shadow-sm"
                     }`}
                   >
                     <p className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-white/15">
@@ -423,10 +439,12 @@ export function PaymentsDashboardSection({
                       )
                     }
                     aria-pressed={compactFilter === "overdue"}
-                    className={`rounded-xl border p-2 text-left transition ${
+                    className={`min-h-[76px] rounded-2xl border p-2.5 text-left transition ${
                       compactFilter === "overdue"
-                        ? "border-app-accent bg-app-accent text-white shadow-[0_8px_18px_rgba(31,122,67,0.28)]"
-                        : "border-app-border bg-app-surface-soft text-app-text"
+                        ? "border-app-accent bg-app-accent text-white shadow-[0_10px_22px_rgba(31,122,67,0.3)]"
+                        : dashboard.summary.overdueCount > 0
+                          ? "border-amber-300 bg-amber-50/70 text-amber-800 shadow-sm"
+                          : "border-app-border bg-app-surface text-app-text shadow-sm"
                     }`}
                   >
                     <p className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-white/15">
@@ -443,7 +461,7 @@ export function PaymentsDashboardSection({
                       {dashboard.summary.overdueCount}
                     </p>
                   </button>
-                  <div className="rounded-xl border border-app-border bg-app-surface-soft p-2.5">
+                  <div className="rounded-2xl border border-app-border bg-app-surface-soft p-2.5">
                     <p className="inline-flex h-6 w-6 items-center justify-center rounded-lg border border-app-border bg-app-surface text-app-text-muted">
                       <AppIcon name="wallet" className="h-3.5 w-3.5" />
                     </p>
@@ -453,6 +471,17 @@ export function PaymentsDashboardSection({
                     <p className="text-sm font-semibold text-app-text">{monthlyTotalLabel}</p>
                   </div>
                 </div>
+
+                  <div className="mt-2">
+                    <button
+                      type="button"
+                      onClick={openRemindersTab}
+                      className="inline-flex min-h-11 w-full touch-manipulation items-center justify-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(31,122,67,0.3)] transition hover:bg-app-accent-strong"
+                    >
+                      <AppIcon name="reminders" className="h-3.5 w-3.5" />
+                      {tr("Open Reminders for actions")}
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -468,7 +497,7 @@ export function PaymentsDashboardSection({
               )}
 
               {dashboard && hasAnyActivePayments && compactFilter === "none" && (
-                <p className="mt-2 text-xs text-app-text-muted">
+                <p className="mt-2 text-xs font-medium text-app-text-muted">
                   {tr("Paid")} {dashboard.summary.paidThisCycleCount} | {tr("Unpaid")}{" "}
                   {dashboard.summary.unpaidThisCycleCount}
                   {isFamilyWorkspace
