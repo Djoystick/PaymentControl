@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { AppIcon } from "@/components/app/app-icon";
 
 type HelpPopoverProps = {
@@ -10,12 +17,11 @@ type HelpPopoverProps = {
 };
 
 export function HelpPopover({ buttonLabel, title, children }: HelpPopoverProps) {
+  const viewportPadding = 10;
+  const triggerGap = 8;
+  const fallbackPopoverHeight = 180;
   const [isOpen, setIsOpen] = useState(false);
-  const [popoverStyle, setPopoverStyle] = useState<{
-    left: number;
-    top: number;
-    width: number;
-  } | null>(null);
+  const [popoverStyle, setPopoverStyle] = useState<CSSProperties | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
@@ -30,40 +36,57 @@ export function HelpPopover({ buttonLabel, title, children }: HelpPopoverProps) 
       return;
     }
 
-    const viewportPadding = 10;
-    const triggerGap = 8;
+    const visualViewport = window.visualViewport;
+    const viewportWidth = visualViewport?.width ?? window.innerWidth;
+    const viewportHeight = visualViewport?.height ?? window.innerHeight;
+    const viewportOffsetLeft = visualViewport?.offsetLeft ?? 0;
+    const viewportOffsetTop = visualViewport?.offsetTop ?? 0;
     const triggerRect = triggerRef.current.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-
     const width = Math.min(272, viewportWidth - viewportPadding * 2);
     if (width <= 0) {
       return;
     }
-    const popoverHeight = popoverRef.current?.offsetHeight ?? 180;
+    const popoverHeight = popoverRef.current?.offsetHeight ?? fallbackPopoverHeight;
 
     let left = triggerRect.left + triggerRect.width / 2 - width / 2;
     left = Math.max(
-      viewportPadding,
-      Math.min(left, viewportWidth - width - viewportPadding),
+      viewportOffsetLeft + viewportPadding,
+      Math.min(
+        left,
+        viewportOffsetLeft + viewportWidth - width - viewportPadding,
+      ),
     );
 
     let top = triggerRect.bottom + triggerGap;
-    const canRenderAbove = triggerRect.top - triggerGap - popoverHeight >= viewportPadding;
+    const canRenderAbove =
+      triggerRect.top - triggerGap - popoverHeight >=
+      viewportOffsetTop + viewportPadding;
     const overflowsBottom =
-      top + popoverHeight + viewportPadding > viewportHeight;
+      top + popoverHeight + viewportPadding >
+      viewportOffsetTop + viewportHeight;
 
     if (overflowsBottom && canRenderAbove) {
       top = triggerRect.top - triggerGap - popoverHeight;
     }
 
     top = Math.max(
-      viewportPadding,
-      Math.min(top, viewportHeight - popoverHeight - viewportPadding),
+      viewportOffsetTop + viewportPadding,
+      Math.min(
+        top,
+        viewportOffsetTop + viewportHeight - popoverHeight - viewportPadding,
+      ),
     );
 
     setPopoverStyle({ left, top, width });
-  }, []);
+  }, [fallbackPopoverHeight, triggerGap, viewportPadding]);
+
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    updatePopoverPosition();
+  }, [isOpen, updatePopoverPosition]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -127,6 +150,8 @@ export function HelpPopover({ buttonLabel, title, children }: HelpPopoverProps) 
           });
         }}
         aria-label={buttonLabel}
+        aria-expanded={isOpen}
+        aria-haspopup="dialog"
         className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-app-border bg-app-surface-elevated text-app-text"
       >
         <AppIcon name="help" className="h-3.5 w-3.5" />
@@ -135,17 +160,15 @@ export function HelpPopover({ buttonLabel, title, children }: HelpPopoverProps) 
       {isOpen && (
         <div
           ref={popoverRef}
-          className={`fixed z-[70] max-w-[calc(100vw-20px)] rounded-xl border border-app-border bg-app-surface-elevated p-3 text-left text-xs text-app-text shadow-[0_10px_24px_var(--app-frame-shadow)] ${
+          className={`fixed z-[70] max-h-[calc(100dvh-20px)] max-w-[calc(100dvw-20px)] overflow-y-auto rounded-xl border border-app-border bg-app-surface-elevated p-3 text-left text-xs text-app-text shadow-[0_10px_24px_var(--app-frame-shadow)] ${
             popoverStyle ? "" : "invisible"
           }`}
           style={
-            popoverStyle
-              ? {
-                  left: `${popoverStyle.left}px`,
-                  top: `${popoverStyle.top}px`,
-                  width: `${popoverStyle.width}px`,
-                }
-              : undefined
+            popoverStyle ?? {
+              left: `${viewportPadding}px`,
+              top: `${viewportPadding}px`,
+              width: `calc(100dvw - ${viewportPadding * 2}px)`,
+            }
           }
         >
           <div className="flex items-start justify-between gap-2">
@@ -159,7 +182,9 @@ export function HelpPopover({ buttonLabel, title, children }: HelpPopoverProps) 
               x
             </button>
           </div>
-          <div className="mt-1.5 space-y-1 break-words text-app-text-muted">{children}</div>
+          <div className="mt-1.5 space-y-1 break-words [overflow-wrap:anywhere] text-app-text-muted">
+            {children}
+          </div>
         </div>
       )}
     </div>
