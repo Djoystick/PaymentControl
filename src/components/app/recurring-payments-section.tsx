@@ -17,6 +17,10 @@ import {
   updateRecurringPayment,
 } from "@/lib/payments/client";
 import {
+  readCachedPaymentsList,
+  writeCachedPaymentsList,
+} from "@/lib/payments/client-cache";
+import {
   familyStarterPaymentTemplates,
   personalStarterPaymentTemplates,
   type StarterPaymentTemplate,
@@ -586,28 +590,62 @@ export function RecurringPaymentsSection({
     if (workspaceUnavailable || !activeWorkspaceId) {
       setPayments([]);
       setResponsiblePayerOptions([]);
+      setFeedback(null);
+      setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
+    const cachedPaymentsList = readCachedPaymentsList(activeWorkspaceId);
+    const hasCachedSnapshot = Boolean(cachedPaymentsList);
+
+    if (cachedPaymentsList) {
+      setPayments(cachedPaymentsList.value.payments);
+      setResponsiblePayerOptions(cachedPaymentsList.value.responsiblePayerOptions);
+    }
+
+    setIsLoading(!hasCachedSnapshot);
     setFeedback(null);
     try {
       const result = await listRecurringPayments(initData);
       if (!result.ok) {
-        setFeedback(result.error.message);
-        setResponsiblePayerOptions([]);
+        if (!hasCachedSnapshot) {
+          setFeedback(result.error.message);
+          setResponsiblePayerOptions([]);
+        }
         return;
       }
 
       setPayments(result.payments);
       setResponsiblePayerOptions(result.responsiblePayerOptions);
+      writeCachedPaymentsList(activeWorkspaceId, {
+        payments: result.payments,
+        responsiblePayerOptions: result.responsiblePayerOptions,
+      });
     } catch {
-      setFeedback(tr("Failed to load recurring payments."));
-      setResponsiblePayerOptions([]);
+      if (!hasCachedSnapshot) {
+        setFeedback(tr("Failed to load recurring payments."));
+        setResponsiblePayerOptions([]);
+      }
     } finally {
       setIsLoading(false);
     }
   }, [activeWorkspaceId, initData, tr, workspaceUnavailable]);
+
+  const replacePaymentInStateAndCache = useCallback(
+    (payment: RecurringPaymentPayload) => {
+      setPayments((current) => {
+        const next = replacePaymentInList(current, payment);
+        if (activeWorkspaceId) {
+          writeCachedPaymentsList(activeWorkspaceId, {
+            payments: next,
+            responsiblePayerOptions,
+          });
+        }
+        return next;
+      });
+    },
+    [activeWorkspaceId, responsiblePayerOptions],
+  );
 
   useEffect(() => {
     loadPayments();
@@ -814,7 +852,7 @@ export function RecurringPaymentsSection({
         return;
       }
 
-      setPayments((current) => replacePaymentInList(current, result.payment));
+      replacePaymentInStateAndCache(result.payment);
       setFeedback(tr(editingPaymentId ? "Payment updated." : "Payment created."));
       emitPaymentsChanged();
       resetForm();
@@ -840,7 +878,7 @@ export function RecurringPaymentsSection({
         return;
       }
 
-      setPayments((current) => replacePaymentInList(current, result.payment));
+      replacePaymentInStateAndCache(result.payment);
       setFeedback(tr("Payment archived."));
       emitPaymentsChanged();
     } catch {
@@ -865,7 +903,7 @@ export function RecurringPaymentsSection({
         return;
       }
 
-      setPayments((current) => replacePaymentInList(current, result.payment));
+      replacePaymentInStateAndCache(result.payment);
       setFeedback(tr("Current cycle marked as paid."));
       emitPaymentsChanged();
       void loadPayments();
@@ -891,7 +929,7 @@ export function RecurringPaymentsSection({
         return;
       }
 
-      setPayments((current) => replacePaymentInList(current, result.payment));
+      replacePaymentInStateAndCache(result.payment);
       setFeedback(tr("Current cycle marked as unpaid."));
       emitPaymentsChanged();
       void loadPayments();
@@ -922,7 +960,7 @@ export function RecurringPaymentsSection({
         return;
       }
 
-      setPayments((current) => replacePaymentInList(current, result.payment));
+      replacePaymentInStateAndCache(result.payment);
       setFeedback(
         tr(nextPausedState ? "Subscription paused." : "Subscription resumed."),
       );

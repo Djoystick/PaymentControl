@@ -7,6 +7,12 @@ import {
   listRecurringPayments,
   readPaymentsDashboard,
 } from "@/lib/payments/client";
+import {
+  readCachedPaymentsDashboard,
+  readCachedPaymentsList,
+  writeCachedPaymentsDashboard,
+  writeCachedPaymentsList,
+} from "@/lib/payments/client-cache";
 import { useLocalization } from "@/lib/i18n/localization";
 import type {
   DashboardPaymentItemPayload,
@@ -23,6 +29,18 @@ type PaymentsDashboardSectionProps = {
 
 type CompactSummaryFilter = "none" | "all" | "upcoming" | "overdue";
 const WEEKLY_TO_MONTHLY_FACTOR = 52 / 12;
+const COMPACT_FILTER_STORAGE_KEY = "payment_control_home_compact_filter_v18a";
+
+const isCompactSummaryFilter = (
+  value: string | null,
+): value is CompactSummaryFilter => {
+  return (
+    value === "none" ||
+    value === "all" ||
+    value === "upcoming" ||
+    value === "overdue"
+  );
+};
 
 const formatAmount = (item: DashboardPaymentItemPayload): string => {
   return `${item.amount.toFixed(2)} ${item.currency}`;
@@ -96,6 +114,7 @@ export function PaymentsDashboardSection({
   const [feedback, setFeedback] = useState<string | null>(null);
   const isFamilyWorkspace = workspace?.kind === "family";
   const isCompact = variant === "compact";
+  const workspaceId = workspace?.id ?? null;
 
   const workspaceUnavailable = useMemo(() => {
     if (!workspace) {
@@ -115,8 +134,40 @@ export function PaymentsDashboardSection({
   }, [workspace, tr]);
 
   useEffect(() => {
+    if (!isCompact || !workspaceId || typeof window === "undefined") {
+      setCompactFilter("none");
+      return;
+    }
+
+    try {
+      const stored = window.localStorage.getItem(
+        `${COMPACT_FILTER_STORAGE_KEY}:${workspaceId}`,
+      );
+      if (isCompactSummaryFilter(stored)) {
+        setCompactFilter(stored);
+        return;
+      }
+    } catch {
+      // Ignore storage read errors.
+    }
+
     setCompactFilter("none");
-  }, [workspace?.id]);
+  }, [isCompact, workspaceId]);
+
+  useEffect(() => {
+    if (!isCompact || !workspaceId || typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(
+        `${COMPACT_FILTER_STORAGE_KEY}:${workspaceId}`,
+        compactFilter,
+      );
+    } catch {
+      // Ignore storage write errors.
+    }
+  }, [compactFilter, isCompact, workspaceId]);
 
   const hasAnyActivePayments = useMemo(() => {
     if (!dashboard) {
@@ -129,11 +180,29 @@ export function PaymentsDashboardSection({
   }, [dashboard]);
 
   const loadDashboard = useCallback(async () => {
-    if (workspaceUnavailable) {
+    if (workspaceUnavailable || !workspaceId) {
+      setDashboard(null);
+      setActivePayments([]);
+      setFeedback(null);
+      setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
+    const cachedDashboard = readCachedPaymentsDashboard(workspaceId);
+    const cachedPaymentsList = readCachedPaymentsList(workspaceId);
+    const hasCachedSnapshot = Boolean(cachedDashboard || cachedPaymentsList);
+
+    if (cachedDashboard) {
+      setDashboard(cachedDashboard.value.dashboard);
+    }
+
+    if (cachedPaymentsList) {
+      setActivePayments(
+        cachedPaymentsList.value.payments.filter((payment) => payment.status === "active"),
+      );
+    }
+
+    setIsLoading(!hasCachedSnapshot);
     setFeedback(null);
     try {
       const [dashboardResult, paymentsResult] = await Promise.all([
@@ -141,28 +210,36 @@ export function PaymentsDashboardSection({
         listRecurringPayments(initData),
       ]);
 
-      if (!dashboardResult.ok) {
+      if (dashboardResult.ok) {
+        setDashboard(dashboardResult.dashboard);
+        writeCachedPaymentsDashboard(workspaceId, {
+          dashboard: dashboardResult.dashboard,
+        });
+      } else if (!cachedDashboard) {
         setFeedback(dashboardResult.error.message);
-        return;
       }
 
-      setDashboard(dashboardResult.dashboard);
-
-      if (!paymentsResult.ok) {
+      if (paymentsResult.ok) {
+        const activeSnapshot = paymentsResult.payments.filter(
+          (payment) => payment.status === "active",
+        );
+        setActivePayments(activeSnapshot);
+        writeCachedPaymentsList(workspaceId, {
+          payments: paymentsResult.payments,
+          responsiblePayerOptions: paymentsResult.responsiblePayerOptions,
+        });
+      } else if (!cachedPaymentsList) {
         setActivePayments([]);
-        return;
       }
-
-      setActivePayments(
-        paymentsResult.payments.filter((payment) => payment.status === "active"),
-      );
     } catch {
-      setFeedback(tr("Failed to load dashboard summary."));
-      setActivePayments([]);
+      if (!hasCachedSnapshot) {
+        setFeedback(tr("Failed to load dashboard summary."));
+        setActivePayments([]);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [initData, tr, workspaceUnavailable]);
+  }, [initData, tr, workspaceId, workspaceUnavailable]);
 
   useEffect(() => {
     loadDashboard();

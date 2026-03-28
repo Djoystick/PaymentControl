@@ -6,6 +6,10 @@ import {
   PAYMENTS_CHANGED_EVENT,
   listRecurringPayments,
 } from "@/lib/payments/client";
+import {
+  readCachedPaymentsList,
+  writeCachedPaymentsList,
+} from "@/lib/payments/client-cache";
 import { useLocalization } from "@/lib/i18n/localization";
 import { AppIcon } from "@/components/app/app-icon";
 import type {
@@ -142,6 +146,7 @@ export function PaymentsActivitySection({
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const isFamilyWorkspace = workspace?.kind === "family";
+  const workspaceId = workspace?.id ?? null;
 
   const workspaceUnavailable = useMemo(() => {
     if (!workspace) {
@@ -208,29 +213,49 @@ export function PaymentsActivitySection({
   }, [isFamilyWorkspace, payments]);
 
   const loadActivity = useCallback(async () => {
-    if (workspaceUnavailable) {
+    if (workspaceUnavailable || !workspaceId) {
+      setPayments([]);
+      setResponsiblePayerOptions([]);
+      setFeedback(null);
+      setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
+    const cachedPaymentsList = readCachedPaymentsList(workspaceId);
+    const hasCachedSnapshot = Boolean(cachedPaymentsList);
+
+    if (cachedPaymentsList) {
+      setPayments(cachedPaymentsList.value.payments);
+      setResponsiblePayerOptions(cachedPaymentsList.value.responsiblePayerOptions);
+    }
+
+    setIsLoading(!hasCachedSnapshot);
     setFeedback(null);
     try {
       const result = await listRecurringPayments(initData);
       if (!result.ok) {
-        setFeedback(result.error.message);
-        setResponsiblePayerOptions([]);
+        if (!hasCachedSnapshot) {
+          setFeedback(result.error.message);
+          setResponsiblePayerOptions([]);
+        }
         return;
       }
 
       setPayments(result.payments);
       setResponsiblePayerOptions(result.responsiblePayerOptions);
+      writeCachedPaymentsList(workspaceId, {
+        payments: result.payments,
+        responsiblePayerOptions: result.responsiblePayerOptions,
+      });
     } catch {
-      setFeedback(tr("Failed to load recent activity."));
-      setResponsiblePayerOptions([]);
+      if (!hasCachedSnapshot) {
+        setFeedback(tr("Failed to load recent activity."));
+        setResponsiblePayerOptions([]);
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [initData, tr, workspaceUnavailable]);
+  }, [initData, tr, workspaceId, workspaceUnavailable]);
 
   useEffect(() => {
     loadActivity();
