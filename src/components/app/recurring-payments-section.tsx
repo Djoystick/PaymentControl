@@ -299,7 +299,6 @@ export function RecurringPaymentsSection({
   const [showPausedSubscriptionsOnly, setShowPausedSubscriptionsOnly] = useState(false);
   const [isComposerExpanded, setIsComposerExpanded] = useState(false);
   const [isAdvancedFormExpanded, setIsAdvancedFormExpanded] = useState(false);
-  const [templateNameInput, setTemplateNameInput] = useState("");
   const [customTemplatesByScenario, setCustomTemplatesByScenario] =
     useState<CustomTemplateStorageShape>(() => ({ personal: [], family: [] }));
   const [responsiblePayerOptions, setResponsiblePayerOptions] = useState<
@@ -513,15 +512,25 @@ export function RecurringPaymentsSection({
     return [...customTemplates, ...starterTemplatesForScenario];
   }, [activeTemplateScenario, customTemplatesByScenario, starterTemplatesForScenario]);
 
-  const paymentTemplates = useMemo(
-    () => templatesForScenario.filter((template) => !template.isSubscription),
-    [templatesForScenario],
-  );
+  const templateSuggestions = useMemo(() => {
+    if (editingPaymentId !== null) {
+      return [];
+    }
 
-  const subscriptionTemplates = useMemo(
-    () => templatesForScenario.filter((template) => template.isSubscription),
-    [templatesForScenario],
-  );
+    const query = form.title.trim().toLocaleLowerCase();
+    if (!query) {
+      return [];
+    }
+
+    return templatesForScenario
+      .filter((template) => {
+        const label = isCustomTemplate(template) ? template.label : tr(template.label);
+        const title = isCustomTemplate(template) ? template.title : tr(template.title);
+        const searchText = `${label} ${title}`.toLocaleLowerCase();
+        return searchText.includes(query);
+      })
+      .slice(0, 5);
+  }, [editingPaymentId, form.title, templatesForScenario, tr]);
 
   const visiblePayments = useMemo(() => {
     if (paymentListView === "subscriptions" && showPausedSubscriptionsOnly) {
@@ -714,7 +723,7 @@ export function RecurringPaymentsSection({
   };
 
   const saveCurrentFormAsTemplate = () => {
-    const templateLabel = templateNameInput.trim() || form.title.trim();
+    const templateLabel = form.title.trim();
     const validationError = validateForm(form);
     if (validationError) {
       setFeedback(tr(validationError));
@@ -731,7 +740,6 @@ export function RecurringPaymentsSection({
       ...current,
       [activeTemplateScenario]: [nextTemplate, ...(current[activeTemplateScenario] ?? [])],
     }));
-    setTemplateNameInput("");
     setFeedback(
       tr('Template "{template}" saved.', {
         template: templateLabel,
@@ -771,16 +779,6 @@ export function RecurringPaymentsSection({
         payment: payment.title,
       }),
     );
-  };
-
-  const deleteCustomTemplate = (templateId: string) => {
-    setCustomTemplatesByScenario((current) => ({
-      ...current,
-      [activeTemplateScenario]: (current[activeTemplateScenario] ?? []).filter(
-        (template) => template.id !== templateId,
-      ),
-    }));
-    setFeedback(tr("Template deleted."));
   };
 
   const submitForm = async () => {
@@ -1197,160 +1195,6 @@ export function RecurringPaymentsSection({
                   <ReminderCandidatesSection workspace={workspace} initData={initData} />
                 </div>
               </details>
-
-              <details className="rounded-2xl border border-app-border bg-white p-3">
-                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                  {activeTemplateScenario === "family"
-                    ? tr("Family templates")
-                    : tr("Personal templates")}
-                </summary>
-                <div className="mt-1 flex items-center gap-2 text-xs text-app-text-muted">
-                  <HelpPopover
-                    buttonLabel={tr("Open templates help")}
-                    title={tr("Templates help")}
-                  >
-                    <p>{tr("Templates are scenario-specific and can be edited here.")}</p>
-                    <p>{tr("Tap a template row to fill the form.")}</p>
-                  </HelpPopover>
-                  <span>{tr("Scenario-specific template sets")}</span>
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <input
-                    value={templateNameInput}
-                    onChange={(event) => setTemplateNameInput(event.target.value)}
-                    placeholder={tr("Template name (optional)")}
-                    className="min-w-[170px] flex-1 rounded-xl border border-app-border bg-app-surface px-3 py-1.5 text-xs text-app-text outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={saveCurrentFormAsTemplate}
-                    disabled={isSaving}
-                    className="rounded-xl border border-app-border bg-app-surface px-3 py-1.5 text-xs font-semibold text-app-text disabled:opacity-60"
-                  >
-                    {tr("Save current form as template")}
-                  </button>
-                </div>
-
-                <div className="mt-2 space-y-2">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                      {tr("Payment templates")}
-                    </p>
-                    <div className="mt-1 space-y-1">
-                      {paymentTemplates.length === 0 ? (
-                        <p className="text-xs text-app-text-muted">{tr("No templates yet.")}</p>
-                      ) : (
-                        paymentTemplates.map((template) => {
-                          const customTemplate = isCustomTemplate(template);
-
-                          return (
-                            <div
-                              key={template.id}
-                              role="button"
-                              tabIndex={0}
-                              onClick={() => {
-                                if (isSaving) {
-                                  return;
-                                }
-                                applyTemplate(template);
-                              }}
-                              onKeyDown={(event) => {
-                                if (isSaving) {
-                                  return;
-                                }
-                                if (event.key === "Enter" || event.key === " ") {
-                                  event.preventDefault();
-                                  applyTemplate(template);
-                                }
-                              }}
-                              className={`flex min-h-[44px] touch-manipulation items-center justify-between gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 transition ${
-                                isSaving
-                                  ? "cursor-not-allowed opacity-60"
-                                  : "cursor-pointer hover:bg-app-surface-soft"
-                              }`}
-                            >
-                              <p className="flex-1 text-left text-xs font-medium text-app-text">
-                                {resolveTemplateLabel(template)}
-                              </p>
-                              {customTemplate && (
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    deleteCustomTemplate(template.id);
-                                  }}
-                                  className="rounded-lg border border-app-border px-2 py-0.5 text-[11px] font-semibold text-app-text-muted"
-                                >
-                                  {tr("Delete")}
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                      {tr("Subscription templates")}
-                    </p>
-                    <div className="mt-1 space-y-1">
-                      {subscriptionTemplates.length === 0 ? (
-                        <p className="text-xs text-app-text-muted">{tr("No templates yet.")}</p>
-                      ) : (
-                        subscriptionTemplates.map((template) => {
-                          const customTemplate = isCustomTemplate(template);
-
-                          return (
-                            <div
-                              key={template.id}
-                              role="button"
-                              tabIndex={0}
-                              onClick={() => {
-                                if (isSaving) {
-                                  return;
-                                }
-                                applyTemplate(template);
-                              }}
-                              onKeyDown={(event) => {
-                                if (isSaving) {
-                                  return;
-                                }
-                                if (event.key === "Enter" || event.key === " ") {
-                                  event.preventDefault();
-                                  applyTemplate(template);
-                                }
-                              }}
-                              className={`flex min-h-[44px] touch-manipulation items-center justify-between gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 transition ${
-                                isSaving
-                                  ? "cursor-not-allowed opacity-60"
-                                  : "cursor-pointer hover:bg-app-surface-soft"
-                              }`}
-                            >
-                              <p className="flex-1 text-left text-xs font-medium text-app-text">
-                                {resolveTemplateLabel(template)}
-                              </p>
-                              {customTemplate && (
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    deleteCustomTemplate(template.id);
-                                  }}
-                                  className="rounded-lg border border-app-border px-2 py-0.5 text-[11px] font-semibold text-app-text-muted"
-                                >
-                                  {tr("Delete")}
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </details>
             </div>
           </div>
           )}
@@ -1642,14 +1486,68 @@ export function RecurringPaymentsSection({
               <span>{tr("Core fields first")}</span>
             </div>
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <input
-              value={form.title}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, title: event.target.value }))
-              }
-              placeholder={tr("Payment title")}
-              className="rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
-            />
+            <div className="sm:col-span-2">
+              <input
+                value={form.title}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, title: event.target.value }))
+                }
+                placeholder={tr("Payment title")}
+                className="w-full rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
+              />
+              {editingPaymentId === null && form.title.trim().length > 0 && (
+                <div className="mt-1 rounded-xl border border-app-border bg-white p-2">
+                  <div className="flex items-center justify-between gap-2 text-[11px] text-app-text-muted">
+                    <span className="font-semibold uppercase tracking-[0.12em]">
+                      {tr("Template suggestions")}
+                    </span>
+                    <span>
+                      {activeTemplateScenario === "family"
+                        ? tr("Family templates")
+                        : tr("Personal templates")}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-app-text-muted">
+                    {tr("Tap a template row to fill the form.")}
+                  </p>
+                  {templateSuggestions.length === 0 ? (
+                    <p className="mt-1 text-xs text-app-text-muted">
+                      {tr("No matching templates. Continue typing to create manually.")}
+                    </p>
+                  ) : (
+                    <div className="mt-1 space-y-1">
+                      {templateSuggestions.map((template) => {
+                        const localizedTemplate = localizeSystemTemplate(template);
+
+                        return (
+                          <button
+                            key={template.id}
+                            type="button"
+                            onClick={() => applyTemplate(template)}
+                            disabled={isSaving}
+                            className="flex min-h-11 w-full touch-manipulation items-center justify-between gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-left transition hover:bg-app-surface-soft disabled:opacity-60"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-semibold text-app-text">
+                                {resolveTemplateLabel(template)}
+                              </p>
+                              <p className="truncate text-[11px] text-app-text-muted">
+                                {localizedTemplate.title}
+                              </p>
+                            </div>
+                            <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
+                              {template.isSubscription
+                                ? tr("Subscription")
+                                : tr("Payment")}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <input
               value={form.amount}
               onChange={(event) =>
