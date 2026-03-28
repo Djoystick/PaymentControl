@@ -11,6 +11,15 @@ const toUtcDateOnly = (date: Date): string => {
   return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(date.getUTCDate())}`;
 };
 
+const parseUtcDateOnly = (value: string): Date | null => {
+  const parsed = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+};
+
 const getIsoWeekInfo = (date: Date): { isoYear: number; isoWeek: number } => {
   const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   const day = target.getUTCDay() || 7;
@@ -32,9 +41,11 @@ const getCurrentWeekdayDate = (date: Date, weekday: number): Date => {
   return due;
 };
 
-const resolveMonthlyCycle = (dueDay: number, now: Date): CurrentPaymentCycleSnapshot => {
-  const year = now.getUTCFullYear();
-  const month = now.getUTCMonth() + 1;
+const resolveMonthlyCycleByYearMonth = (
+  dueDay: number,
+  year: number,
+  month: number,
+): CurrentPaymentCycleSnapshot => {
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const day = Math.min(Math.max(dueDay, 1), daysInMonth);
 
@@ -42,6 +53,12 @@ const resolveMonthlyCycle = (dueDay: number, now: Date): CurrentPaymentCycleSnap
     cycleKey: `monthly:${year}-${pad2(month)}`,
     dueDate: `${year}-${pad2(month)}-${pad2(day)}`,
   };
+};
+
+const resolveMonthlyCycle = (dueDay: number, now: Date): CurrentPaymentCycleSnapshot => {
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth() + 1;
+  return resolveMonthlyCycleByYearMonth(dueDay, year, month);
 };
 
 const resolveWeeklyCycle = (dueDay: number, now: Date): CurrentPaymentCycleSnapshot => {
@@ -68,9 +85,81 @@ export const resolveCurrentCycle = (
 };
 
 export const resolveCurrentCycleForPayment = (
-  payment: Pick<RecurringPaymentPayload, "cadence" | "dueDay">,
+  payment: Pick<RecurringPaymentPayload, "cadence" | "dueDay"> & {
+    createdAt?: string;
+  },
   now?: Date,
 ): CurrentPaymentCycleSnapshot => {
-  return resolveCurrentCycle(payment.cadence, payment.dueDay, now);
+  const evaluationDate = now ?? new Date();
+  const currentCycle = resolveCurrentCycle(payment.cadence, payment.dueDay, evaluationDate);
+  if (!payment.createdAt) {
+    return currentCycle;
+  }
+
+  const createdAt = new Date(payment.createdAt);
+  if (Number.isNaN(createdAt.getTime())) {
+    return currentCycle;
+  }
+
+  const createdDateKey = toUtcDateOnly(createdAt);
+  if (payment.cadence === "monthly") {
+    const createdInCurrentMonth =
+      createdAt.getUTCFullYear() === evaluationDate.getUTCFullYear() &&
+      createdAt.getUTCMonth() === evaluationDate.getUTCMonth();
+    if (createdInCurrentMonth && currentCycle.dueDate < createdDateKey) {
+      const nextMonthDate = new Date(
+        Date.UTC(
+          evaluationDate.getUTCFullYear(),
+          evaluationDate.getUTCMonth() + 1,
+          1,
+        ),
+      );
+      return resolveMonthlyCycle(payment.dueDay, nextMonthDate);
+    }
+
+    return currentCycle;
+  }
+
+  const createdWeekCycle = resolveWeeklyCycle(payment.dueDay, createdAt);
+  if (
+    createdWeekCycle.cycleKey === currentCycle.cycleKey &&
+    currentCycle.dueDate < createdDateKey
+  ) {
+    const nextWeekDate = new Date(
+      Date.UTC(
+        evaluationDate.getUTCFullYear(),
+        evaluationDate.getUTCMonth(),
+        evaluationDate.getUTCDate() + 7,
+      ),
+    );
+    return resolveWeeklyCycle(payment.dueDay, nextWeekDate);
+  }
+
+  return currentCycle;
 };
 
+export const resolveNextCycleDueDate = (
+  cadence: RecurringPaymentCadence,
+  dueDay: number,
+  currentCycleDueDate: string,
+): string => {
+  const currentDueDate = parseUtcDateOnly(currentCycleDueDate);
+  if (!currentDueDate) {
+    return currentCycleDueDate;
+  }
+
+  if (cadence === "weekly") {
+    const nextDueDate = new Date(currentDueDate);
+    nextDueDate.setUTCDate(nextDueDate.getUTCDate() + 7);
+    return toUtcDateOnly(nextDueDate);
+  }
+
+  let nextMonth = currentDueDate.getUTCMonth() + 2;
+  let nextYear = currentDueDate.getUTCFullYear();
+  if (nextMonth > 12) {
+    nextMonth = 1;
+    nextYear += 1;
+  }
+
+  return resolveMonthlyCycleByYearMonth(dueDay, nextYear, nextMonth).dueDate;
+};

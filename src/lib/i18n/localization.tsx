@@ -585,6 +585,7 @@ const ruTranslations: Record<string, string> = {
   "Monthly total (weekly cadence uses 52/12 monthly equivalent):": "Месячный итог (для еженедельных используется эквивалент 52/12):",
   "Needs attention": "Требует внимания",
   "Next check: family workspace should appear in Workspace switch and household members should no longer be owner-only.": "Следующая проверка: семейное пространство должно появиться в переключении пространства, а состав семьи не должен быть только из владельца.",
+  "Next payment date": "Следующая дата платежа",
   "No active subscriptions yet.": "Активных подписок пока нет.",
   "No due-today or overdue unpaid shared payments right now.": "Сейчас нет неоплаченных семейных платежей со сроком на сегодня или просрочкой.",
   "No due-today subscription renewals.": "Нет продлений подписок на сегодня.",

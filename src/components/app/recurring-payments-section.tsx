@@ -21,6 +21,7 @@ import {
   personalStarterPaymentTemplates,
   type StarterPaymentTemplate,
 } from "@/lib/payments/starter-templates";
+import { resolveNextCycleDueDate } from "@/lib/payments/cycle";
 import { useLocalization } from "@/lib/i18n/localization";
 import type {
   RecurringPaymentPayload,
@@ -1962,6 +1963,11 @@ export function RecurringPaymentsSection({
                   Boolean(payment.responsibleProfileId) &&
                   Boolean(payment.currentCycle.paidByProfileId) &&
                   payment.responsibleProfileId !== payment.currentCycle.paidByProfileId;
+                const nextCycleDueDate = resolveNextCycleDueDate(
+                  payment.cadence,
+                  payment.dueDay,
+                  payment.currentCycle.dueDate,
+                );
 
                 return (
                   <article
@@ -2017,6 +2023,11 @@ export function RecurringPaymentsSection({
                           {formatDueDate(payment.currentCycle.dueDate)}
                           {payment.currentCycle.paidAt ? `. ${tr("Paid this cycle.")}` : "."}
                         </p>
+                        {payment.currentCycle.state === "paid" && (
+                          <p className="text-sm text-app-text-muted">
+                            {tr("Next payment date")}: {formatDueDate(nextCycleDueDate)}
+                          </p>
+                        )}
                         {payment.paymentScope === "shared" &&
                           payment.currentCycle.state === "paid" && (
                             <p className="text-sm text-app-text-muted">

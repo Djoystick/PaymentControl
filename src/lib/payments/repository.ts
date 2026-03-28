@@ -178,6 +178,7 @@ const toPaymentPayload = (
   const cycle = resolveCurrentCycleForPayment({
     cadence: row.cadence,
     dueDay: row.due_day,
+    createdAt: row.created_at,
   });
 
   return {
