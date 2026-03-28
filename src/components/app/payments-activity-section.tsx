@@ -303,7 +303,7 @@ export function PaymentsActivitySection({
   }, [loadActivity]);
 
   return (
-    <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
+    <section className="pc-surface">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="inline-flex items-center gap-2 text-base font-semibold text-app-text">
           <AppIcon name="history" className="h-4 w-4" />
@@ -315,26 +315,26 @@ export function PaymentsActivitySection({
       </p>
 
       {workspaceUnavailable ? (
-        <p className="rounded-xl bg-app-surface-soft px-3 py-2 text-sm text-app-text-muted">
+        <p className="pc-empty-state text-sm">
           {workspaceUnavailable}
         </p>
       ) : (
         <>
-          <div className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+          <div className="pc-detail-surface mb-2">
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {tr("History context")}
             </p>
             <div className="mt-2 grid grid-cols-2 gap-2">
-              <div className="rounded-xl border border-app-border bg-app-surface px-2 py-2">
+              <div className="pc-state-card px-2 py-2">
                 <p className="text-[11px] text-app-text-muted">{tr("In scope")}</p>
                 <p className="text-sm font-semibold text-app-text">{scopedPaymentsCount}</p>
               </div>
-              <div className="rounded-xl border border-app-border bg-app-surface px-2 py-2">
+              <div className="pc-state-card px-2 py-2">
                 <p className="text-[11px] text-app-text-muted">{tr("Recent events")}</p>
                 <p className="text-sm font-semibold text-app-text">{activityItems.length}</p>
               </div>
               {isFamilyWorkspace && sharedWhoPaysSummary && (
-                <div className="col-span-2 rounded-xl border border-app-border bg-app-surface px-2 py-2">
+                <div className="pc-state-card col-span-2 px-2 py-2">
                   <p className="text-[11px] text-app-text-muted">
                     {tr("Who pays assigned")}: {sharedWhoPaysSummary.assignedCount} · {tr("Missing")}{" "}
                     {sharedWhoPaysSummary.unassignedCount} · {tr("Mismatch hints")}{" "}
@@ -345,9 +345,9 @@ export function PaymentsActivitySection({
             </div>
           </div>
 
-          <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+          <div className="pc-detail-surface mt-3">
             {scopedPaymentsCount === 0 ? (
-              <div className="space-y-1">
+              <div className="pc-empty-state space-y-1">
                 <p className="text-sm font-semibold text-app-text">{tr("History is empty")}</p>
                 <p className="text-sm text-app-text-muted">
                   {isFamilyWorkspace
@@ -360,7 +360,7 @@ export function PaymentsActivitySection({
                 </p>
               </div>
             ) : activityItems.length === 0 ? (
-              <div className="space-y-1">
+              <div className="pc-empty-state space-y-1">
                 <p className="text-sm font-semibold text-app-text">{tr("No recent updates yet")}</p>
                 <p className="text-sm text-app-text-muted">
                   {tr("Mark paid or edit a payment in Reminders to populate History.")}
@@ -405,7 +405,7 @@ export function PaymentsActivitySection({
                     return (
                       <li
                         key={item.id}
-                        className="rounded-xl border border-app-border bg-app-surface px-2 py-2 text-xs text-app-text"
+                        className="pc-state-card px-2 py-2 text-xs text-app-text"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span
@@ -450,7 +450,7 @@ export function PaymentsActivitySection({
               type="button"
               onClick={loadActivity}
               disabled={isLoading}
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-app-border bg-app-surface px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
+              className="pc-btn-secondary"
             >
               <AppIcon name="refresh" className="h-3.5 w-3.5" />
               {isFamilyWorkspace ? tr("Refresh family section") : tr("Refresh activity")}

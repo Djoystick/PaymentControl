@@ -18,7 +18,7 @@ export function LandingScreen() {
   };
 
   return (
-    <section className="rounded-3xl border border-app-border bg-gradient-to-b from-app-surface to-app-surface-soft/45 p-4 shadow-sm">
+    <section className="pc-surface bg-gradient-to-b from-app-surface to-app-surface-soft/45">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
@@ -34,18 +34,18 @@ export function LandingScreen() {
       </div>
 
       <div className="mt-3 grid grid-cols-1 gap-2.5">
-        <p className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+        <p className="pc-state-card text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           {tr("Primary next action")}
         </p>
         <button
           type="button"
           onClick={openReminders}
-          className="inline-flex min-h-11 touch-manipulation items-center justify-center gap-2 rounded-xl bg-app-accent px-3 py-2 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(31,122,67,0.3)] transition hover:bg-app-accent-strong"
+          className="pc-btn-primary w-full gap-2"
         >
           <AppIcon name="add" className="h-4 w-4" />
           {tr("Open Reminders and add payment")}
         </button>
-        <p className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-xs text-app-text-muted">
+        <p className="pc-state-card text-xs text-app-text-muted">
           {tr("Keep it simple: Reminders for actions, History for updates.")}
         </p>
       </div>

@@ -328,7 +328,7 @@ function ProfileScenariosContent() {
 
   const profileScreen = (
     <section className="space-y-3">
-      <div className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
+      <div className="pc-surface">
         <div className="flex items-center justify-between">
           <h2 className="inline-flex items-center gap-2 text-base font-semibold text-app-text">
             <AppIcon name="profile" className="h-4 w-4" />
@@ -339,7 +339,7 @@ function ProfileScenariosContent() {
           {tr("Profile controls context and onboarding")}
         </p>
       </div>
-      <div className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
+      <div className="pc-surface">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="home" className="h-3.5 w-3.5" />
           {tr("Quick start")}
@@ -348,7 +348,7 @@ function ProfileScenariosContent() {
           {tr("Start in Reminders: add a payment, then use Mark paid when done.")}
         </p>
       </div>
-      <div className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
+      <div className="pc-surface">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="workspace" className="h-3.5 w-3.5" />
           {tr("Session")}
@@ -425,7 +425,7 @@ function ProfileScenariosContent() {
           <button
             type="button"
             onClick={replayOnboarding}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-app-border bg-app-surface-soft px-3 py-1.5 text-xs font-semibold text-app-text"
+            className="pc-btn-secondary"
           >
             <AppIcon name="refresh" className="h-3.5 w-3.5" />
             {tr("Show onboarding again")}
@@ -456,7 +456,7 @@ function ProfileScenariosContent() {
           </HelpPopover>
         </div>
       </div>
-      <div className="rounded-3xl border border-app-border bg-app-surface-soft p-3 shadow-sm">
+      <div className="pc-surface pc-surface-soft">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="premium" className="h-3.5 w-3.5" />
           {tr("Premium status")}
@@ -496,7 +496,7 @@ function ProfileScenariosContent() {
           </>
         )}
       </div>
-      <details className="rounded-3xl border border-app-border bg-app-surface-soft p-3 shadow-sm">
+      <details className="pc-surface pc-surface-soft">
         <summary className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="support" className="h-3.5 w-3.5" />
           {tr("Report a bug")}
@@ -557,7 +557,7 @@ function ProfileScenariosContent() {
           <button
             type="submit"
             disabled={isSubmittingBugReport}
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-app-border bg-white px-3 py-2 text-xs font-semibold text-app-text disabled:opacity-60"
+            className="pc-btn-secondary"
           >
             <AppIcon name="support" className="h-3.5 w-3.5" />
             {isSubmittingBugReport ? tr("Sending...") : tr("Send bug report")}
@@ -576,7 +576,7 @@ function ProfileScenariosContent() {
         </form>
       </details>
       <PremiumAdminConsole initData={initData} />
-      <details className="rounded-3xl border border-app-border bg-app-surface-soft p-3 shadow-sm">
+      <details className="pc-surface pc-surface-soft">
         <summary className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="premium" className="h-3.5 w-3.5" />
           {tr("Gift premium claim (verification)")}
@@ -598,7 +598,7 @@ function ProfileScenariosContent() {
             type="button"
             onClick={() => void claimGiftPremium(giftCampaignCodeInput)}
             disabled={isClaimingGiftPremium || !giftCampaignCodeInput.trim()}
-            className="rounded-xl border border-app-border bg-white px-3 py-2 text-xs font-semibold text-app-text disabled:opacity-60"
+            className="pc-btn-secondary"
           >
             {isClaimingGiftPremium ? tr("Claiming...") : tr("Claim gift premium")}
           </button>
@@ -623,7 +623,7 @@ function ProfileScenariosContent() {
           </div>
         )}
       </details>
-      <div className="rounded-3xl border border-app-border bg-app-surface-soft p-3 shadow-sm">
+      <div className="pc-surface pc-surface-soft">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="workspace" className="h-3.5 w-3.5" />
           {tr("Workspace state")}
@@ -665,7 +665,7 @@ function ProfileScenariosContent() {
                       isSavingWorkspace ||
                       workspace?.id === workspaceOption.id
                     }
-                    className="inline-flex items-center gap-1 rounded-full border border-app-border px-2 py-0.5 text-[11px] font-medium text-app-text-muted disabled:cursor-not-allowed disabled:opacity-60"
+                    className="pc-btn-quiet rounded-full disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <AppIcon name="refresh" className="h-3 w-3" />
                     {workspace?.id === workspaceOption.id ? tr("Current") : tr("Switch")}
@@ -699,7 +699,7 @@ function ProfileScenariosContent() {
               disabled={
                 isSavingInvite || isSavingWorkspace || workspace.memberRole !== "owner"
               }
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-app-border px-3 py-2 text-sm font-semibold text-app-text disabled:cursor-not-allowed disabled:opacity-60"
+              className="pc-btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
             >
               <AppIcon name="add" className="h-3.5 w-3.5" />
               {tr("Generate one-time invite")}
@@ -734,7 +734,7 @@ function ProfileScenariosContent() {
                   <button
                     type="button"
                     onClick={() => void copyGeneratedInviteToken()}
-                    className="inline-flex items-center gap-1 rounded-lg border border-app-border px-2 py-1 text-[11px] font-semibold text-app-text"
+                    className="pc-btn-quiet"
                   >
                     <AppIcon name="template" className="h-3 w-3" />
                     {tr("Copy token")}
@@ -745,7 +745,7 @@ function ProfileScenariosContent() {
                       setGeneratedInvite(null);
                       setInviteCopyState("idle");
                     }}
-                    className="rounded-lg border border-app-border px-2 py-1 text-[11px] font-semibold text-app-text"
+                    className="pc-btn-quiet"
                   >
                     {tr("Hide token")}
                   </button>
@@ -767,7 +767,7 @@ function ProfileScenariosContent() {
             )}
           </div>
         ) : (
-          <details className="mt-3 rounded-2xl border border-app-border bg-app-surface p-3">
+          <details className="pc-detail-surface mt-3 bg-app-surface">
             <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {tr("Family workspace (optional)")}
             </summary>
@@ -793,7 +793,7 @@ function ProfileScenariosContent() {
                     type="button"
                     onClick={() => createFamilyWorkspace(familyWorkspaceTitle)}
                     disabled={!profile || isSavingWorkspace}
-                    className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-app-border px-3 py-2 text-sm font-semibold text-app-text disabled:cursor-not-allowed disabled:opacity-60"
+                    className="pc-btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <AppIcon name="add" className="h-3.5 w-3.5" />
                     {tr("Create family workspace")}
@@ -830,7 +830,7 @@ function ProfileScenariosContent() {
                     }
                   }}
                   disabled={isSavingInvite || !profile}
-                  className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-app-border px-3 py-2 text-sm font-semibold text-app-text disabled:cursor-not-allowed disabled:opacity-60"
+                  className="pc-btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <AppIcon name="check" className="h-3.5 w-3.5" />
                   {tr("Accept invite")}
@@ -894,7 +894,7 @@ function ProfileScenariosContent() {
                       type="button"
                       onClick={refreshContext}
                       disabled={isLoading}
-                      className="mt-2 inline-flex items-center gap-1 rounded-lg border border-app-border px-2 py-1 text-[11px] font-semibold text-app-text disabled:opacity-60"
+                      className="pc-btn-quiet mt-2 disabled:opacity-60"
                     >
                       <AppIcon name="refresh" className="h-3 w-3" />
                       {tr("Refresh context")}

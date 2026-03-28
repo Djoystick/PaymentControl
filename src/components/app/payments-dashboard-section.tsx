@@ -79,7 +79,7 @@ const DashboardBucket = ({
   dueLabel: string;
 }) => {
   return (
-    <article className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
+    <article className="pc-detail-surface">
       <h3 className="text-sm font-semibold text-app-text">{title}</h3>
       {items.length === 0 ? (
         <p className="mt-2 text-xs text-app-text-muted">{emptyLabel}</p>
@@ -88,7 +88,7 @@ const DashboardBucket = ({
           {items.map((item) => (
             <li
               key={item.id}
-              className="rounded-xl bg-app-surface px-2 py-1.5 text-xs text-app-text"
+              className="pc-state-card text-xs text-app-text"
             >
               <p className="font-medium">{item.title}</p>
               <p className="text-app-text-muted">
@@ -354,7 +354,7 @@ export function PaymentsDashboardSection({
   }, [compactFilter, tr]);
 
   return (
-    <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
+    <section className="pc-surface">
       <div className="mb-3 flex items-center justify-between">
         <h2 className="inline-flex items-center gap-2 text-base font-semibold text-app-text">
           <AppIcon name={isCompact ? "home" : "payments"} className="h-4 w-4" />
@@ -363,7 +363,7 @@ export function PaymentsDashboardSection({
       </div>
 
       {workspaceUnavailable ? (
-        <p className="rounded-xl bg-app-surface-soft px-3 py-2 text-sm text-app-text-muted">
+        <p className="pc-empty-state text-sm">
           {workspaceUnavailable}
         </p>
       ) : (
@@ -461,7 +461,7 @@ export function PaymentsDashboardSection({
                       {dashboard.summary.overdueCount}
                     </p>
                   </button>
-                  <div className="rounded-2xl border border-app-border bg-app-surface-soft p-2.5">
+                  <div className="pc-state-card bg-app-surface-soft p-2.5">
                     <p className="inline-flex h-6 w-6 items-center justify-center rounded-lg border border-app-border bg-app-surface text-app-text-muted">
                       <AppIcon name="wallet" className="h-3.5 w-3.5" />
                     </p>
@@ -476,7 +476,7 @@ export function PaymentsDashboardSection({
                     <button
                       type="button"
                       onClick={openRemindersTab}
-                      className="inline-flex min-h-11 w-full touch-manipulation items-center justify-center gap-1.5 rounded-xl bg-app-accent px-3 py-2 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(31,122,67,0.3)] transition hover:bg-app-accent-strong"
+                      className="pc-btn-primary w-full"
                     >
                       <AppIcon name="reminders" className="h-3.5 w-3.5" />
                       {tr("Open Reminders for actions")}
@@ -486,7 +486,7 @@ export function PaymentsDashboardSection({
               )}
 
               {dashboard && !hasAnyActivePayments && (
-                <div className="mt-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+                <div className="pc-empty-state mt-2">
                   <p className="text-sm font-semibold text-app-text">
                     {tr("No payments yet")}
                   </p>
@@ -507,7 +507,7 @@ export function PaymentsDashboardSection({
               )}
 
               {hasAnyActivePayments && compactFilter !== "none" && (
-                <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+                <div className="pc-detail-surface mt-3">
                   <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                     <AppIcon name="reminders" className="h-3.5 w-3.5" />
                     {tr("Filtered by")}: {compactFilterLabel}
@@ -536,7 +536,7 @@ export function PaymentsDashboardSection({
                     <button
                       type="button"
                       onClick={() => setCompactFilter("none")}
-                      className="inline-flex items-center gap-1 rounded-lg border border-app-border bg-app-surface px-2.5 py-1 text-[11px] font-semibold text-app-text"
+                      className="pc-btn-quiet"
                     >
                       <AppIcon name="refresh" className="h-3.5 w-3.5" />
                       {tr("Show all payments")}
@@ -546,7 +546,7 @@ export function PaymentsDashboardSection({
               )}
 
               {hasAnyActivePayments && compactFilter === "none" && (
-                <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+                <details className="pc-detail-surface mt-3">
                   <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                     {tr("Due now details")}
                   </summary>
@@ -572,7 +572,7 @@ export function PaymentsDashboardSection({
                   type="button"
                   onClick={loadDashboard}
                   disabled={isLoading}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
+                  className="pc-btn-secondary"
                 >
                   <AppIcon name="refresh" className="h-3.5 w-3.5" />
                   {tr("Refresh snapshot")}
@@ -584,7 +584,7 @@ export function PaymentsDashboardSection({
             </>
           ) : (
             <>
-              <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+              <div className="pc-detail-surface mb-3">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                   {isFamilyWorkspace
                     ? tr("Family workspace overview")
@@ -598,7 +598,7 @@ export function PaymentsDashboardSection({
                     isFamilyWorkspace ? "md:grid-cols-6" : "md:grid-cols-5"
                   }`}
                 >
-                  <div className="rounded-xl bg-app-surface-soft p-2">
+                  <div className="pc-state-card bg-app-surface-soft p-2">
                     <p className="text-[11px] text-app-text-muted">
                       {isFamilyWorkspace
                         ? `${tr("Shared")} ${tr("Due today").toLowerCase()}`
@@ -608,7 +608,7 @@ export function PaymentsDashboardSection({
                       {dashboard.summary.dueTodayCount}
                     </p>
                   </div>
-                  <div className="rounded-xl bg-app-surface-soft p-2">
+                  <div className="pc-state-card bg-app-surface-soft p-2">
                     <p className="text-[11px] text-app-text-muted">
                       {isFamilyWorkspace
                         ? `${tr("Shared")} ${tr("Upcoming").toLowerCase()}`
@@ -619,7 +619,7 @@ export function PaymentsDashboardSection({
                       {dashboard.summary.upcomingCount}
                     </p>
                   </div>
-                  <div className="rounded-xl bg-app-surface-soft p-2">
+                  <div className="pc-state-card bg-app-surface-soft p-2">
                     <p className="text-[11px] text-app-text-muted">
                       {isFamilyWorkspace
                         ? `${tr("Shared")} ${tr("Overdue").toLowerCase()}`
@@ -629,7 +629,7 @@ export function PaymentsDashboardSection({
                       {dashboard.summary.overdueCount}
                     </p>
                   </div>
-                  <div className="rounded-xl bg-app-surface-soft p-2">
+                  <div className="pc-state-card bg-app-surface-soft p-2">
                     <p className="text-[11px] text-app-text-muted">
                       {isFamilyWorkspace
                         ? `${tr("Shared")} ${tr("Paid").toLowerCase()}`
@@ -639,7 +639,7 @@ export function PaymentsDashboardSection({
                       {dashboard.summary.paidThisCycleCount}
                     </p>
                   </div>
-                  <div className="rounded-xl bg-app-surface-soft p-2">
+                  <div className="pc-state-card bg-app-surface-soft p-2">
                     <p className="text-[11px] text-app-text-muted">
                       {isFamilyWorkspace
                         ? `${tr("Shared")} ${tr("Unpaid").toLowerCase()}`
@@ -650,7 +650,7 @@ export function PaymentsDashboardSection({
                     </p>
                   </div>
                   {isFamilyWorkspace && (
-                    <div className="rounded-xl bg-app-surface-soft p-2">
+                    <div className="pc-state-card bg-app-surface-soft p-2">
                       <p className="text-[11px] text-app-text-muted">
                         {tr("Paid mismatch hints")}
                       </p>
@@ -663,7 +663,7 @@ export function PaymentsDashboardSection({
               )}
 
               {isFamilyWorkspace && dashboard && !hasAnyActivePayments && (
-                <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+                <div className="pc-empty-state mt-3">
                     <p className="text-sm font-semibold text-app-text">
                     {tr("No shared recurring payments yet")}
                   </p>
@@ -725,7 +725,7 @@ export function PaymentsDashboardSection({
                   type="button"
                   onClick={loadDashboard}
                   disabled={isLoading}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
+                  className="pc-btn-secondary"
                 >
                   <AppIcon name="refresh" className="h-3.5 w-3.5" />
                   {isFamilyWorkspace ? tr("Refresh family section") : tr("Refresh dashboard")}
