@@ -195,8 +195,8 @@ export function AppShell({ screens }: AppShellProps) {
 
   return (
     <div className="relative mx-auto flex min-h-dvh w-full max-w-[420px] flex-col px-2 pb-[calc(env(safe-area-inset-bottom)+0.35rem)] pt-2 sm:px-3">
-      <div className="relative flex min-h-[calc(100dvh-1rem)] flex-1 flex-col rounded-[34px] border border-app-border/80 bg-gradient-to-b from-app-surface/98 via-app-surface/94 to-app-surface/86 p-2.5 shadow-[0_22px_54px_var(--app-frame-shadow)] backdrop-blur">
-        <div className="mb-2 flex items-center justify-between rounded-2xl border border-app-border/70 bg-app-surface/90 px-2.5 py-1.5">
+      <div className="relative flex min-h-[calc(100dvh-1rem)] flex-1 flex-col rounded-[34px] border border-app-border/80 bg-gradient-to-b from-app-surface via-app-surface/94 to-app-surface-soft/55 p-2.5 shadow-[0_22px_54px_var(--app-frame-shadow)] backdrop-blur">
+        <div className="mb-2 flex items-center justify-between rounded-2xl border border-app-border/80 bg-app-surface px-2.5 py-1.5 shadow-sm">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {tr("Payment Control")}
@@ -212,8 +212,8 @@ export function AppShell({ screens }: AppShellProps) {
           </span>
         </div>
 
-        <main className="relative z-0 flex-1 overflow-x-clip pb-24 pt-0.5">
-          <div key={activeTab} className="space-y-3">
+        <main className="relative z-0 flex-1 overflow-x-clip pb-24 pt-1">
+          <div key={activeTab} className="app-screen-enter space-y-3">
             {screens[activeTab]}
           </div>
         </main>

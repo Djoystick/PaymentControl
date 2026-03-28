@@ -34,6 +34,36 @@ type ActivityItem = {
   label: string;
 };
 
+const resolveActivityIcon = (
+  kind: ActivityItem["kind"],
+): "add" | "edit" | "archive" | "check" => {
+  if (kind === "created") {
+    return "add";
+  }
+
+  if (kind === "updated") {
+    return "edit";
+  }
+
+  if (kind === "archived") {
+    return "archive";
+  }
+
+  return "check";
+};
+
+const resolveActivityBadgeTone = (kind: ActivityItem["kind"]): string => {
+  if (kind === "archived") {
+    return "border-amber-300 bg-amber-50 text-amber-700";
+  }
+
+  if (kind === "paid_cycle") {
+    return "border-emerald-300 bg-emerald-50 text-emerald-700";
+  }
+
+  return "border-app-border bg-app-surface text-app-text-muted";
+};
+
 const formatDateTime = (value: string): string => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
@@ -280,6 +310,9 @@ export function PaymentsActivitySection({
           {tr("History")}
         </h2>
       </div>
+      <p className="mb-2 text-xs text-app-text-muted">
+        {tr("History is your lightweight activity feed.")}
+      </p>
 
       {workspaceUnavailable ? (
         <p className="rounded-xl bg-app-surface-soft px-3 py-2 text-sm text-app-text-muted">
@@ -287,20 +320,30 @@ export function PaymentsActivitySection({
         </p>
       ) : (
         <>
-          <details className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          <div className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {tr("History context")}
-            </summary>
-            <p className="mt-2 text-xs text-app-text-muted">
-              {tr("In scope")}: {scopedPaymentsCount}. {tr("Recent events")}: {activityItems.length}.
             </p>
-            {isFamilyWorkspace && sharedWhoPaysSummary && (
-              <p className="mt-1 text-xs text-app-text-muted">
-                {tr("Who pays assigned")}: {sharedWhoPaysSummary.assignedCount}. {tr("Missing")}:{" "}
-                {sharedWhoPaysSummary.unassignedCount}. {tr("Mismatch hints")}: {paidByMismatchCount}.
-              </p>
-            )}
-          </details>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="rounded-xl border border-app-border bg-app-surface px-2 py-2">
+                <p className="text-[11px] text-app-text-muted">{tr("In scope")}</p>
+                <p className="text-sm font-semibold text-app-text">{scopedPaymentsCount}</p>
+              </div>
+              <div className="rounded-xl border border-app-border bg-app-surface px-2 py-2">
+                <p className="text-[11px] text-app-text-muted">{tr("Recent events")}</p>
+                <p className="text-sm font-semibold text-app-text">{activityItems.length}</p>
+              </div>
+              {isFamilyWorkspace && sharedWhoPaysSummary && (
+                <div className="col-span-2 rounded-xl border border-app-border bg-app-surface px-2 py-2">
+                  <p className="text-[11px] text-app-text-muted">
+                    {tr("Who pays assigned")}: {sharedWhoPaysSummary.assignedCount} · {tr("Missing")}{" "}
+                    {sharedWhoPaysSummary.unassignedCount} · {tr("Mismatch hints")}{" "}
+                    {paidByMismatchCount}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
 
           <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
             {scopedPaymentsCount === 0 ? (
@@ -362,10 +405,16 @@ export function PaymentsActivitySection({
                     return (
                       <li
                         key={item.id}
-                        className="rounded-xl bg-app-surface px-2 py-2 text-xs text-app-text"
+                        className="rounded-xl border border-app-border bg-app-surface px-2 py-2 text-xs text-app-text"
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="rounded-full border border-app-border px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${resolveActivityBadgeTone(item.kind)}`}
+                          >
+                            <AppIcon
+                              name={resolveActivityIcon(item.kind)}
+                              className="h-3 w-3"
+                            />
                             {tr(item.label)}
                           </span>
                           <span className="text-[11px] text-app-text-muted">
@@ -401,8 +450,9 @@ export function PaymentsActivitySection({
               type="button"
               onClick={loadActivity}
               disabled={isLoading}
-              className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-app-border bg-app-surface px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
             >
+              <AppIcon name="refresh" className="h-3.5 w-3.5" />
               {isFamilyWorkspace ? tr("Refresh family section") : tr("Refresh activity")}
             </button>
             {isLoading && (

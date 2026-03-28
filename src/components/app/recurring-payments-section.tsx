@@ -1469,7 +1469,7 @@ export function RecurringPaymentsSection({
                         ? "border-amber-300 bg-amber-50/55 shadow-[0_10px_20px_rgba(194,120,16,0.14)]"
                         : isDueTodayNow
                           ? "border-app-accent/45 bg-app-surface shadow-[0_10px_20px_var(--app-frame-shadow)]"
-                          : "border-app-border bg-app-surface-soft"
+                          : "border-app-border bg-app-surface-soft shadow-sm"
                     }`}
                   >
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -1564,7 +1564,8 @@ export function RecurringPaymentsSection({
                             </p>
                           )}
                         <details className="mt-2 rounded-xl border border-app-border bg-white px-2 py-1.5 text-xs text-app-text-muted">
-                          <summary className="cursor-pointer font-semibold text-app-text">
+                          <summary className="inline-flex cursor-pointer items-center gap-1 font-semibold text-app-text">
+                            <AppIcon name="template" className="h-3.5 w-3.5 text-app-text-muted" />
                             {tr("Details and actions")}
                           </summary>
                           <div className="mt-1 flex flex-wrap gap-1.5">

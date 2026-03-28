@@ -63,6 +63,27 @@ body {
   font-family: var(--font-manrope), sans-serif;
 }
 
+@keyframes app-screen-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.app-screen-enter {
+  animation: app-screen-enter 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-screen-enter {
+    animation: none;
+  }
+}
+
 :root[data-theme="dark"] .bg-white {
   background-color: var(--app-surface-elevated) !important;
 }
