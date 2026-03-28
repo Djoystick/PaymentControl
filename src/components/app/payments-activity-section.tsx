@@ -54,14 +54,14 @@ const resolveActivityIcon = (
 
 const resolveActivityBadgeTone = (kind: ActivityItem["kind"]): string => {
   if (kind === "archived") {
-    return "border-amber-300 bg-amber-50 text-amber-700";
+    return "pc-status-pill pc-status-pill-warning";
   }
 
   if (kind === "paid_cycle") {
-    return "border-emerald-300 bg-emerald-50 text-emerald-700";
+    return "pc-status-pill pc-status-pill-success";
   }
 
-  return "border-app-border bg-app-surface text-app-text-muted";
+  return "pc-status-pill";
 };
 
 const formatDateTime = (value: string): string => {
@@ -409,7 +409,7 @@ export function PaymentsActivitySection({
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span
-                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${resolveActivityBadgeTone(item.kind)}`}
+                            className={`inline-flex items-center ${resolveActivityBadgeTone(item.kind)}`}
                           >
                             <AppIcon
                               name={resolveActivityIcon(item.kind)}
@@ -456,7 +456,8 @@ export function PaymentsActivitySection({
               {isFamilyWorkspace ? tr("Refresh family section") : tr("Refresh activity")}
             </button>
             {isLoading && (
-              <p className="text-xs text-app-text-muted">
+              <p className="pc-state-inline">
+                <AppIcon name="refresh" className="h-3.5 w-3.5 pc-spin" />
                 {isFamilyWorkspace
                   ? tr("Loading family activity...")
                   : tr("Loading activity...")}
@@ -467,7 +468,10 @@ export function PaymentsActivitySection({
       )}
 
       {feedback && (
-        <p className="mt-3 text-xs font-medium text-app-text">{feedback}</p>
+        <p className="pc-feedback pc-feedback-error mt-3">
+          <AppIcon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>{feedback}</span>
+        </p>
       )}
     </section>
   );

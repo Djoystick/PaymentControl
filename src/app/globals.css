@@ -14,6 +14,18 @@
   --app-bg-glow-a: #d5ecdc;
   --app-bg-glow-b: #d9e4fb;
   --app-frame-shadow: rgba(19, 32, 20, 0.12);
+  --app-state-info-bg: #eef4f0;
+  --app-state-info-border: #b8cbc0;
+  --app-state-info-text: #2f4b35;
+  --app-state-success-bg: #e9f6ef;
+  --app-state-success-border: #9ed4b4;
+  --app-state-success-text: #1f6c42;
+  --app-state-warning-bg: #fbf3e7;
+  --app-state-warning-border: #e0bf8e;
+  --app-state-warning-text: #895a17;
+  --app-state-danger-bg: #fbecee;
+  --app-state-danger-border: #e1adb6;
+  --app-state-danger-text: #8d3040;
 }
 
 :root[data-theme="dark"] {
@@ -30,6 +42,18 @@
   --app-bg-glow-a: #1a2b26;
   --app-bg-glow-b: #1c2436;
   --app-frame-shadow: rgba(0, 0, 0, 0.35);
+  --app-state-info-bg: #1c2724;
+  --app-state-info-border: #41544d;
+  --app-state-info-text: #c0d3cb;
+  --app-state-success-bg: #1d2d25;
+  --app-state-success-border: #3f8d64;
+  --app-state-success-text: #a7e2c2;
+  --app-state-warning-bg: #2e261d;
+  --app-state-warning-border: #8f7348;
+  --app-state-warning-text: #f0d3a3;
+  --app-state-danger-bg: #2c2024;
+  --app-state-danger-border: #925964;
+  --app-state-danger-text: #f1bec8;
 }
 
 @theme inline {
@@ -82,6 +106,10 @@ body {
   .app-screen-enter {
     animation: none;
   }
+
+  .pc-spin {
+    animation: none;
+  }
 }
 
 .pc-surface {
@@ -116,6 +144,94 @@ body {
   background: var(--app-surface-soft);
   padding: 0.75rem;
   color: var(--app-text-muted);
+}
+
+.pc-state-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--app-state-info-border);
+  border-radius: 0.65rem;
+  background: var(--app-state-info-bg);
+  padding: 0.22rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--app-state-info-text);
+}
+
+.pc-feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  border: 1px solid var(--app-state-info-border);
+  border-radius: 0.75rem;
+  background: var(--app-state-info-bg);
+  padding: 0.5rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--app-state-info-text);
+}
+
+.pc-feedback-success {
+  border-color: var(--app-state-success-border);
+  background: var(--app-state-success-bg);
+  color: var(--app-state-success-text);
+}
+
+.pc-feedback-warning {
+  border-color: var(--app-state-warning-border);
+  background: var(--app-state-warning-bg);
+  color: var(--app-state-warning-text);
+}
+
+.pc-feedback-error {
+  border-color: var(--app-state-danger-border);
+  background: var(--app-state-danger-bg);
+  color: var(--app-state-danger-text);
+}
+
+.pc-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 1px solid var(--app-state-info-border);
+  border-radius: 999px;
+  background: var(--app-state-info-bg);
+  padding: 0.1rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--app-state-info-text);
+}
+
+.pc-status-pill-success {
+  border-color: var(--app-state-success-border);
+  background: var(--app-state-success-bg);
+  color: var(--app-state-success-text);
+}
+
+.pc-status-pill-warning {
+  border-color: var(--app-state-warning-border);
+  background: var(--app-state-warning-bg);
+  color: var(--app-state-warning-text);
+}
+
+.pc-status-pill-error {
+  border-color: var(--app-state-danger-border);
+  background: var(--app-state-danger-bg);
+  color: var(--app-state-danger-text);
+}
+
+@keyframes pc-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pc-spin {
+  animation: pc-spin 1.2s linear infinite;
 }
 
 .pc-btn-primary {

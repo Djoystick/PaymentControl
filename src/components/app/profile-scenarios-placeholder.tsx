@@ -178,6 +178,7 @@ function ProfileScenariosContent() {
 
     return tr("Gift claim rejected: already claimed");
   })();
+  const isGiftClaimGranted = giftPremiumClaimResult?.status === "granted";
   useEffect(() => {
     const syncOnboardingFlagState = () => {
       setIsOnboardingFlagCompleted(readOnboardingFlagState());
@@ -462,16 +463,30 @@ function ProfileScenariosContent() {
           {tr("Premium status")}
         </p>
         {isLoadingPremium ? (
-          <p className="mt-1 text-sm text-app-text-muted">
+          <p className="pc-state-inline mt-1">
+            <AppIcon name="refresh" className="h-3.5 w-3.5 pc-spin" />
             {tr("Loading premium status...")}
           </p>
         ) : !premiumEntitlement ? (
-          <p className="mt-1 text-sm text-app-text-muted">
+          <p className="pc-feedback pc-feedback-warning mt-1">
+            <AppIcon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
             {tr("Premium status is temporarily unavailable.")}
+            </span>
           </p>
         ) : (
           <>
-            <p className="mt-1 text-sm font-semibold text-app-text">
+            <p
+              className={`pc-status-pill mt-1 ${
+                premiumEntitlement.isPremium
+                  ? "pc-status-pill-success"
+                  : ""
+              }`}
+            >
+              <AppIcon
+                name={premiumEntitlement.isPremium ? "check" : "clock"}
+                className="h-3 w-3"
+              />
               {premiumEntitlement.isPremium
                 ? tr("Premium active")
                 : tr("Free plan active")}
@@ -564,13 +579,19 @@ function ProfileScenariosContent() {
           </button>
           {bugReportFeedback && (
             <p
-              className={`text-xs font-medium ${
+              className={`pc-feedback ${
                 bugReportFeedback.kind === "success"
-                  ? "text-emerald-700"
-                  : "text-rose-700"
+                  ? "pc-feedback-success"
+                  : "pc-feedback-error"
               }`}
             >
+              <AppIcon
+                name={bugReportFeedback.kind === "success" ? "check" : "alert"}
+                className="mt-0.5 h-3.5 w-3.5 shrink-0"
+              />
+              <span>
               {bugReportFeedback.message}
+              </span>
             </p>
           )}
         </form>
@@ -605,7 +626,15 @@ function ProfileScenariosContent() {
         </div>
         {giftPremiumClaimResult && (
           <div className="mt-2 rounded-xl border border-app-border bg-white px-3 py-2 text-xs text-app-text-muted">
-            <p className="font-semibold text-app-text">
+            <p
+              className={`pc-status-pill ${
+                isGiftClaimGranted ? "pc-status-pill-success" : "pc-status-pill-warning"
+              }`}
+            >
+              <AppIcon
+                name={isGiftClaimGranted ? "check" : "alert"}
+                className="h-3 w-3"
+              />
               {giftClaimStatusLabel ?? tr("Gift claim status")}
             </p>
             <p className="mt-1">
@@ -750,7 +779,25 @@ function ProfileScenariosContent() {
                     {tr("Hide token")}
                   </button>
                 </div>
-                <p className="mt-1 text-[11px] text-app-text-muted">
+                <p
+                  className={`pc-status-pill mt-1 ${
+                    inviteCopyState === "copied"
+                      ? "pc-status-pill-success"
+                      : inviteCopyState === "failed"
+                        ? "pc-status-pill-error"
+                        : ""
+                  }`}
+                >
+                  <AppIcon
+                    name={
+                      inviteCopyState === "copied"
+                        ? "check"
+                        : inviteCopyState === "failed"
+                          ? "alert"
+                          : "clock"
+                    }
+                    className="h-3 w-3"
+                  />
                   {inviteCopyState === "copied"
                     ? tr("Token copied.")
                     : inviteCopyState === "failed"
@@ -843,10 +890,18 @@ function ProfileScenariosContent() {
                     <p
                       className={
                         inviteAcceptDiagnostic.status === "success"
-                          ? "mt-2 font-semibold text-emerald-700"
-                          : "mt-2 font-semibold text-rose-700"
+                          ? "pc-status-pill pc-status-pill-success mt-2"
+                          : "pc-status-pill pc-status-pill-error mt-2"
                       }
                     >
+                      <AppIcon
+                        name={
+                          inviteAcceptDiagnostic.status === "success"
+                            ? "check"
+                            : "alert"
+                        }
+                        className="h-3 w-3"
+                      />
                       {inviteAcceptDiagnostic.status === "success"
                         ? tr("Accept invite: SUCCESS")
                         : tr("Accept invite: FAILED")}
@@ -907,7 +962,10 @@ function ProfileScenariosContent() {
         )}
       </div>
       {actionMessage && (
-        <p className="mt-2 text-xs font-medium text-app-text">{tr(actionMessage)}</p>
+        <p className="pc-feedback mt-2">
+          <AppIcon name="refresh" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>{tr(actionMessage)}</span>
+        </p>
       )}
     </section>
   );

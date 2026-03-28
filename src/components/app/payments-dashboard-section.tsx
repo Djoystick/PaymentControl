@@ -497,7 +497,8 @@ export function PaymentsDashboardSection({
               )}
 
               {dashboard && hasAnyActivePayments && compactFilter === "none" && (
-                <p className="mt-2 text-xs font-medium text-app-text-muted">
+                <p className="pc-state-inline mt-2">
+                  <AppIcon name="check" className="h-3.5 w-3.5" />
                   {tr("Paid")} {dashboard.summary.paidThisCycleCount} | {tr("Unpaid")}{" "}
                   {dashboard.summary.unpaidThisCycleCount}
                   {isFamilyWorkspace
@@ -578,7 +579,10 @@ export function PaymentsDashboardSection({
                   {tr("Refresh snapshot")}
                 </button>
                 {isLoading && (
-                  <p className="text-xs text-app-text-muted">{tr("Loading snapshot...")}</p>
+                  <p className="pc-state-inline">
+                    <AppIcon name="refresh" className="h-3.5 w-3.5 pc-spin" />
+                    {tr("Loading snapshot...")}
+                  </p>
                 )}
               </div>
             </>
@@ -731,7 +735,8 @@ export function PaymentsDashboardSection({
                   {isFamilyWorkspace ? tr("Refresh family section") : tr("Refresh dashboard")}
                 </button>
                 {isLoading && (
-                  <p className="text-xs text-app-text-muted">
+                  <p className="pc-state-inline">
+                    <AppIcon name="refresh" className="h-3.5 w-3.5 pc-spin" />
                     {isFamilyWorkspace
                       ? tr("Loading family overview...")
                       : tr("Loading dashboard...")}
@@ -744,7 +749,10 @@ export function PaymentsDashboardSection({
       )}
 
       {feedback && (
-        <p className="mt-3 text-xs font-medium text-app-text">{feedback}</p>
+        <p className="pc-feedback pc-feedback-error mt-3">
+          <AppIcon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>{feedback}</span>
+        </p>
       )}
     </section>
   );

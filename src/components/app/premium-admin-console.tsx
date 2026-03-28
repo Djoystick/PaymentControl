@@ -20,6 +20,7 @@ import { AppIcon } from "@/components/app/app-icon";
 type PremiumAdminConsoleProps = {
   initData: string;
 };
+type AdminMessageTone = "info" | "success" | "error";
 
 const formatDateTime = (value: string | null, fallback: string): string => {
   if (!value) {
@@ -57,23 +58,37 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
   const [campaignStartsAtInput, setCampaignStartsAtInput] = useState("");
   const [campaignEndsAtInput, setCampaignEndsAtInput] = useState("");
   const [adminMessage, setAdminMessage] = useState<string | null>(null);
+  const [adminMessageTone, setAdminMessageTone] = useState<AdminMessageTone>("info");
+
+  const clearAdminMessage = useCallback(() => {
+    setAdminMessage(null);
+    setAdminMessageTone("info");
+  }, []);
+
+  const showAdminMessage = useCallback(
+    (message: string, tone: AdminMessageTone = "info") => {
+      setAdminMessage(message);
+      setAdminMessageTone(tone);
+    },
+    [],
+  );
 
   const loadCampaigns = useCallback(async () => {
     setIsLoadingCampaigns(true);
     try {
       const response = await listPremiumGiftCampaignsByAdmin(initData);
       if (!response.ok) {
-        setAdminMessage(response.error.message);
+        showAdminMessage(response.error.message, "error");
         return;
       }
 
       setCampaigns(response.campaigns);
     } catch {
-      setAdminMessage(tr("Premium admin request failed."));
+      showAdminMessage(tr("Premium admin request failed."), "error");
     } finally {
       setIsLoadingCampaigns(false);
     }
-  }, [initData, tr]);
+  }, [initData, showAdminMessage, tr]);
 
   useEffect(() => {
     let isMounted = true;
@@ -86,7 +101,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
 
         if (!response.ok) {
           setSessionChecked(true);
-          setAdminMessage(response.error.message);
+          showAdminMessage(response.error.message, "error");
           return;
         }
 
@@ -102,7 +117,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
         }
 
         setSessionChecked(true);
-        setAdminMessage(tr("Premium admin request failed."));
+        showAdminMessage(tr("Premium admin request failed."), "error");
       }
     };
 
@@ -110,16 +125,16 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     return () => {
       isMounted = false;
     };
-  }, [initData, loadCampaigns, tr]);
+  }, [initData, loadCampaigns, showAdminMessage, tr]);
 
   const resolveTarget = async () => {
     if (!targetTelegramUserId.trim()) {
-      setAdminMessage(tr("Target Telegram user id is required."));
+      showAdminMessage(tr("Target Telegram user id is required."), "error");
       return;
     }
 
     setIsResolvingTarget(true);
-    setAdminMessage(null);
+    clearAdminMessage();
     try {
       const response = await resolvePremiumAdminTarget(
         initData,
@@ -127,15 +142,15 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
       );
       if (!response.ok) {
         setTarget(null);
-        setAdminMessage(response.error.message);
+        showAdminMessage(response.error.message, "error");
         return;
       }
 
       setTarget(response.target);
-      setAdminMessage(tr("Target account resolved."));
+      showAdminMessage(tr("Target account resolved."));
     } catch {
       setTarget(null);
-      setAdminMessage(tr("Premium admin request failed."));
+      showAdminMessage(tr("Premium admin request failed."), "error");
     } finally {
       setIsResolvingTarget(false);
     }
@@ -143,7 +158,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
 
   const grantPremium = async () => {
     if (!target) {
-      setAdminMessage(tr("Resolve target account before grant/revoke."));
+      showAdminMessage(tr("Resolve target account before grant/revoke."), "error");
       return;
     }
 
@@ -156,12 +171,12 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
       durationDays !== null &&
       (!Number.isInteger(durationDays) || durationDays <= 0)
     ) {
-      setAdminMessage(tr("Duration days must be positive integer or empty."));
+      showAdminMessage(tr("Duration days must be positive integer or empty."), "error");
       return;
     }
 
     setIsSavingPremium(true);
-    setAdminMessage(null);
+    clearAdminMessage();
     try {
       const response = await grantPremiumByAdmin({
         initData,
@@ -170,14 +185,14 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
         note: adminNoteInput,
       });
       if (!response.ok) {
-        setAdminMessage(response.error.message);
+        showAdminMessage(response.error.message, "error");
         return;
       }
 
       setTarget(response.target);
-      setAdminMessage(tr("Premium granted to target account."));
+      showAdminMessage(tr("Premium granted to target account."), "success");
     } catch {
-      setAdminMessage(tr("Premium admin request failed."));
+      showAdminMessage(tr("Premium admin request failed."), "error");
     } finally {
       setIsSavingPremium(false);
     }
@@ -185,12 +200,12 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
 
   const revokePremium = async () => {
     if (!target) {
-      setAdminMessage(tr("Resolve target account before grant/revoke."));
+      showAdminMessage(tr("Resolve target account before grant/revoke."), "error");
       return;
     }
 
     setIsSavingPremium(true);
-    setAdminMessage(null);
+    clearAdminMessage();
     try {
       const response = await revokePremiumByAdmin({
         initData,
@@ -198,18 +213,19 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
         note: adminNoteInput,
       });
       if (!response.ok) {
-        setAdminMessage(response.error.message);
+        showAdminMessage(response.error.message, "error");
         return;
       }
 
       setTarget(response.target);
-      setAdminMessage(
+      showAdminMessage(
         tr("Premium revoke completed. Revoked entries: {count}", {
           count: response.revokedCount,
         }),
+        "success",
       );
     } catch {
-      setAdminMessage(tr("Premium admin request failed."));
+      showAdminMessage(tr("Premium admin request failed."), "error");
     } finally {
       setIsSavingPremium(false);
     }
@@ -219,17 +235,17 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     const quota = Number.parseInt(campaignQuotaInput.trim(), 10);
     const duration = Number.parseInt(campaignDurationInput.trim(), 10);
     if (!Number.isInteger(quota) || quota <= 0) {
-      setAdminMessage(tr("Campaign quota must be a positive integer."));
+      showAdminMessage(tr("Campaign quota must be a positive integer."), "error");
       return;
     }
 
     if (!Number.isInteger(duration) || duration <= 0) {
-      setAdminMessage(tr("Campaign premium duration must be a positive integer."));
+      showAdminMessage(tr("Campaign premium duration must be a positive integer."), "error");
       return;
     }
 
     setIsCreatingCampaign(true);
-    setAdminMessage(null);
+    clearAdminMessage();
     try {
       const response = await createPremiumGiftCampaignByAdmin({
         initData,
@@ -241,7 +257,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
         endsAt: campaignEndsAtInput,
       });
       if (!response.ok) {
-        setAdminMessage(response.error.message);
+        showAdminMessage(response.error.message, "error");
         return;
       }
 
@@ -250,9 +266,9 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
       setCampaignStartsAtInput("");
       setCampaignEndsAtInput("");
       setCampaigns((current) => [response.campaign, ...current]);
-      setAdminMessage(tr("Gift campaign created."));
+      showAdminMessage(tr("Gift campaign created."), "success");
     } catch {
-      setAdminMessage(tr("Premium admin request failed."));
+      showAdminMessage(tr("Premium admin request failed."), "error");
     } finally {
       setIsCreatingCampaign(false);
     }
@@ -260,14 +276,14 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
 
   const deactivateCampaign = async (campaignId: string) => {
     setDeactivatingCampaignId(campaignId);
-    setAdminMessage(null);
+    clearAdminMessage();
     try {
       const response = await deactivatePremiumGiftCampaignByAdmin(
         initData,
         campaignId,
       );
       if (!response.ok) {
-        setAdminMessage(response.error.message);
+        showAdminMessage(response.error.message, "error");
         return;
       }
 
@@ -276,9 +292,9 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
           item.id === response.campaign.id ? response.campaign : item,
         ),
       );
-      setAdminMessage(tr("Campaign deactivated."));
+      showAdminMessage(tr("Campaign deactivated."), "success");
     } catch {
-      setAdminMessage(tr("Premium admin request failed."));
+      showAdminMessage(tr("Premium admin request failed."), "error");
     } finally {
       setDeactivatingCampaignId(null);
     }
@@ -315,7 +331,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
   }
 
   return (
-    <details className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+    <details className="pc-detail-surface mb-3">
       <summary className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
         <AppIcon name="premium" className="h-3.5 w-3.5" />
         {tr("Owner premium admin")}
@@ -356,9 +372,19 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
             <p className="mt-1">
               {tr("Telegram user id")}: {target.telegramUserId}
             </p>
-            <p className="mt-1">
-              {tr("Current premium state")}: {targetPremiumLabel}
-            </p>
+            <div className="mt-1">
+              <span
+                className={`pc-status-pill ${
+                  target.premium.isPremium ? "pc-status-pill-success" : ""
+                }`}
+              >
+                <AppIcon
+                  name={target.premium.isPremium ? "check" : "clock"}
+                  className="h-3 w-3"
+                />
+                {tr("Current premium state")}: {targetPremiumLabel}
+              </span>
+            </div>
             {target.premium.isPremium && (
               <p className="mt-1">
                 {tr("Entitlement source")}: {targetPremiumSourceLabel}
@@ -489,7 +515,27 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                 <p className="font-semibold text-app-text">
                   {campaign.title} ({campaign.code})
                 </p>
-                <span className="rounded-full border border-app-border px-2 py-0.5 text-[11px] font-semibold">
+                <span
+                  className={`pc-status-pill ${
+                    campaign.status === "active"
+                      ? "pc-status-pill-success"
+                      : campaign.status === "ended" || campaign.status === "paused"
+                        ? "pc-status-pill-warning"
+                        : ""
+                  }`}
+                >
+                  <AppIcon
+                    name={
+                      campaign.status === "active"
+                        ? "check"
+                        : campaign.status === "ended"
+                          ? "archive"
+                          : campaign.status === "paused"
+                            ? "clock"
+                            : "template"
+                    }
+                    className="h-3 w-3"
+                  />
                   {tr(campaign.status)}
                 </span>
               </div>
@@ -520,7 +566,8 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
             </div>
           ))}
           {!isLoadingCampaigns && campaigns.length === 0 && (
-            <p className="text-xs text-app-text-muted">
+            <p className="pc-state-inline">
+              <AppIcon name="clock" className="h-3.5 w-3.5" />
               {tr("No gift campaigns yet.")}
             </p>
           )}
@@ -528,7 +575,27 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
       </div>
 
       {adminMessage && (
-        <p className="mt-2 text-xs font-medium text-app-text">{tr(adminMessage)}</p>
+        <p
+          className={`pc-feedback mt-2 ${
+            adminMessageTone === "success"
+              ? "pc-feedback-success"
+              : adminMessageTone === "error"
+                ? "pc-feedback-error"
+                : ""
+          }`}
+        >
+          <AppIcon
+            name={
+              adminMessageTone === "success"
+                ? "check"
+                : adminMessageTone === "error"
+                  ? "alert"
+                  : "refresh"
+            }
+            className="mt-0.5 h-3.5 w-3.5 shrink-0"
+          />
+          <span>{tr(adminMessage)}</span>
+        </p>
       )}
     </details>
   );

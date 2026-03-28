@@ -59,6 +59,7 @@ type PaymentFormState = {
 type TemplateScenario = "personal" | "family";
 type PaymentListView = "payments" | "subscriptions";
 type RemindersScreenMode = "act" | "setup";
+type FeedbackTone = "info" | "success" | "error";
 
 type CustomTemplateStorageShape = Record<TemplateScenario, StarterPaymentTemplate[]>;
 
@@ -273,6 +274,7 @@ export function RecurringPaymentsSection({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [feedbackTone, setFeedbackTone] = useState<FeedbackTone>("info");
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [paymentListView, setPaymentListView] = useState<PaymentListView>("payments");
   const [screenMode, setScreenMode] = useState<RemindersScreenMode>("act");
@@ -435,6 +437,16 @@ export function RecurringPaymentsSection({
   const actionNowCount =
     remindersActSummary.dueTodayCount + remindersActSummary.overdueCount;
 
+  const clearFeedback = useCallback(() => {
+    setFeedback(null);
+    setFeedbackTone("info");
+  }, []);
+
+  const showFeedback = useCallback((message: string, tone: FeedbackTone = "info") => {
+    setFeedback(message);
+    setFeedbackTone(tone);
+  }, []);
+
   const activeWorkspaceId = workspace?.id ?? null;
 
   const workspaceUnavailable = useMemo(() => {
@@ -458,7 +470,7 @@ export function RecurringPaymentsSection({
     if (workspaceUnavailable || !activeWorkspaceId) {
       setPayments([]);
       setResponsiblePayerOptions([]);
-      setFeedback(null);
+      clearFeedback();
       setIsLoading(false);
       return;
     }
@@ -472,12 +484,12 @@ export function RecurringPaymentsSection({
     }
 
     setIsLoading(!hasCachedSnapshot);
-    setFeedback(null);
+    clearFeedback();
     try {
       const result = await listRecurringPayments(initData);
       if (!result.ok) {
         if (!hasCachedSnapshot) {
-          setFeedback(result.error.message);
+          showFeedback(result.error.message, "error");
           setResponsiblePayerOptions([]);
         }
         return;
@@ -491,13 +503,13 @@ export function RecurringPaymentsSection({
       });
     } catch {
       if (!hasCachedSnapshot) {
-        setFeedback(tr("Failed to load recurring payments."));
+        showFeedback(tr("Failed to load recurring payments."), "error");
         setResponsiblePayerOptions([]);
       }
     } finally {
       setIsLoading(false);
     }
-  }, [activeWorkspaceId, initData, tr, workspaceUnavailable]);
+  }, [activeWorkspaceId, clearFeedback, initData, showFeedback, tr, workspaceUnavailable]);
 
   const replacePaymentInStateAndCache = useCallback(
     (payment: RecurringPaymentPayload) => {
@@ -579,7 +591,7 @@ export function RecurringPaymentsSection({
       remindOnOverdue: payment.remindOnOverdue,
       notes: payment.notes ?? "",
     });
-    setFeedback(null);
+    clearFeedback();
   };
 
   const localizeSystemTemplate = (
@@ -612,10 +624,11 @@ export function RecurringPaymentsSection({
     setIsAdvancedFormExpanded(false);
     setIsTemplateSuggestionsOpen(false);
     setForm(formFromTemplate(localizedTemplate));
-    setFeedback(
+    showFeedback(
       tr('Template "{template}" applied. Review and add payment.', {
         template: resolveTemplateLabel(template),
       }),
+      "info",
     );
   };
 
@@ -623,12 +636,12 @@ export function RecurringPaymentsSection({
     const templateLabel = form.title.trim();
     const validationError = validateForm(form);
     if (validationError) {
-      setFeedback(tr(validationError));
+      showFeedback(tr(validationError), "error");
       return;
     }
 
     if (!templateLabel) {
-      setFeedback(tr("Template name is required."));
+      showFeedback(tr("Template name is required."), "error");
       return;
     }
 
@@ -637,10 +650,11 @@ export function RecurringPaymentsSection({
       ...current,
       [activeTemplateScenario]: [nextTemplate, ...(current[activeTemplateScenario] ?? [])],
     }));
-    setFeedback(
+    showFeedback(
       tr('Template "{template}" saved.', {
         template: templateLabel,
       }),
+      "success",
     );
   };
 
@@ -671,27 +685,28 @@ export function RecurringPaymentsSection({
       ...current,
       [activeTemplateScenario]: [nextTemplate, ...(current[activeTemplateScenario] ?? [])],
     }));
-    setFeedback(
+    showFeedback(
       tr('Payment "{payment}" saved as template.', {
         payment: payment.title,
       }),
+      "success",
     );
   };
 
   const submitForm = async () => {
     if (workspaceUnavailable) {
-      setFeedback(workspaceUnavailable);
+      showFeedback(workspaceUnavailable, "error");
       return;
     }
 
     const validationError = validateForm(form);
     if (validationError) {
-      setFeedback(tr(validationError));
+      showFeedback(tr(validationError), "error");
       return;
     }
 
     setIsSaving(true);
-    setFeedback(null);
+    clearFeedback();
     const payload = {
       initData,
       responsibleProfileId: form.responsibleProfileId.trim() || null,
@@ -716,16 +731,19 @@ export function RecurringPaymentsSection({
         : await createRecurringPayment(payload);
 
       if (!result.ok) {
-        setFeedback(result.error.message);
+        showFeedback(result.error.message, "error");
         return;
       }
 
       replacePaymentInStateAndCache(result.payment);
-      setFeedback(tr(editingPaymentId ? "Payment updated." : "Payment created."));
+      showFeedback(
+        tr(editingPaymentId ? "Payment updated." : "Payment created."),
+        "success",
+      );
       emitPaymentsChanged();
       resetForm();
     } catch {
-      setFeedback(tr("Failed to save recurring payment."));
+      showFeedback(tr("Failed to save recurring payment."), "error");
     } finally {
       setIsSaving(false);
     }
@@ -733,24 +751,24 @@ export function RecurringPaymentsSection({
 
   const handleArchive = async (paymentId: string) => {
     if (workspaceUnavailable) {
-      setFeedback(workspaceUnavailable);
+      showFeedback(workspaceUnavailable, "error");
       return;
     }
 
     setIsSaving(true);
-    setFeedback(null);
+    clearFeedback();
     try {
       const result = await archiveRecurringPayment(initData, paymentId);
       if (!result.ok) {
-        setFeedback(result.error.message);
+        showFeedback(result.error.message, "error");
         return;
       }
 
       replacePaymentInStateAndCache(result.payment);
-      setFeedback(tr("Payment archived."));
+      showFeedback(tr("Payment archived."), "success");
       emitPaymentsChanged();
     } catch {
-      setFeedback(tr("Failed to archive recurring payment."));
+      showFeedback(tr("Failed to archive recurring payment."), "error");
     } finally {
       setIsSaving(false);
     }
@@ -758,25 +776,25 @@ export function RecurringPaymentsSection({
 
   const handleMarkPaid = async (paymentId: string) => {
     if (workspaceUnavailable) {
-      setFeedback(workspaceUnavailable);
+      showFeedback(workspaceUnavailable, "error");
       return;
     }
 
     setIsSaving(true);
-    setFeedback(null);
+    clearFeedback();
     try {
       const result = await markCurrentCyclePaid(initData, paymentId);
       if (!result.ok) {
-        setFeedback(result.error.message);
+        showFeedback(result.error.message, "error");
         return;
       }
 
       replacePaymentInStateAndCache(result.payment);
-      setFeedback(tr("Current cycle marked as paid."));
+      showFeedback(tr("Current cycle marked as paid."), "success");
       emitPaymentsChanged();
       void loadPayments();
     } catch {
-      setFeedback(tr("Failed to mark current cycle as paid."));
+      showFeedback(tr("Failed to mark current cycle as paid."), "error");
     } finally {
       setIsSaving(false);
     }
@@ -784,25 +802,25 @@ export function RecurringPaymentsSection({
 
   const handleMarkUnpaid = async (paymentId: string) => {
     if (workspaceUnavailable) {
-      setFeedback(workspaceUnavailable);
+      showFeedback(workspaceUnavailable, "error");
       return;
     }
 
     setIsSaving(true);
-    setFeedback(null);
+    clearFeedback();
     try {
       const result = await markCurrentCycleUnpaid(initData, paymentId);
       if (!result.ok) {
-        setFeedback(result.error.message);
+        showFeedback(result.error.message, "error");
         return;
       }
 
       replacePaymentInStateAndCache(result.payment);
-      setFeedback(tr("Current cycle marked as unpaid."));
+      showFeedback(tr("Current cycle marked as unpaid."), "success");
       emitPaymentsChanged();
       void loadPayments();
     } catch {
-      setFeedback(tr("Failed to mark current cycle as unpaid."));
+      showFeedback(tr("Failed to mark current cycle as unpaid."), "error");
     } finally {
       setIsSaving(false);
     }
@@ -813,31 +831,33 @@ export function RecurringPaymentsSection({
     nextPausedState: boolean,
   ) => {
     if (workspaceUnavailable) {
-      setFeedback(workspaceUnavailable);
+      showFeedback(workspaceUnavailable, "error");
       return;
     }
 
     setIsSaving(true);
-    setFeedback(null);
+    clearFeedback();
     try {
       const result = nextPausedState
         ? await pauseSubscriptionPayment(initData, paymentId)
         : await resumeSubscriptionPayment(initData, paymentId);
       if (!result.ok) {
-        setFeedback(result.error.message);
+        showFeedback(result.error.message, "error");
         return;
       }
 
       replacePaymentInStateAndCache(result.payment);
-      setFeedback(
+      showFeedback(
         tr(nextPausedState ? "Subscription paused." : "Subscription resumed."),
+        "success",
       );
       emitPaymentsChanged();
     } catch {
-      setFeedback(
+      showFeedback(
         nextPausedState
           ? tr("Failed to pause subscription.")
           : tr("Failed to resume subscription."),
+        "error",
       );
     } finally {
       setIsSaving(false);
@@ -1503,29 +1523,35 @@ export function RecurringPaymentsSection({
                         </div>
                         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                           <span
-                            className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                            className={`pc-status-pill ${
                               isPaidCurrentCycle
-                                ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                                : "border-amber-300 bg-amber-50 text-amber-700"
+                                ? "pc-status-pill-success"
+                                : "pc-status-pill-warning"
                             }`}
                           >
+                            <AppIcon
+                              name={isPaidCurrentCycle ? "check" : "clock"}
+                              className="h-3 w-3"
+                            />
                             {isPaidCurrentCycle ? tr("Paid") : tr("Unpaid")}
                           </span>
                           {isActionableNow && (
                             <span
-                              className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+                              className={`pc-status-pill ${
                                 isOverdueNow
-                                  ? "border-amber-300 bg-amber-50 text-amber-700"
-                                  : "border-app-accent/45 bg-emerald-50 text-emerald-700"
+                                  ? "pc-status-pill-error"
+                                  : "pc-status-pill-success"
                               }`}
                             >
+                              <AppIcon name="alert" className="h-3 w-3" />
                               {isOverdueNow
                                 ? tr("Action now: overdue")
                                 : tr("Action now: due today")}
                             </span>
                           )}
                           {payment.isSubscription && payment.isPaused && (
-                            <span className="rounded-full border border-app-border bg-app-surface px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
+                            <span className="pc-status-pill">
+                              <AppIcon name="subscriptions" className="h-3 w-3" />
                               {tr("Paused")}
                             </span>
                           )}
@@ -1688,7 +1714,27 @@ export function RecurringPaymentsSection({
       )}
 
       {feedback && (
-        <p className="mt-3 text-xs font-medium text-app-text">{feedback}</p>
+        <p
+          className={`pc-feedback mt-3 ${
+            feedbackTone === "success"
+              ? "pc-feedback-success"
+              : feedbackTone === "error"
+                ? "pc-feedback-error"
+                : ""
+          }`}
+        >
+          <AppIcon
+            name={
+              feedbackTone === "success"
+                ? "check"
+                : feedbackTone === "error"
+                  ? "alert"
+                  : "refresh"
+            }
+            className="mt-0.5 h-3.5 w-3.5 shrink-0"
+          />
+          <span>{feedback}</span>
+        </p>
       )}
     </section>
   );
