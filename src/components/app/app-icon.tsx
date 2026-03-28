@@ -14,7 +14,12 @@ type AppIconName =
   | "workspace"
   | "support"
   | "payments"
-  | "subscriptions";
+  | "subscriptions"
+  | "add"
+  | "refresh"
+  | "clock"
+  | "alert"
+  | "wallet";
 
 type AppIconProps = {
   name: AppIconName;
@@ -171,6 +176,53 @@ export function AppIcon({
     return (
       <svg {...baseProps}>
         <path d="M5 21v-16a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v16l-3 -2l-2 2l-2 -2l-2 2l-2 -2l-3 2m4 -14h6m-6 4h6m-2 4h2" />
+      </svg>
+    );
+  }
+
+  if (name === "add") {
+    return (
+      <svg {...baseProps}>
+        <path d="M12 5l0 14" />
+        <path d="M5 12l14 0" />
+      </svg>
+    );
+  }
+
+  if (name === "refresh") {
+    return (
+      <svg {...baseProps}>
+        <path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" />
+        <path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
+      </svg>
+    );
+  }
+
+  if (name === "clock") {
+    return (
+      <svg {...baseProps}>
+        <path d="M12 7l0 5l3 3" />
+        <path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" />
+      </svg>
+    );
+  }
+
+  if (name === "alert") {
+    return (
+      <svg {...baseProps}>
+        <path d="M12 9v4" />
+        <path d="M12 16v.01" />
+        <path d="M5.07 19h13.86c1.54 0 2.5 -1.67 1.73 -3l-6.93 -12c-.77 -1.33 -2.69 -1.33 -3.46 0l-6.93 12c-.77 1.33 .19 3 1.73 3z" />
+      </svg>
+    );
+  }
+
+  if (name === "wallet") {
+    return (
+      <svg {...baseProps}>
+        <path d="M17 8h1a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-13a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12" />
+        <path d="M15 8v-3a1 1 0 0 0 -1 -1h-10" />
+        <path d="M18 13v.01" />
       </svg>
     );
   }

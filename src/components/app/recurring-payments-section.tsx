@@ -987,7 +987,8 @@ export function RecurringPaymentsSection({
       ) : (
         <>
           <div className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-2">
-            <p className="text-xs text-app-text-muted">
+            <p className="inline-flex items-center gap-1.5 text-xs text-app-text-muted">
+              <AppIcon name="reminders" className="h-3.5 w-3.5" />
               {tr("Use Mark paid / Undo paid directly from payment cards.")}
             </p>
           </div>
@@ -995,19 +996,28 @@ export function RecurringPaymentsSection({
           {screenMode === "act" && (
             <div className="mb-2 grid grid-cols-3 gap-2">
               <article className="rounded-xl border border-app-border bg-app-surface px-2 py-2">
-                <p className="text-[11px] text-app-text-muted">{tr("Due today")}</p>
+                <p className="inline-flex items-center gap-1 text-[11px] text-app-text-muted">
+                  <AppIcon name="clock" className="h-3.5 w-3.5" />
+                  {tr("Due today")}
+                </p>
                 <p className="text-base font-semibold text-app-text">
                   {remindersActSummary.dueTodayCount}
                 </p>
               </article>
               <article className="rounded-xl border border-app-border bg-app-surface px-2 py-2">
-                <p className="text-[11px] text-app-text-muted">{tr("Overdue")}</p>
+                <p className="inline-flex items-center gap-1 text-[11px] text-app-text-muted">
+                  <AppIcon name="alert" className="h-3.5 w-3.5" />
+                  {tr("Overdue")}
+                </p>
                 <p className="text-base font-semibold text-app-text">
                   {remindersActSummary.overdueCount}
                 </p>
               </article>
               <article className="rounded-xl border border-app-border bg-app-surface px-2 py-2">
-                <p className="text-[11px] text-app-text-muted">{tr("Visible")}</p>
+                <p className="inline-flex items-center gap-1 text-[11px] text-app-text-muted">
+                  <AppIcon name="payments" className="h-3.5 w-3.5" />
+                  {tr("Visible")}
+                </p>
                 <p className="text-base font-semibold text-app-text">
                   {visiblePayments.length}
                 </p>
@@ -1033,8 +1043,9 @@ export function RecurringPaymentsSection({
               <button
                 type="button"
                 onClick={openComposer}
-                className="min-h-11 touch-manipulation rounded-xl bg-app-accent px-3 py-1.5 text-xs font-semibold text-white"
+                className="inline-flex min-h-11 touch-manipulation items-center gap-1.5 rounded-xl bg-app-accent px-3 py-1.5 text-xs font-semibold text-white"
               >
+                <AppIcon name="add" className="h-3.5 w-3.5" />
                 {editingPaymentId ? tr("Continue editing") : tr("Open payment form")}
               </button>
             </div>
@@ -1059,8 +1070,9 @@ export function RecurringPaymentsSection({
               <button
                 type="button"
                 onClick={openComposer}
-                className="mt-2 min-h-11 touch-manipulation rounded-xl border border-app-border bg-white px-3 py-1.5 text-xs font-semibold text-app-text"
+                className="mt-2 inline-flex min-h-11 touch-manipulation items-center gap-1.5 rounded-xl border border-app-border bg-white px-3 py-1.5 text-xs font-semibold text-app-text"
               >
+                <AppIcon name="add" className="h-3.5 w-3.5" />
                 {tr("Open add payment form")}
               </button>
             </div>

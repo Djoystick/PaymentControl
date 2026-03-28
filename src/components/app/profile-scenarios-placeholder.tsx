@@ -327,14 +327,14 @@ function ProfileScenariosContent() {
   );
 
   const profileScreen = (
-    <section className="rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
-      <div className="mb-3 flex items-center justify-between">
+    <section className="space-y-3 rounded-3xl border border-app-border bg-app-surface p-3 shadow-sm">
+      <div className="flex items-center justify-between">
         <h2 className="inline-flex items-center gap-2 text-base font-semibold text-app-text">
           <AppIcon name="profile" className="h-4 w-4" />
           {tr("Profile")}
         </h2>
       </div>
-      <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+      <div className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="home" className="h-3.5 w-3.5" />
           {tr("Quick start")}
@@ -343,7 +343,7 @@ function ProfileScenariosContent() {
           {tr("Start in Reminders: add a payment, then use Mark paid when done.")}
         </p>
       </div>
-      <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+      <div className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="workspace" className="h-3.5 w-3.5" />
           {tr("Session")}
@@ -450,7 +450,7 @@ function ProfileScenariosContent() {
           </HelpPopover>
         </div>
       </div>
-      <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+      <div className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="premium" className="h-3.5 w-3.5" />
           {tr("Premium status")}
@@ -490,7 +490,7 @@ function ProfileScenariosContent() {
           </>
         )}
       </div>
-      <details className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+      <details className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
         <summary className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="support" className="h-3.5 w-3.5" />
           {tr("Report a bug")}
@@ -569,7 +569,7 @@ function ProfileScenariosContent() {
         </form>
       </details>
       <PremiumAdminConsole initData={initData} />
-      <details className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+      <details className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
         <summary className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="premium" className="h-3.5 w-3.5" />
           {tr("Gift premium claim (verification)")}
@@ -616,7 +616,7 @@ function ProfileScenariosContent() {
           </div>
         )}
       </details>
-      <div className="mb-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+      <div className="rounded-2xl border border-app-border bg-app-surface-soft p-3">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="workspace" className="h-3.5 w-3.5" />
           {tr("Workspace state")}

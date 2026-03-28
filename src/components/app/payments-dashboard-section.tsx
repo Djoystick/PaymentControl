@@ -287,17 +287,18 @@ export function PaymentsDashboardSection({
                     onClick={() =>
                       setCompactFilter((current) => (current === "all" ? "none" : "all"))
                     }
-                    className={`rounded-xl border p-2 text-left ${
+                    className={`rounded-xl border p-2 text-left transition ${
                       compactFilter === "all"
                         ? "border-app-accent bg-app-accent text-white"
                         : "border-app-border bg-app-surface-soft text-app-text"
                     }`}
                   >
                     <p
-                      className={`text-[11px] ${
+                      className={`inline-flex items-center gap-1 text-[11px] ${
                         compactFilter === "all" ? "text-white/90" : "text-app-text-muted"
                       }`}
                     >
+                      <AppIcon name="payments" className="h-3.5 w-3.5" />
                       {tr("Total")}
                     </p>
                     <p className="text-base font-semibold">{totalActiveCount}</p>
@@ -309,17 +310,18 @@ export function PaymentsDashboardSection({
                         current === "upcoming" ? "none" : "upcoming",
                       )
                     }
-                    className={`rounded-xl border p-2 text-left ${
+                    className={`rounded-xl border p-2 text-left transition ${
                       compactFilter === "upcoming"
                         ? "border-app-accent bg-app-accent text-white"
                         : "border-app-border bg-app-surface-soft text-app-text"
                     }`}
                   >
                     <p
-                      className={`text-[11px] ${
+                      className={`inline-flex items-center gap-1 text-[11px] ${
                         compactFilter === "upcoming" ? "text-white/90" : "text-app-text-muted"
                       }`}
                     >
+                      <AppIcon name="clock" className="h-3.5 w-3.5" />
                       {tr("Upcoming")}
                     </p>
                     <p className="text-base font-semibold">
@@ -333,17 +335,18 @@ export function PaymentsDashboardSection({
                         current === "overdue" ? "none" : "overdue",
                       )
                     }
-                    className={`rounded-xl border p-2 text-left ${
+                    className={`rounded-xl border p-2 text-left transition ${
                       compactFilter === "overdue"
                         ? "border-app-accent bg-app-accent text-white"
                         : "border-app-border bg-app-surface-soft text-app-text"
                     }`}
                   >
                     <p
-                      className={`text-[11px] ${
+                      className={`inline-flex items-center gap-1 text-[11px] ${
                         compactFilter === "overdue" ? "text-white/90" : "text-app-text-muted"
                       }`}
                     >
+                      <AppIcon name="alert" className="h-3.5 w-3.5" />
                       {tr("Overdue")}
                     </p>
                     <p className="text-base font-semibold">
@@ -351,7 +354,8 @@ export function PaymentsDashboardSection({
                     </p>
                   </button>
                   <div className="rounded-xl border border-app-border bg-app-surface-soft p-2">
-                    <p className="text-[11px] text-app-text-muted">
+                    <p className="inline-flex items-center gap-1 text-[11px] text-app-text-muted">
+                      <AppIcon name="wallet" className="h-3.5 w-3.5" />
                       {tr("Monthly payment cost")}
                     </p>
                     <p className="text-sm font-semibold text-app-text">{monthlyTotalLabel}</p>
@@ -382,7 +386,8 @@ export function PaymentsDashboardSection({
 
               {hasAnyActivePayments && compactFilter !== "none" && (
                 <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                  <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                    <AppIcon name="reminders" className="h-3.5 w-3.5" />
                     {tr("Filtered by")}: {compactFilterLabel}
                   </p>
                   {compactFilteredItems.length === 0 ? (
@@ -397,7 +402,8 @@ export function PaymentsDashboardSection({
                           className="rounded-xl bg-app-surface px-2 py-1.5 text-xs text-app-text"
                         >
                           <p className="font-medium">{item.title}</p>
-                          <p className="text-app-text-muted">
+                          <p className="inline-flex items-center gap-1 text-app-text-muted">
+                            <AppIcon name="clock" className="h-3.5 w-3.5" />
                             {formatAmount(item)} - {tr("Due")} {formatDueDate(item.dueDate)}
                           </p>
                         </li>
@@ -434,8 +440,9 @@ export function PaymentsDashboardSection({
                   type="button"
                   onClick={loadDashboard}
                   disabled={isLoading}
-                  className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
                 >
+                  <AppIcon name="refresh" className="h-3.5 w-3.5" />
                   {tr("Refresh snapshot")}
                 </button>
                 {isLoading && (
@@ -586,8 +593,9 @@ export function PaymentsDashboardSection({
                   type="button"
                   onClick={loadDashboard}
                   disabled={isLoading}
-                  className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
                 >
+                  <AppIcon name="refresh" className="h-3.5 w-3.5" />
                   {isFamilyWorkspace ? tr("Refresh family section") : tr("Refresh dashboard")}
                 </button>
                 {isLoading && (
