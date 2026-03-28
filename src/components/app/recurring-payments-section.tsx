@@ -381,8 +381,16 @@ export function RecurringPaymentsSection({
 
     return templatesForScenario
       .filter((template) => {
-        const title = isCustomTemplate(template) ? template.title : tr(template.title);
-        return title.toLocaleLowerCase().startsWith(query);
+        const name = isCustomTemplate(template)
+          ? template.label.trim() || template.title.trim()
+          : tr(template.label);
+        const title = isCustomTemplate(template)
+          ? template.title.trim()
+          : tr(template.title);
+        return (
+          name.toLocaleLowerCase().startsWith(query) ||
+          title.toLocaleLowerCase().startsWith(query)
+        );
       })
       .slice(0, 5);
   }, [editingPaymentId, form.title, isTemplateSuggestionsOpen, templatesForScenario, tr]);
