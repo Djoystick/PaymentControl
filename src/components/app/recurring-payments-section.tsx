@@ -432,6 +432,8 @@ export function RecurringPaymentsSection({
       overdueCount,
     };
   }, [payments]);
+  const actionNowCount =
+    remindersActSummary.dueTodayCount + remindersActSummary.overdueCount;
 
   const activeWorkspaceId = workspace?.id ?? null;
 
@@ -860,7 +862,7 @@ export function RecurringPaymentsSection({
         </h2>
       </div>
       {workspace && (
-        <div className="mb-3 flex items-center gap-2 text-xs text-app-text-muted">
+        <div className="pc-state-card mb-3 flex items-center justify-between gap-2 text-xs text-app-text-muted">
           <p className="inline-flex items-center gap-1">
             <AppIcon name="workspace" className="h-3.5 w-3.5" />
             {tr("Workspace")}: {workspace.title} ({tr(workspace.kind)})
@@ -938,13 +940,18 @@ export function RecurringPaymentsSection({
                 <article className="pc-state-card px-2 py-2 shadow-sm">
                   <p className="inline-flex items-center gap-1 text-[11px] text-app-text-muted">
                     <AppIcon name="payments" className="h-3.5 w-3.5" />
-                    {tr("Visible")}
+                    {tr("Active")}
                   </p>
                   <p className="text-base font-semibold text-app-text">
-                    {visiblePayments.length}
+                    {remindersActSummary.activeCount}
                   </p>
                 </article>
               </div>
+
+              <p className="mt-1 text-[11px] text-app-text-muted">
+                {tr("Due today")} + {tr("Overdue")}:{" "}
+                <span className="font-semibold text-app-text">{actionNowCount}</span>
+              </p>
 
               <div className="mt-2 flex flex-wrap gap-2">
                 <button
@@ -1363,32 +1370,34 @@ export function RecurringPaymentsSection({
           )}
 
           {screenMode === "act" && payments.length > 0 && (
-            <div className="pc-segmented mt-3">
-              <button
-                type="button"
-                onClick={() => setPaymentListView("payments")}
-                className={`pc-segment-btn min-h-9 ${
-                  paymentListView === "payments"
-                    ? "pc-segment-btn-active"
-                    : ""
-                }`}
-              >
-                <AppIcon name="payments" className="h-3.5 w-3.5" />
-                {tr("Payments")} ({paymentsCount})
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentListView("subscriptions")}
-                className={`pc-segment-btn min-h-9 ${
-                  paymentListView === "subscriptions"
-                    ? "pc-segment-btn-active"
-                    : ""
-                }`}
-              >
-                <AppIcon name="subscriptions" className="h-3.5 w-3.5" />
-                {tr("Subscriptions")} ({subscriptionsCount})
-              </button>
-              <p className="text-xs text-app-text-muted">
+            <div className="pc-detail-surface mt-3">
+              <div className="pc-segmented">
+                <button
+                  type="button"
+                  onClick={() => setPaymentListView("payments")}
+                  className={`pc-segment-btn min-h-9 ${
+                    paymentListView === "payments"
+                      ? "pc-segment-btn-active"
+                      : ""
+                  }`}
+                >
+                  <AppIcon name="payments" className="h-3.5 w-3.5" />
+                  {tr("Payments")} ({paymentsCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentListView("subscriptions")}
+                  className={`pc-segment-btn min-h-9 ${
+                    paymentListView === "subscriptions"
+                      ? "pc-segment-btn-active"
+                      : ""
+                  }`}
+                >
+                  <AppIcon name="subscriptions" className="h-3.5 w-3.5" />
+                  {tr("Subscriptions")} ({subscriptionsCount})
+                </button>
+              </div>
+              <p className="mt-1 text-[11px] text-app-text-muted">
                 {tr("Visible")}: {visiblePayments.length} / {tr("Total")}: {payments.length}
               </p>
             </div>
@@ -1474,16 +1483,25 @@ export function RecurringPaymentsSection({
                   >
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-semibold text-app-text">{payment.title}</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold text-app-text">{payment.title}</p>
+                            <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-app-text-muted">
+                              <AppIcon
+                                name={payment.isSubscription ? "subscriptions" : "payments"}
+                                className="h-3.5 w-3.5"
+                              />
+                              {payment.isSubscription ? tr("Subscription") : tr("Payment")} •{" "}
+                              {payment.cadence === "weekly"
+                                ? `${tr("Weekly")} • ${tr("weekday")} ${payment.dueDay}`
+                                : `${tr("Monthly")} • ${tr("day")} ${payment.dueDay}`}
+                            </p>
+                          </div>
                           <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] font-semibold text-app-text">
-                            {payment.paymentScope === "shared"
-                              ? tr("Family shared")
-                              : tr("Personal")}
+                            {formatAmount(payment)}
                           </span>
-                          <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] font-semibold text-app-text">
-                            {payment.isSubscription ? tr("Subscription") : tr("Payment")}
-                          </span>
+                        </div>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                           <span
                             className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
                               isPaidCurrentCycle
@@ -1512,18 +1530,8 @@ export function RecurringPaymentsSection({
                             </span>
                           )}
                         </div>
-                        <div className="mt-1 flex flex-wrap gap-1.5">
-                          <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] font-medium text-app-text">
-                            {formatAmount(payment)}
-                          </span>
-                          <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] text-app-text-muted">
-                            {payment.cadence === "weekly"
-                              ? `${tr("Weekly")} • ${tr("weekday")} ${payment.dueDay}`
-                              : `${tr("Monthly")} • ${tr("day")} ${payment.dueDay}`}
-                          </span>
-                        </div>
                         {payment.paymentScope === "shared" ? (
-                          <p className="text-sm text-app-text-muted">
+                          <p className="mt-1 text-sm text-app-text-muted">
                             {tr("Who pays")}: {responsiblePayerName}
                           </p>
                         ) : null}
@@ -1563,12 +1571,20 @@ export function RecurringPaymentsSection({
                               {tr("Economics: aligned (responsible payer paid this cycle).")}
                             </p>
                           )}
-                        <details className="mt-2 rounded-xl border border-app-border bg-white px-2 py-1.5 text-xs text-app-text-muted">
+                        <details className="pc-state-card mt-2 bg-white px-2 py-1.5 text-xs text-app-text-muted">
                           <summary className="inline-flex cursor-pointer items-center gap-1 font-semibold text-app-text">
                             <AppIcon name="template" className="h-3.5 w-3.5 text-app-text-muted" />
                             {tr("Details and actions")}
                           </summary>
                           <div className="mt-1 flex flex-wrap gap-1.5">
+                            <span className="rounded-full border border-app-border bg-app-surface px-2 py-0.5 text-[11px]">
+                              {payment.paymentScope === "shared"
+                                ? tr("Family shared")
+                                : tr("Personal")}
+                            </span>
+                            <span className="rounded-full border border-app-border bg-app-surface px-2 py-0.5 text-[11px]">
+                              {payment.isSubscription ? tr("Subscription") : tr("Payment")}
+                            </span>
                             <span className="rounded-full border border-app-border bg-app-surface px-2 py-0.5 text-[11px]">
                               {payment.category}
                             </span>
