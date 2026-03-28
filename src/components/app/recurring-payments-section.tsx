@@ -645,12 +645,6 @@ export function RecurringPaymentsSection({
     setShowPausedSubscriptionsOnly(false);
   }, [paymentListView]);
 
-  useEffect(() => {
-    if (payments.length === 0) {
-      setScreenMode("setup");
-    }
-  }, [payments.length]);
-
   const resetForm = () => {
     setForm(createDefaultForm());
     setEditingPaymentId(null);
@@ -1002,35 +996,22 @@ export function RecurringPaymentsSection({
       ) : (
         <>
           <div className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-2">
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setScreenMode("act")}
-                className={`min-h-11 touch-manipulation rounded-xl border px-3 py-2 text-xs font-semibold transition ${
-                  screenMode === "act"
-                    ? "border-app-accent bg-app-accent text-white"
-                    : "border-app-border bg-app-surface text-app-text"
-                }`}
-              >
-                {tr("Main action")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setScreenMode("setup")}
-                className={`min-h-11 touch-manipulation rounded-xl border px-3 py-2 text-xs font-semibold transition ${
-                  screenMode === "setup"
-                    ? "border-app-accent bg-app-accent text-white"
-                    : "border-app-border bg-app-surface text-app-text"
-                }`}
-              >
-                {tr("Setup and templates")}
-              </button>
-            </div>
-            <p className="mt-2 text-xs text-app-text-muted">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-app-text-muted">
               {screenMode === "act"
                 ? tr("Use Mark paid / Undo paid directly from payment cards.")
                 : tr("Add or edit recurring payments in one compact form.")}
-            </p>
+              </p>
+              <button
+                type="button"
+                onClick={() =>
+                  setScreenMode((current) => (current === "act" ? "setup" : "act"))
+                }
+                className="min-h-11 touch-manipulation rounded-xl border border-app-border bg-app-surface px-3 py-2 text-xs font-semibold text-app-text"
+              >
+                {screenMode === "act" ? tr("Setup and templates") : tr("Main action")}
+              </button>
+            </div>
           </div>
 
           {screenMode === "act" && (
@@ -1118,10 +1099,19 @@ export function RecurringPaymentsSection({
           )}
 
           {screenMode === "setup" && (
-          <details className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              {tr("Setup and templates")}
-            </summary>
+          <div className="mb-2 rounded-2xl border border-app-border bg-app-surface-soft p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                {tr("Setup and templates")}
+              </p>
+              <button
+                type="button"
+                onClick={() => setScreenMode("act")}
+                className="min-h-11 touch-manipulation rounded-xl border border-app-border bg-white px-3 py-1.5 text-xs font-semibold text-app-text"
+              >
+                {tr("Main action")}
+              </button>
+            </div>
             <div className="mt-2 space-y-2">
               {isFamilyWorkspace && (
                 <details className="rounded-2xl border border-app-border bg-white p-3">
@@ -1361,7 +1351,7 @@ export function RecurringPaymentsSection({
                 </div>
               </details>
             </div>
-          </details>
+          </div>
           )}
 
           {screenMode === "act" && payments.length > 0 && paymentListView === "subscriptions" && (
@@ -2068,32 +2058,6 @@ export function RecurringPaymentsSection({
                       <div className="flex flex-wrap gap-2 sm:justify-end">
                         <button
                           type="button"
-                          onClick={() => startEdit(payment)}
-                          disabled={isSaving || payment.status === "archived"}
-                          className="rounded-lg border border-app-border px-2 py-1 text-xs text-app-text disabled:opacity-60"
-                        >
-                          {tr("Edit")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => savePaymentAsTemplate(payment)}
-                          disabled={isSaving || payment.status === "archived"}
-                          className="rounded-lg border border-app-border px-2 py-1 text-xs text-app-text disabled:opacity-60"
-                        >
-                          {tr("Save as template")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleArchive(payment.id)}
-                          disabled={
-                            isSaving || payment.status === "archived" || isFamilyWorkspace
-                          }
-                          className="rounded-lg border border-app-border px-2 py-1 text-xs text-app-text disabled:opacity-60"
-                        >
-                          {tr("Archive")}
-                        </button>
-                        <button
-                          type="button"
                           onClick={() =>
                             payment.currentCycle.state === "paid"
                               ? handleMarkUnpaid(payment.id)
@@ -2104,11 +2068,37 @@ export function RecurringPaymentsSection({
                             isFamilyWorkspace,
                             isSaving,
                           )}
-                          className="rounded-lg border border-app-border px-2 py-1 text-xs text-app-text disabled:opacity-60"
+                          className="min-h-11 touch-manipulation rounded-lg bg-app-accent px-3 py-1 text-xs font-semibold text-white disabled:opacity-60"
                         >
                           {payment.currentCycle.state === "paid"
                             ? tr("Undo paid")
                             : tr("Mark paid")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => startEdit(payment)}
+                          disabled={isSaving || payment.status === "archived"}
+                          className="rounded-lg border border-app-border bg-white px-2 py-1 text-xs text-app-text-muted disabled:opacity-60"
+                        >
+                          {tr("Edit")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => savePaymentAsTemplate(payment)}
+                          disabled={isSaving || payment.status === "archived"}
+                          className="rounded-lg border border-app-border bg-white px-2 py-1 text-xs text-app-text-muted disabled:opacity-60"
+                        >
+                          {tr("Save as template")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleArchive(payment.id)}
+                          disabled={
+                            isSaving || payment.status === "archived" || isFamilyWorkspace
+                          }
+                          className="rounded-lg border border-app-border bg-white px-2 py-1 text-xs text-app-text-muted disabled:opacity-60"
+                        >
+                          {tr("Archive")}
                         </button>
                         {payment.isSubscription && (
                           <button
@@ -2119,7 +2109,7 @@ export function RecurringPaymentsSection({
                             disabled={
                               isSaving || payment.status === "archived" || isFamilyWorkspace
                             }
-                            className="rounded-lg border border-app-border px-2 py-1 text-xs text-app-text disabled:opacity-60"
+                            className="rounded-lg border border-app-border bg-white px-2 py-1 text-xs text-app-text-muted disabled:opacity-60"
                           >
                             {payment.isPaused ? tr("Resume") : tr("Pause")}
                           </button>
