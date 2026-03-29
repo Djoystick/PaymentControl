@@ -375,30 +375,30 @@ export function PaymentsDashboardSection({
                   <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                     {tr("Today snapshot")}
                   </p>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-1.5">
                   <button
                     type="button"
                     onClick={() =>
                       setCompactFilter((current) => (current === "all" ? "none" : "all"))
                     }
                     aria-pressed={compactFilter === "all"}
-                    className={`min-h-[68px] rounded-2xl border p-2 text-left transition ${
+                    className={`min-h-[62px] rounded-2xl border p-1.5 text-left transition ${
                       compactFilter === "all"
                         ? "border-app-accent bg-app-accent text-white shadow-[0_10px_22px_rgba(31,122,67,0.3)]"
                         : "border-app-border bg-app-surface text-app-text shadow-sm"
                     }`}
                   >
-                    <p className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-white/15">
+                    <p className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-white/15">
                       <AppIcon name="payments" className="h-3.5 w-3.5" />
                     </p>
                     <p
-                      className={`mt-1 inline-flex items-center gap-1 text-[11px] ${
+                      className={`mt-0.5 inline-flex items-center gap-1 text-[11px] ${
                         compactFilter === "all" ? "text-white/90" : "text-app-text-muted"
                       }`}
                     >
                       {tr("Total")}
                     </p>
-                    <p className="text-base font-semibold">{totalActiveCount}</p>
+                    <p className="text-sm font-semibold">{totalActiveCount}</p>
                   </button>
                   <button
                     type="button"
@@ -408,23 +408,23 @@ export function PaymentsDashboardSection({
                       )
                     }
                     aria-pressed={compactFilter === "upcoming"}
-                    className={`min-h-[68px] rounded-2xl border p-2 text-left transition ${
+                    className={`min-h-[62px] rounded-2xl border p-1.5 text-left transition ${
                       compactFilter === "upcoming"
                         ? "border-app-accent bg-app-accent text-white shadow-[0_10px_22px_rgba(31,122,67,0.3)]"
                         : "border-app-border bg-app-surface text-app-text shadow-sm"
                     }`}
                   >
-                    <p className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-white/15">
+                    <p className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-white/15">
                       <AppIcon name="clock" className="h-3.5 w-3.5" />
                     </p>
                     <p
-                      className={`mt-1 inline-flex items-center gap-1 text-[11px] ${
+                      className={`mt-0.5 inline-flex items-center gap-1 text-[11px] ${
                         compactFilter === "upcoming" ? "text-white/90" : "text-app-text-muted"
                       }`}
                     >
                       {tr("Upcoming")}
                     </p>
-                    <p className="text-base font-semibold">
+                    <p className="text-sm font-semibold">
                       {dashboard.summary.upcomingCount}
                     </p>
                   </button>
@@ -436,7 +436,7 @@ export function PaymentsDashboardSection({
                       )
                     }
                     aria-pressed={compactFilter === "overdue"}
-                    className={`min-h-[68px] rounded-2xl border p-2 text-left transition ${
+                    className={`min-h-[62px] rounded-2xl border p-1.5 text-left transition ${
                       compactFilter === "overdue"
                         ? "border-app-accent bg-app-accent text-white shadow-[0_10px_22px_rgba(31,122,67,0.3)]"
                         : dashboard.summary.overdueCount > 0
@@ -444,25 +444,25 @@ export function PaymentsDashboardSection({
                           : "border-app-border bg-app-surface text-app-text shadow-sm"
                     }`}
                   >
-                    <p className="inline-flex h-6 w-6 items-center justify-center rounded-lg bg-white/15">
+                    <p className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-white/15">
                       <AppIcon name="alert" className="h-3.5 w-3.5" />
                     </p>
                     <p
-                      className={`mt-1 inline-flex items-center gap-1 text-[11px] ${
+                      className={`mt-0.5 inline-flex items-center gap-1 text-[11px] ${
                         compactFilter === "overdue" ? "text-white/90" : "text-app-text-muted"
                       }`}
                     >
                       {tr("Overdue")}
                     </p>
-                    <p className="text-base font-semibold">
+                    <p className="text-sm font-semibold">
                       {dashboard.summary.overdueCount}
                     </p>
                   </button>
-                  <div className="pc-state-card bg-app-surface-soft p-2">
-                    <p className="inline-flex h-6 w-6 items-center justify-center rounded-lg border border-app-border bg-app-surface text-app-text-muted">
+                  <div className="pc-state-card bg-app-surface-soft p-1.5">
+                    <p className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-app-border bg-app-surface text-app-text-muted">
                       <AppIcon name="wallet" className="h-3.5 w-3.5" />
                     </p>
-                    <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-app-text-muted">
+                    <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-app-text-muted">
                       {tr("Monthly payment cost")}
                     </p>
                     <p className="text-sm font-semibold text-app-text">{monthlyTotalLabel}</p>
@@ -515,7 +515,7 @@ export function PaymentsDashboardSection({
                       {tr("No matching cards in this segment.")}
                     </p>
                   ) : (
-                    <ul className="mt-2 space-y-1.5">
+                    <ul className="mt-1.5 space-y-1">
                       {compactFilteredItems.map((item) => (
                         <li key={item.id} className="rounded-xl bg-app-surface px-2 py-1 text-xs text-app-text">
                           <p className="font-medium">{item.title}</p>

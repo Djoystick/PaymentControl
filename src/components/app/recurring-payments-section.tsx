@@ -919,9 +919,9 @@ export function RecurringPaymentsSection({
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                     {tr("Quick actions")}
                   </p>
-                  <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-medium text-app-text">
+                  <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-app-text-muted">
                     <AppIcon name="reminders" className="h-3.5 w-3.5" />
-                    {tr("Use Mark paid / Undo paid directly from payment cards.")}
+                    {tr("Mark paid / Undo paid directly on cards.")}
                   </p>
                 </div>
                 <HelpPopover
@@ -933,17 +933,17 @@ export function RecurringPaymentsSection({
               </div>
 
               <div className="mt-2 grid grid-cols-3 gap-2">
-                <article className="pc-state-card px-2 py-2 shadow-sm">
+                <article className="pc-state-card px-1.5 py-1.5 shadow-sm">
                   <p className="inline-flex items-center gap-1 text-[11px] text-app-text-muted">
                     <AppIcon name="clock" className="h-3.5 w-3.5" />
                     {tr("Due today")}
                   </p>
-                  <p className="text-base font-semibold text-app-text">
+                  <p className="text-sm font-semibold text-app-text">
                     {remindersActSummary.dueTodayCount}
                   </p>
                 </article>
                 <article
-                  className={`pc-state-card px-2 py-2 shadow-sm ${
+                  className={`pc-state-card px-1.5 py-1.5 shadow-sm ${
                     remindersActSummary.overdueCount > 0
                       ? "border-amber-300 bg-amber-50/70"
                       : ""
@@ -953,22 +953,22 @@ export function RecurringPaymentsSection({
                     <AppIcon name="alert" className="h-3.5 w-3.5" />
                     {tr("Overdue")}
                   </p>
-                  <p className="text-base font-semibold text-app-text">
+                  <p className="text-sm font-semibold text-app-text">
                     {remindersActSummary.overdueCount}
                   </p>
                 </article>
-                <article className="pc-state-card px-2 py-2 shadow-sm">
+                <article className="pc-state-card px-1.5 py-1.5 shadow-sm">
                   <p className="inline-flex items-center gap-1 text-[11px] text-app-text-muted">
                     <AppIcon name="payments" className="h-3.5 w-3.5" />
                     {tr("Active")}
                   </p>
-                  <p className="text-base font-semibold text-app-text">
+                  <p className="text-sm font-semibold text-app-text">
                     {remindersActSummary.activeCount}
                   </p>
                 </article>
               </div>
 
-              <p className="mt-1 text-[11px] text-app-text-muted">
+              <p className="mt-0.5 text-[11px] text-app-text-muted">
                 {tr("Due today")} + {tr("Overdue")}:{" "}
                 <span className="font-semibold text-app-text">{actionNowCount}</span>
               </p>
@@ -1424,7 +1424,7 @@ export function RecurringPaymentsSection({
           )}
 
           {screenMode === "act" && (
-          <div className="mt-2 space-y-1.5">
+          <div className="mt-2 space-y-1">
             {isLoading && (
               <p className="pc-empty-state text-sm">{tr("Loading payments...")}</p>
             )}
@@ -1493,7 +1493,7 @@ export function RecurringPaymentsSection({
                 return (
                   <article
                     key={payment.id}
-                    className={`rounded-2xl border p-2.5 ${
+                    className={`rounded-2xl border p-2 ${
                       isOverdueNow
                         ? "border-amber-300 bg-amber-50/55 shadow-[0_10px_20px_rgba(194,120,16,0.14)]"
                         : isDueTodayNow
@@ -1501,7 +1501,7 @@ export function RecurringPaymentsSection({
                           : "border-app-border bg-app-surface-soft shadow-sm"
                     }`}
                   >
-                    <div className="flex flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
@@ -1521,7 +1521,7 @@ export function RecurringPaymentsSection({
                             {formatAmount(payment)}
                           </span>
                         </div>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        <div className="mt-1 flex flex-wrap items-center gap-1">
                           <span
                             className={`pc-status-pill ${
                               isPaidCurrentCycle
@@ -1557,30 +1557,27 @@ export function RecurringPaymentsSection({
                           )}
                         </div>
                         {payment.paymentScope === "shared" ? (
-                          <p className="mt-1 text-sm text-app-text-muted">
+                          <p className="mt-0.5 text-xs text-app-text-muted">
                             {tr("Who pays")}: {responsiblePayerName}
                           </p>
                         ) : null}
-                        <p className="mt-1 text-sm text-app-text-muted">
+                        <p className="mt-0.5 text-xs text-app-text-muted">
                           {tr("Current cycle")}: {tr(payment.currentCycle.state)}. {tr("Due")}{" "}
                           {formatDueDate(payment.currentCycle.dueDate)}
                           {payment.currentCycle.paidAt ? `. ${tr("Paid this cycle.")}` : "."}
                         </p>
                         {isPaidCurrentCycle && (
-                          <p className="text-sm text-app-text-muted">
+                          <p className="mt-0.5 text-xs text-app-text-muted">
                             {tr("Next payment date")}: {formatDueDate(nextCycleDueDate)}
+                            {payment.paymentScope === "shared"
+                              ? ` • ${tr("Paid by")}: ${paidByName ?? tr("Not captured")}`
+                              : ""}
                           </p>
                         )}
                         {payment.paymentScope === "shared" &&
-                          isPaidCurrentCycle && (
-                            <p className="text-sm text-app-text-muted">
-                              {tr("Paid by")}: {paidByName ?? tr("Not captured")}
-                            </p>
-                          )}
-                        {payment.paymentScope === "shared" &&
                           isPaidCurrentCycle &&
                           hasEconomicsMismatch && (
-                            <p className="text-xs font-medium text-amber-700">
+                            <p className="mt-0.5 text-[11px] font-medium text-amber-700">
                               {tr("Economics hint")}: {paidByName ?? tr("Another member")}{" "}
                               {tr("covered this cycle, while responsibility is on")}{" "}
                               {responsiblePayerName ?? tr("another member")}.
@@ -1593,16 +1590,16 @@ export function RecurringPaymentsSection({
                           payment.currentCycle.paidByProfileId &&
                           payment.responsibleProfileId ===
                             payment.currentCycle.paidByProfileId && (
-                            <p className="text-xs font-medium text-emerald-700">
+                            <p className="mt-0.5 text-[11px] font-medium text-emerald-700">
                               {tr("Economics: aligned (responsible payer paid this cycle).")}
                             </p>
                           )}
-                        <details className="pc-state-card mt-1.5 bg-white px-2 py-1.5 text-xs text-app-text-muted">
+                        <details className="pc-state-card mt-1 bg-white px-1.5 py-1 text-xs text-app-text-muted">
                           <summary className="inline-flex cursor-pointer items-center gap-1 font-semibold text-app-text">
                             <AppIcon name="template" className="h-3.5 w-3.5 text-app-text-muted" />
                             {tr("Details and actions")}
                           </summary>
-                          <div className="mt-1 flex flex-wrap gap-1.5">
+                          <div className="mt-1 flex flex-wrap gap-1">
                             <span className="rounded-full border border-app-border bg-app-surface px-2 py-0.5 text-[11px]">
                               {payment.paymentScope === "shared"
                                 ? tr("Family shared")
@@ -1627,7 +1624,7 @@ export function RecurringPaymentsSection({
                               : tr("Off")}
                           </p>
                           {payment.notes && <p className="mt-1">{payment.notes}</p>}
-                          <div className="mt-2 flex flex-wrap gap-2">
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
                             <button
                               type="button"
                               onClick={() => savePaymentAsTemplate(payment)}
@@ -1666,7 +1663,7 @@ export function RecurringPaymentsSection({
                           </div>
                         </details>
                       </div>
-                      <div className="flex flex-wrap gap-2 sm:justify-end">
+                      <div className="flex flex-wrap gap-1.5 sm:justify-end">
                         <button
                           type="button"
                           onClick={() =>

@@ -4,7 +4,8 @@
 
 | Date | Phase | Status | Summary | Report |
 |---|---|---|---|---|
-| 2026-03-29 | Phase 20E | implemented (code/report), pending manual verification | Viewport-first layout compression and scroll minimization across Home/Reminders/History/Profile with tighter shell and compact shared spacing | `docs/reports/phase_20E_viewport_first_layout_compression_scroll_minimization.md` |
+| 2026-03-29 | Phase 20F | implemented (code/report), pending manual verification | Dense card rows + high-frequency surface compression for Reminders/Home/History/Profile top blocks to fit more useful rows above the fold | `docs/reports/phase_20F_dense_card_rows_high_frequency_surface_compression.md` |
+| 2026-03-29 | Phase 20E | implemented (code/report), manual verification completed by user | Viewport-first layout compression and scroll minimization across Home/Reminders/History/Profile with tighter shell and compact shared spacing | `docs/reports/phase_20E_viewport_first_layout_compression_scroll_minimization.md` |
 | 2026-03-29 | Phase 20D | implemented (code/report), manual verification completed by user | State language + theme parity pass: unified empty/loading/error/success feedback and status treatment across user surfaces | `docs/reports/phase_20D_state_language_theme_parity_pass.md` |
 | 2026-03-29 | Phase 20C | implemented (code/report), manual verification completed by user | Reminders surface simplification on system rails: clearer action lane, quieter supporting controls, reduced card visual competition | `docs/reports/phase_20C_reminders_surface_simplification_on_system_rails.md` |
 | 2026-03-28 | Phase 20B | implemented (code/report), manual verification completed by user | Shared primitive normalization across Home/Reminders/History/Profile with unified section/card/button/segment/empty-state treatments | `docs/reports/phase_20B_shared_primitive_normalization.md` |

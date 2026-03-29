@@ -343,7 +343,7 @@ function ProfileScenariosContent() {
           <AppIcon name="home" className="h-3.5 w-3.5" />
           {tr("Quick start")}
         </p>
-        <p className="mt-1 text-sm text-app-text">
+        <p className="mt-0.5 text-xs text-app-text-muted">
           {tr("Start in Reminders: add a payment, then use Mark paid when done.")}
         </p>
       </div>
@@ -356,7 +356,7 @@ function ProfileScenariosContent() {
         {!isLoading && (
           <p className="mt-1 text-xs text-app-text-muted">{tr("Context ready")}</p>
         )}
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <p className="inline-flex items-center gap-1 text-xs font-semibold text-app-text-muted">
             <AppIcon name="language" className="h-3.5 w-3.5" />
             {tr("Language")}:
@@ -384,7 +384,7 @@ function ProfileScenariosContent() {
             {tr("English")}
           </button>
         </div>
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <p className="inline-flex items-center gap-1 text-xs font-semibold text-app-text-muted">
             <AppIcon name="theme" className="h-3.5 w-3.5" />
             {tr("Theme")}:
@@ -415,12 +415,12 @@ function ProfileScenariosContent() {
           </button>
         </div>
         {profile && (
-          <p className="mt-2 text-sm text-app-text">
+          <p className="mt-1.5 text-sm text-app-text">
             {profile.firstName} {profile.lastName ?? ""}
             {profile.username ? ` (@${profile.username})` : ""}
           </p>
         )}
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <button
             type="button"
             onClick={replayOnboarding}

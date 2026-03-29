@@ -324,17 +324,17 @@ export function PaymentsActivitySection({
             <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {tr("History context")}
             </p>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <div className="pc-state-card px-2 py-2">
+            <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+              <div className="pc-state-card px-1.5 py-1.5">
                 <p className="text-[11px] text-app-text-muted">{tr("In scope")}</p>
                 <p className="text-sm font-semibold text-app-text">{scopedPaymentsCount}</p>
               </div>
-              <div className="pc-state-card px-2 py-2">
+              <div className="pc-state-card px-1.5 py-1.5">
                 <p className="text-[11px] text-app-text-muted">{tr("Recent events")}</p>
                 <p className="text-sm font-semibold text-app-text">{activityItems.length}</p>
               </div>
               {isFamilyWorkspace && sharedWhoPaysSummary && (
-                <div className="pc-state-card col-span-2 px-2 py-2">
+                <div className="pc-state-card col-span-2 px-1.5 py-1.5">
                   <p className="text-[11px] text-app-text-muted">
                     {tr("Who pays assigned")}: {sharedWhoPaysSummary.assignedCount} · {tr("Missing")}{" "}
                     {sharedWhoPaysSummary.unassignedCount} · {tr("Mismatch hints")}{" "}
@@ -367,7 +367,7 @@ export function PaymentsActivitySection({
                 </p>
               </div>
             ) : (
-              <ul className="space-y-1.5">
+              <ul className="space-y-1">
                 {activityItems.map((item) => (
                   (() => {
                     const responsiblePayerName = isFamilyWorkspace
@@ -405,7 +405,7 @@ export function PaymentsActivitySection({
                     return (
                       <li
                         key={item.id}
-                        className="pc-state-card px-2 py-1.5 text-xs text-app-text"
+                        className="pc-state-card px-1.5 py-1 text-xs text-app-text"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span
@@ -421,9 +421,9 @@ export function PaymentsActivitySection({
                             {formatDateTime(item.timestamp)}
                           </span>
                         </div>
-                        <p className="mt-1 font-medium text-app-text">{item.title}</p>
+                        <p className="mt-0.5 font-medium text-app-text">{item.title}</p>
                         {isFamilyWorkspace && (
-                          <p className="mt-1 text-app-text-muted">
+                          <p className="mt-0.5 text-app-text-muted">
                             {tr("Who pays")}: {responsiblePayerName}
                             {item.kind === "paid_cycle"
                               ? `. ${tr("Paid by")}: ${paidByName ?? tr("Not captured")}`
@@ -431,7 +431,7 @@ export function PaymentsActivitySection({
                           </p>
                         )}
                         {hasPaidMismatch && (
-                          <p className="mt-1 text-[11px] font-medium text-amber-700">
+                          <p className="mt-0.5 text-[11px] font-medium text-amber-700">
                             {tr("Economics hint")}: {paidByName ?? tr("Another member")}{" "}
                             {tr("paid while responsibility is on")}{" "}
                             {responsiblePayerName ?? tr("another member")}.
