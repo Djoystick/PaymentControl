@@ -5,7 +5,8 @@ import type {
   PremiumPurchaseClaimCreateResponse,
   PremiumPurchaseClaimRail,
 } from "@/lib/auth/types";
-import { isSupabaseServerConfigured } from "@/lib/config/server-env";
+import { isSupabaseServerConfigured, serverEnv } from "@/lib/config/server-env";
+import { sendTelegramMessageWithPreflight } from "@/lib/payments/telegram-delivery";
 import { createPremiumPurchaseClaim } from "@/lib/premium/purchase-claim-repository";
 
 type PremiumPurchaseClaimBody = {
@@ -61,6 +62,64 @@ const normalizeOptionalInput = (
   }
 
   return { ok: true, value: normalized };
+};
+
+const normalizeSingleLineForTelegram = (value: string | null, maxLength: number): string => {
+  if (!value) {
+    return "not set";
+  }
+
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (!normalized) {
+    return "not set";
+  }
+
+  return normalized.slice(0, maxLength);
+};
+
+const sendOwnerClaimNotification = async (params: {
+  claimId: string;
+  submittedAt: string;
+  telegramUserId: string;
+  expectedTier: string;
+  purchaseCode: string | null;
+  proofReference: string | null;
+  workspaceTitle: string;
+}): Promise<void> => {
+  if (!serverEnv.bugReportTelegramChatId) {
+    return;
+  }
+
+  const message = [
+    "Payment Control - Premium claim submitted",
+    "",
+    "This is a user claim submission event and requires owner review.",
+    "Payment is NOT auto-confirmed in this flow.",
+    "",
+    `Claim ID: ${params.claimId}`,
+    `Submitted at (UTC): ${params.submittedAt}`,
+    `Telegram user id: ${params.telegramUserId}`,
+    `Expected tier: ${normalizeSingleLineForTelegram(params.expectedTier, 64)}`,
+    `Purchase code: ${normalizeSingleLineForTelegram(params.purchaseCode, 32)}`,
+    `Proof reference: ${normalizeSingleLineForTelegram(params.proofReference, 140)}`,
+    `Workspace: ${normalizeSingleLineForTelegram(params.workspaceTitle, 80)}`,
+    "",
+    "Review path: Profile -> Owner premium admin -> Purchase claims queue",
+  ].join("\n");
+
+  const deliveryResult = await sendTelegramMessageWithPreflight({
+    recipientTelegramUserId: serverEnv.bugReportTelegramChatId,
+    recipientSource: "stored_chat_id",
+    text: message,
+  });
+
+  if (deliveryResult.status !== "sent") {
+    console.error("Premium claim owner notification failed.", {
+      errorCode: deliveryResult.errorCode,
+      errorMessage: deliveryResult.errorMessage,
+      diagnosticCode: deliveryResult.diagnosticCode,
+    });
+  }
 };
 
 export async function POST(request: Request) {
@@ -248,6 +307,22 @@ export async function POST(request: Request) {
       },
       { status },
     );
+  }
+
+  try {
+    await sendOwnerClaimNotification({
+      claimId: createResult.data.id,
+      submittedAt: createResult.data.submittedAt,
+      telegramUserId: contextResult.profile.telegramUserId,
+      expectedTier: createResult.data.expectedTier,
+      purchaseCode: createResult.data.purchaseCorrelationCode,
+      proofReference: createResult.data.paymentProofReference,
+      workspaceTitle: contextResult.workspace.title,
+    });
+  } catch (error) {
+    console.error("Unexpected owner notification error for premium claim.", {
+      message: error instanceof Error ? error.message : "Unknown error",
+    });
   }
 
   return NextResponse.json<PremiumPurchaseClaimCreateResponse>({

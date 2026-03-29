@@ -122,6 +122,7 @@ function ProfileScenariosContent() {
   const [isLoadingPurchaseIntents, setIsLoadingPurchaseIntents] = useState(false);
   const [isPreparingPurchaseIntent, setIsPreparingPurchaseIntent] = useState(false);
   const [isBuyHandoffVisible, setIsBuyHandoffVisible] = useState(false);
+  const [isClaimPanelOpen, setIsClaimPanelOpen] = useState(false);
   const [bugReportTitle, setBugReportTitle] = useState("");
   const [bugReportDescription, setBugReportDescription] = useState("");
   const [bugReportSteps, setBugReportSteps] = useState("");
@@ -473,6 +474,7 @@ function ProfileScenariosContent() {
       );
       setIntentStatusCheckedAt(new Date().toISOString());
       setIsBuyHandoffVisible(true);
+      setIsClaimPanelOpen(true);
       setPurchaseIntentFeedback({
         kind: "success",
         message: tr("Purchase code is ready. Continue to Boosty, then submit claim."),
@@ -883,6 +885,11 @@ function ProfileScenariosContent() {
             "Buy Premium, Support, and Claim Premium are separate rails with different meaning.",
           )}
         </p>
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-app-text-muted">
+          <span className="pc-status-pill">{tr("Step 1: Prepare code")}</span>
+          <span className="pc-status-pill">{tr("Step 2: Pay on Boosty")}</span>
+          <span className="pc-status-pill">{tr("Step 3: Submit claim")}</span>
+        </div>
         <div className="pc-detail-surface bg-app-surface">
           <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
             <AppIcon name="premium" className="h-3.5 w-3.5" />
@@ -984,10 +991,10 @@ function ProfileScenariosContent() {
               >
                 {isPreparingPurchaseIntent
                   ? tr("Preparing purchase code...")
-                  : tr("Prepare purchase code")}
+                  : tr("Start Premium purchase")}
               </button>
               <p className="mt-1 text-[11px] text-app-text-muted">
-                {tr("Intent")}: {purchaseIntentSummaryLabel}
+                {tr("Intent")}: {purchaseIntentSummaryLabel}. {tr("Step 1: Prepare code")}
               </p>
             </div>
             <a
@@ -1065,7 +1072,19 @@ function ProfileScenariosContent() {
                       <AppIcon name="refresh" className="h-3.5 w-3.5" />
                       {tr("Refresh purchase intent")}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsClaimPanelOpen(true)}
+                      aria-pressed={isClaimPanelOpen}
+                      className="pc-btn-secondary"
+                    >
+                      <AppIcon name="wallet" className="h-3.5 w-3.5" />
+                      {tr("Open Claim Premium")}
+                    </button>
                   </div>
+                  <p className="mt-1 text-[11px] text-app-text-muted">
+                    {tr("After Boosty payment, open Claim Premium and submit for owner review.")}
+                  </p>
                   <p className="mt-1 text-[11px] text-app-text-muted">
                     {tr("Intent status last checked")}:{" "}
                     {intentStatusCheckedAt
@@ -1097,10 +1116,19 @@ function ProfileScenariosContent() {
             </div>
           )}
 
-          <details className="pc-state-card mt-2 bg-app-surface px-3 py-2 text-xs text-app-text-muted">
+          <details
+            open={isClaimPanelOpen}
+            onToggle={(event) => {
+              setIsClaimPanelOpen(event.currentTarget.open);
+            }}
+            className={`pc-state-card mt-2 bg-app-surface px-3 py-2 text-xs text-app-text-muted ${
+              isClaimPanelOpen ? "border-app-accent/70" : ""
+            }`}
+          >
             <summary className="inline-flex cursor-pointer items-center gap-1.5 font-semibold text-app-text">
               <AppIcon name="wallet" className="h-3.5 w-3.5" />
               {tr("I already paid / Claim Premium")}
+              {isClaimPanelOpen && <span className="pc-status-pill">{tr("Opened")}</span>}
             </summary>
             <p className="mt-1">
               {tr("Use this after external payment to submit claim for owner review.")}
@@ -1115,6 +1143,9 @@ function ProfileScenariosContent() {
                   </span>
                   {" · "}
                   {tr("Intent status")}: {tr(latestPurchaseIntent.status)}
+                </p>
+                <p className="mt-1 text-app-text-muted">
+                  {tr("Claim form is ready. Purchase code is already linked.")}
                 </p>
               </div>
             )}
@@ -1153,7 +1184,7 @@ function ProfileScenariosContent() {
                 type="button"
                 onClick={() => void submitPremiumClaim()}
                 disabled={isSubmittingPremiumClaim}
-                className="pc-btn-secondary"
+                className={linkablePurchaseIntent ? "pc-btn-primary" : "pc-btn-secondary"}
               >
                 <AppIcon name="check" className="h-3.5 w-3.5" />
                 {isSubmittingPremiumClaim
