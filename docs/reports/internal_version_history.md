@@ -4,6 +4,7 @@
 
 | Date | Phase | Status | Summary | Report |
 |---|---|---|---|---|
+| 2026-03-29 | Phase 22A.1 | implemented (code/report), pending manual verification | Added owner-only temporary runtime trigger for premium purchase claim creation (fixed QA payload via real client/API path) to complete 22A create-path verification readiness | `docs/reports/phase_22A_1_temporary_premium_claim_verification_trigger.md` |
 | 2026-03-29 | Phase 22A | implemented (code/report), pending manual verification | Added premium purchase claim foundation: new `premium_purchase_claims` schema, lifecycle status model, and `POST /api/premium/purchase-claims` creation path with Telegram ID as primary identity anchor | `docs/reports/phase_22A_premium_purchase_claim_foundation.md` |
 | 2026-03-29 | Phase 21B.2 | implemented (audit/report), pending manual verification | Phase 13B formal closure readiness audit + deterministic manual verification pack; confirmed no additional enabling code changes required | `docs/reports/phase_21B_2_phase_13B_formal_closure_readiness_and_verification_pack.md` |
 | 2026-03-29 | Phase 21B.1 | implemented (audit/report), pending manual verification | True first-run onboarding verification readiness audit: confirmed first-run gate model, replay separation, and deterministic manual verification procedure without code changes | `docs/reports/phase_21B_1_true_first_run_onboarding_verification_readiness_audit.md` |

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  createPremiumPurchaseClaim,
   createPremiumGiftCampaignByAdmin,
   deactivatePremiumGiftCampaignByAdmin,
   grantPremiumByAdmin,
@@ -13,6 +14,7 @@ import {
 import type {
   PremiumAdminCampaignPayload,
   PremiumAdminTargetPayload,
+  PremiumPurchaseClaimPayload,
 } from "@/lib/auth/types";
 import { useLocalization } from "@/lib/i18n/localization";
 import { AppIcon } from "@/components/app/app-icon";
@@ -57,6 +59,10 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
   const [campaignDurationInput, setCampaignDurationInput] = useState("30");
   const [campaignStartsAtInput, setCampaignStartsAtInput] = useState("");
   const [campaignEndsAtInput, setCampaignEndsAtInput] = useState("");
+  const [isCreatingVerificationClaim, setIsCreatingVerificationClaim] =
+    useState(false);
+  const [verificationClaim, setVerificationClaim] =
+    useState<PremiumPurchaseClaimPayload | null>(null);
   const [adminMessage, setAdminMessage] = useState<string | null>(null);
   const [adminMessageTone, setAdminMessageTone] = useState<AdminMessageTone>("info");
 
@@ -297,6 +303,40 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
       showAdminMessage(tr("Premium admin request failed."), "error");
     } finally {
       setDeactivatingCampaignId(null);
+    }
+  };
+
+  const createVerificationClaim = async () => {
+    setIsCreatingVerificationClaim(true);
+    clearAdminMessage();
+    try {
+      const response = await createPremiumPurchaseClaim({
+        initData,
+        claimRail: "boosty_premium",
+        expectedTier: "premium_monthly",
+        externalPayerHandle: "test_boosty_user",
+        paymentProofReference: "BOOSTY-QA-001",
+        paymentProofText: "manual test payment proof",
+        claimNote: "phase 22A manual verification",
+      });
+      if (!response.ok) {
+        setVerificationClaim(null);
+        showAdminMessage(response.error.message, "error");
+        return;
+      }
+
+      setVerificationClaim(response.claim);
+      showAdminMessage(
+        tr("Temporary verification claim created: {claimId}", {
+          claimId: response.claim.id,
+        }),
+        "success",
+      );
+    } catch {
+      setVerificationClaim(null);
+      showAdminMessage(tr("Premium admin request failed."), "error");
+    } finally {
+      setIsCreatingVerificationClaim(false);
     }
   };
 
@@ -572,6 +612,85 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
             </p>
           )}
         </div>
+      </div>
+
+      <div className="pc-detail-surface mt-2 bg-app-surface">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          {tr("Temporary purchase claim verification (22A.1)")}
+        </p>
+        <p className="mt-1 text-xs text-app-text-muted">
+          {tr(
+            "Owner-only temporary helper for runtime verification. Remove after manual 22A closure.",
+          )}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void createVerificationClaim()}
+            disabled={isCreatingVerificationClaim}
+            className="pc-btn-secondary disabled:opacity-60"
+          >
+            {isCreatingVerificationClaim ? tr("Creating...") : tr("Create test purchase claim")}
+          </button>
+        </div>
+        <div className="pc-state-card mt-2 bg-app-surface px-2 py-1.5 text-xs text-app-text-muted">
+          <p className="font-semibold text-app-text">{tr("Test payload")}</p>
+          <p className="mt-1">
+            {tr("Rail")}: <span className="font-semibold text-app-text">boosty_premium</span>
+          </p>
+          <p className="mt-1">
+            {tr("Expected tier")}:{" "}
+            <span className="font-semibold text-app-text">premium_monthly</span>
+          </p>
+          <p className="mt-1">
+            {tr("External payer handle")}:{" "}
+            <span className="font-semibold text-app-text">test_boosty_user</span>
+          </p>
+          <p className="mt-1">
+            {tr("Payment proof reference")}:{" "}
+            <span className="font-semibold text-app-text">BOOSTY-QA-001</span>
+          </p>
+          <p className="mt-1">
+            {tr("Payment proof text")}:{" "}
+            <span className="font-semibold text-app-text">manual test payment proof</span>
+          </p>
+          <p className="mt-1">
+            {tr("Claim note")}:{" "}
+            <span className="font-semibold text-app-text">phase 22A manual verification</span>
+          </p>
+          <p className="mt-1">
+            {tr("Telegram user id")}:{" "}
+            {tr("taken from current verified app context")}
+          </p>
+        </div>
+        {verificationClaim && (
+          <div className="pc-state-card mt-2 bg-app-surface px-2 py-1.5 text-xs text-app-text-muted">
+            <p className="font-semibold text-app-text">{tr("Created claim result")}</p>
+            <p className="mt-1">
+              {tr("Claim id")}: <span className="font-semibold text-app-text">{verificationClaim.id}</span>
+            </p>
+            <p className="mt-1">
+              {tr("Claim status")}: <span className="font-semibold text-app-text">{tr(verificationClaim.status)}</span>
+            </p>
+            <p className="mt-1">
+              {tr("Rail")}: <span className="font-semibold text-app-text">{verificationClaim.claimRail}</span>
+            </p>
+            <p className="mt-1">
+              {tr("Expected tier")}:{" "}
+              <span className="font-semibold text-app-text">{verificationClaim.expectedTier}</span>
+            </p>
+            <p className="mt-1">
+              {tr("Telegram user id")}:{" "}
+              <span className="font-semibold text-app-text">{verificationClaim.telegramUserId}</span>
+            </p>
+            <p className="mt-1">
+              {tr("Submitted at")}:{" "}
+              <span className="font-semibold text-app-text">
+                {formatDateTime(verificationClaim.submittedAt, verificationClaim.submittedAt)}
+              </span>
+            </p>
+          </div>
+        )}
       </div>
 
       {adminMessage && (
