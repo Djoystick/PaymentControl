@@ -6,6 +6,9 @@ import type {
   PremiumAdminCampaignListResponse,
   PremiumAdminErrorCode,
   PremiumAdminGrantResponse,
+  PremiumAdminPurchaseClaimListResponse,
+  PremiumAdminPurchaseClaimReviewDecision,
+  PremiumAdminPurchaseClaimReviewResponse,
   PremiumAdminRevokeResponse,
   PremiumAdminSessionResponse,
   PremiumAdminTargetResolveResponse,
@@ -17,6 +20,8 @@ import {
   deactivatePremiumGiftCampaign,
   grantManualPremiumByTelegramUserId,
   listPremiumGiftCampaignsWithUsage,
+  listPremiumPurchaseClaims,
+  reviewPremiumPurchaseClaim,
   resolvePremiumAdminTarget,
   revokePremiumByTelegramUserId,
 } from "@/lib/premium/admin-service";
@@ -28,7 +33,9 @@ type PremiumAdminAction =
   | "revoke_premium"
   | "create_campaign"
   | "list_campaigns"
-  | "deactivate_campaign";
+  | "deactivate_campaign"
+  | "list_purchase_claims"
+  | "review_purchase_claim";
 
 type PremiumAdminBody = {
   initData?: string;
@@ -43,6 +50,8 @@ type PremiumAdminBody = {
   campaignDurationDays?: number;
   startsAt?: string;
   endsAt?: string;
+  claimId?: string;
+  decision?: PremiumAdminPurchaseClaimReviewDecision;
 };
 
 const codeToStatus: Record<PremiumAdminErrorCode, number> = {
@@ -63,11 +72,15 @@ const codeToStatus: Record<PremiumAdminErrorCode, number> = {
   PREMIUM_ADMIN_INVALID_INPUT: 400,
   PREMIUM_ADMIN_CAMPAIGN_NOT_FOUND: 404,
   PREMIUM_ADMIN_CAMPAIGN_FOUNDATION_NOT_READY: 409,
+  PREMIUM_ADMIN_CLAIM_NOT_FOUND: 404,
+  PREMIUM_ADMIN_CLAIM_INVALID_STATE: 409,
+  PREMIUM_ADMIN_CLAIM_FOUNDATION_NOT_READY: 409,
   PREMIUM_ADMIN_ACTION_FAILED: 500,
 };
 
 const mapServiceError = (
   reason: string,
+  serviceMessage?: string,
 ): { code: PremiumAdminErrorCode; message: string } => {
   if (reason === "INVALID_TARGET_TELEGRAM_ID") {
     return {
@@ -97,7 +110,33 @@ const mapServiceError = (
     };
   }
 
+  if (reason === "CLAIM_NOT_FOUND") {
+    return {
+      code: "PREMIUM_ADMIN_CLAIM_NOT_FOUND",
+      message: "Purchase claim was not found.",
+    };
+  }
+
+  if (reason === "CLAIM_INVALID_STATE") {
+    return {
+      code: "PREMIUM_ADMIN_CLAIM_INVALID_STATE",
+      message: "Claim status is not reviewable.",
+    };
+  }
+
   if (reason === "FOUNDATION_NOT_READY") {
+    const normalizedMessage = (serviceMessage ?? "").toLowerCase();
+    if (
+      normalizedMessage.includes("purchase claim") ||
+      normalizedMessage.includes("phase 22a")
+    ) {
+      return {
+        code: "PREMIUM_ADMIN_CLAIM_FOUNDATION_NOT_READY",
+        message:
+          "Premium purchase claim foundation is not ready. Apply Phase 22A migration.",
+      };
+    }
+
     return {
       code: "PREMIUM_ADMIN_CAMPAIGN_FOUNDATION_NOT_READY",
       message: "Campaign foundation is not ready. Apply required migrations.",
@@ -203,7 +242,7 @@ export async function POST(request: Request) {
     const targetTelegramUserId = body.targetTelegramUserId?.trim() ?? "";
     const targetResult = await resolvePremiumAdminTarget(targetTelegramUserId);
     if (!targetResult.ok) {
-      const mapped = mapServiceError(targetResult.reason);
+      const mapped = mapServiceError(targetResult.reason, targetResult.message);
       return NextResponse.json<PremiumAdminTargetResolveResponse>(
         {
           ok: false,
@@ -244,7 +283,7 @@ export async function POST(request: Request) {
       note: body.note,
     });
     if (!grantResult.ok) {
-      const mapped = mapServiceError(grantResult.reason);
+      const mapped = mapServiceError(grantResult.reason, grantResult.message);
       return NextResponse.json<PremiumAdminGrantResponse>(
         {
           ok: false,
@@ -271,7 +310,7 @@ export async function POST(request: Request) {
       note: body.note,
     });
     if (!revokeResult.ok) {
-      const mapped = mapServiceError(revokeResult.reason);
+      const mapped = mapServiceError(revokeResult.reason, revokeResult.message);
       return NextResponse.json<PremiumAdminRevokeResponse>(
         {
           ok: false,
@@ -326,7 +365,7 @@ export async function POST(request: Request) {
     });
 
     if (!createResult.ok) {
-      const mapped = mapServiceError(createResult.reason);
+      const mapped = mapServiceError(createResult.reason, createResult.message);
       return NextResponse.json<PremiumAdminCampaignCreateResponse>(
         {
           ok: false,
@@ -348,7 +387,7 @@ export async function POST(request: Request) {
   if (action === "list_campaigns") {
     const listResult = await listPremiumGiftCampaignsWithUsage();
     if (!listResult.ok) {
-      const mapped = mapServiceError(listResult.reason);
+      const mapped = mapServiceError(listResult.reason, listResult.message);
       return NextResponse.json<PremiumAdminCampaignListResponse>(
         {
           ok: false,
@@ -367,12 +406,62 @@ export async function POST(request: Request) {
     });
   }
 
+  if (action === "list_purchase_claims") {
+    const listResult = await listPremiumPurchaseClaims();
+    if (!listResult.ok) {
+      const mapped = mapServiceError(listResult.reason, listResult.message);
+      return NextResponse.json<PremiumAdminPurchaseClaimListResponse>(
+        {
+          ok: false,
+          error: {
+            code: mapped.code,
+            message: listResult.message || mapped.message,
+          },
+        },
+        { status: codeToStatus[mapped.code] ?? 400 },
+      );
+    }
+
+    return NextResponse.json<PremiumAdminPurchaseClaimListResponse>({
+      ok: true,
+      claims: listResult.data,
+    });
+  }
+
+  if (action === "review_purchase_claim") {
+    const reviewResult = await reviewPremiumPurchaseClaim({
+      claimId: body.claimId?.trim() ?? "",
+      decision: (body.decision ?? "reject") as PremiumAdminPurchaseClaimReviewDecision,
+      adminTelegramUserId,
+      note: body.note,
+    });
+    if (!reviewResult.ok) {
+      const mapped = mapServiceError(reviewResult.reason, reviewResult.message);
+      return NextResponse.json<PremiumAdminPurchaseClaimReviewResponse>(
+        {
+          ok: false,
+          error: {
+            code: mapped.code,
+            message: reviewResult.message || mapped.message,
+          },
+        },
+        { status: codeToStatus[mapped.code] ?? 400 },
+      );
+    }
+
+    return NextResponse.json<PremiumAdminPurchaseClaimReviewResponse>({
+      ok: true,
+      claim: reviewResult.data.claim,
+      entitlementId: reviewResult.data.entitlementId,
+    });
+  }
+
   if (action === "deactivate_campaign") {
     const deactivateResult = await deactivatePremiumGiftCampaign(
       body.campaignId?.trim() ?? "",
     );
     if (!deactivateResult.ok) {
-      const mapped = mapServiceError(deactivateResult.reason);
+      const mapped = mapServiceError(deactivateResult.reason, deactivateResult.message);
       return NextResponse.json<PremiumAdminCampaignDeactivateResponse>(
         {
           ok: false,

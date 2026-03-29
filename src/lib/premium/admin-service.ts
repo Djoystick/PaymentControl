@@ -1,7 +1,9 @@
 import "server-only";
 import type {
   PremiumAdminCampaignPayload,
+  PremiumAdminPurchaseClaimReviewDecision,
   PremiumAdminTargetPayload,
+  PremiumPurchaseClaimPayload,
 } from "@/lib/auth/types";
 import type { ProfilePayload } from "@/lib/auth/types";
 import { getProfileByTelegramUserId } from "@/lib/profile/repository";
@@ -14,6 +16,8 @@ type AdminServiceFailureReason =
   | "TARGET_NOT_FOUND"
   | "INVALID_INPUT"
   | "CAMPAIGN_NOT_FOUND"
+  | "CLAIM_NOT_FOUND"
+  | "CLAIM_INVALID_STATE"
   | "FOUNDATION_NOT_READY"
   | "ACTION_FAILED";
 
@@ -23,6 +27,13 @@ type AdminServiceResult<T> =
 
 type PremiumEntitlementActiveRow = {
   id: string;
+  metadata: Record<string, unknown> | null;
+};
+
+type ActiveBoostyEntitlementRow = {
+  id: string;
+  starts_at: string;
+  ends_at: string | null;
   metadata: Record<string, unknown> | null;
 };
 
@@ -44,8 +55,36 @@ type PremiumGiftCampaignClaimUsageRow = {
   claim_status: string;
 };
 
+type PremiumPurchaseClaimRow = {
+  id: string;
+  profile_id: string;
+  workspace_id: string | null;
+  telegram_user_id: string;
+  claim_rail: PremiumPurchaseClaimPayload["claimRail"];
+  expected_tier: string;
+  external_payer_handle: string | null;
+  payment_proof_reference: string | null;
+  payment_proof_text: string | null;
+  claim_status: PremiumPurchaseClaimPayload["status"];
+  claim_note: string | null;
+  admin_note: string | null;
+  entitlement_id: string | null;
+  submitted_at: string;
+  reviewed_at: string | null;
+  reviewed_by_admin_telegram_user_id: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+};
+
 const campaignRowSelection =
   "id, campaign_code, title, campaign_status, total_quota, premium_duration_days, starts_at, ends_at, created_at, updated_at";
+const purchaseClaimSelection =
+  "id, profile_id, workspace_id, telegram_user_id, claim_rail, expected_tier, external_payer_handle, payment_proof_reference, payment_proof_text, claim_status, claim_note, admin_note, entitlement_id, submitted_at, reviewed_at, reviewed_by_admin_telegram_user_id, metadata, created_at, updated_at";
+const reviewableClaimStatuses = new Set<PremiumPurchaseClaimPayload["status"]>([
+  "submitted",
+  "pending_review",
+]);
 
 const campaignCodePattern = /^[a-z0-9_-]{4,64}$/;
 const uuidLikePattern =
@@ -93,6 +132,62 @@ const toCampaignPayload = (
     createdAt: campaign.created_at,
     updatedAt: campaign.updated_at,
   };
+};
+
+const toPurchaseClaimPayload = (
+  row: PremiumPurchaseClaimRow,
+): PremiumPurchaseClaimPayload => {
+  return {
+    id: row.id,
+    profileId: row.profile_id,
+    workspaceId: row.workspace_id,
+    telegramUserId: row.telegram_user_id,
+    claimRail: row.claim_rail,
+    expectedTier: row.expected_tier,
+    externalPayerHandle: row.external_payer_handle,
+    paymentProofReference: row.payment_proof_reference,
+    paymentProofText: row.payment_proof_text,
+    status: row.claim_status,
+    claimNote: row.claim_note,
+    adminNote: row.admin_note,
+    entitlementId: row.entitlement_id,
+    submittedAt: row.submitted_at,
+    reviewedAt: row.reviewed_at,
+    reviewedByAdminTelegramUserId: row.reviewed_by_admin_telegram_user_id,
+    metadata: row.metadata ?? {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+};
+
+const resolveTierDurationDays = (expectedTier: string): number => {
+  const normalizedTier = expectedTier.trim().toLowerCase();
+  if (
+    normalizedTier.includes("year") ||
+    normalizedTier.includes("annual") ||
+    normalizedTier.includes("год")
+  ) {
+    return 365;
+  }
+
+  if (
+    normalizedTier.includes("quarter") ||
+    normalizedTier.includes("кварт")
+  ) {
+    return 90;
+  }
+
+  if (normalizedTier.includes("week") || normalizedTier.includes("недел")) {
+    return 7;
+  }
+
+  return 30;
+};
+
+const addDaysIso = (baseIso: string, days: number): string => {
+  const parsed = new Date(baseIso);
+  const base = Number.isNaN(parsed.getTime()) ? new Date() : parsed;
+  return new Date(base.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
 };
 
 const resolveTargetProfile = async (
@@ -639,6 +734,345 @@ export const listPremiumGiftCampaignsWithUsage = async (): Promise<
     data: campaigns.map((campaign) =>
       toCampaignPayload(campaign, usageMap.get(campaign.id) ?? { attempts: 0, granted: 0 }),
     ),
+  };
+};
+
+const ensureBoostyEntitlementForApprovedClaim = async (params: {
+  claim: PremiumPurchaseClaimRow;
+  adminTelegramUserId: string;
+  adminNote: string | null;
+  reviewTimestampIso: string;
+}): Promise<AdminServiceResult<{ entitlementId: string }>> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return {
+      ok: false,
+      reason: "ACTION_FAILED",
+      message: "Supabase server configuration is missing.",
+    };
+  }
+
+  const durationDays = resolveTierDurationDays(params.claim.expected_tier);
+  const { data: activeBoostyRows, error: activeBoostyRowsError } = await supabase
+    .from("premium_entitlements")
+    .select("id, starts_at, ends_at, metadata")
+    .eq("scope", "profile")
+    .eq("profile_id", params.claim.profile_id)
+    .eq("entitlement_source", "boosty")
+    .eq("status", "active")
+    .order("starts_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(10)
+    .returns<ActiveBoostyEntitlementRow[]>();
+
+  if (isFoundationMissingError(activeBoostyRowsError?.code)) {
+    return {
+      ok: false,
+      reason: "FOUNDATION_NOT_READY",
+      message:
+        "Premium entitlement foundation is not ready. Apply Phase 13A migration.",
+    };
+  }
+
+  if (activeBoostyRowsError || !activeBoostyRows) {
+    return {
+      ok: false,
+      reason: "ACTION_FAILED",
+      message: "Failed to read active boosty entitlements for claim approval.",
+    };
+  }
+
+  const now = new Date(params.reviewTimestampIso);
+  const activeRow = activeBoostyRows.find((row) => {
+    const startsAt = new Date(row.starts_at);
+    if (Number.isNaN(startsAt.getTime()) || startsAt.getTime() > now.getTime()) {
+      return false;
+    }
+
+    if (!row.ends_at) {
+      return true;
+    }
+
+    const endsAt = new Date(row.ends_at);
+    if (Number.isNaN(endsAt.getTime())) {
+      return false;
+    }
+
+    return endsAt.getTime() > now.getTime();
+  });
+
+  if (activeRow) {
+    const extensionBaseIso =
+      activeRow.ends_at && new Date(activeRow.ends_at).getTime() > now.getTime()
+        ? activeRow.ends_at
+        : params.reviewTimestampIso;
+    const nextEndsAt = activeRow.ends_at
+      ? addDaysIso(extensionBaseIso, durationDays)
+      : null;
+    const nextMetadata = {
+      ...(activeRow.metadata ?? {}),
+      last_claim_review_id: params.claim.id,
+      last_claim_reviewed_by_admin_telegram_user_id: params.adminTelegramUserId,
+      last_claim_reviewed_at: params.reviewTimestampIso,
+      last_claim_expected_tier: params.claim.expected_tier,
+      last_claim_admin_note: params.adminNote,
+      last_claim_duration_days: durationDays,
+      claim_review_origin: "owner_admin_claim_queue",
+    };
+
+    const { error: updateEntitlementError } = await supabase
+      .from("premium_entitlements")
+      .update({
+        ends_at: nextEndsAt,
+        metadata: nextMetadata,
+        updated_at: params.reviewTimestampIso,
+      })
+      .eq("id", activeRow.id);
+
+    if (updateEntitlementError) {
+      return {
+        ok: false,
+        reason: "ACTION_FAILED",
+        message: "Failed to extend existing boosty entitlement.",
+      };
+    }
+
+    return {
+      ok: true,
+      data: {
+        entitlementId: activeRow.id,
+      },
+    };
+  }
+
+  const newEntitlementEndsAt = addDaysIso(params.reviewTimestampIso, durationDays);
+  const { data: insertedEntitlement, error: insertedEntitlementError } = await supabase
+    .from("premium_entitlements")
+    .insert({
+      scope: "profile",
+      profile_id: params.claim.profile_id,
+      workspace_id: null,
+      entitlement_source: "boosty",
+      status: "active",
+      starts_at: params.reviewTimestampIso,
+      ends_at: newEntitlementEndsAt,
+      metadata: {
+        grant_origin: "owner_admin_claim_queue",
+        approved_claim_id: params.claim.id,
+        approved_claim_telegram_user_id: params.claim.telegram_user_id,
+        approved_expected_tier: params.claim.expected_tier,
+        approved_duration_days: durationDays,
+        approved_by_admin_telegram_user_id: params.adminTelegramUserId,
+        admin_note: params.adminNote,
+      },
+      created_at: params.reviewTimestampIso,
+      updated_at: params.reviewTimestampIso,
+    })
+    .select("id")
+    .single<{ id: string }>();
+
+  if (isFoundationMissingError(insertedEntitlementError?.code)) {
+    return {
+      ok: false,
+      reason: "FOUNDATION_NOT_READY",
+      message:
+        "Premium entitlement foundation is not ready. Apply Phase 13A migration.",
+    };
+  }
+
+  if (insertedEntitlementError || !insertedEntitlement) {
+    return {
+      ok: false,
+      reason: "ACTION_FAILED",
+      message: "Failed to grant boosty entitlement from approved claim.",
+    };
+  }
+
+  return {
+    ok: true,
+    data: {
+      entitlementId: insertedEntitlement.id,
+    },
+  };
+};
+
+export const listPremiumPurchaseClaims = async (): Promise<
+  AdminServiceResult<PremiumPurchaseClaimPayload[]>
+> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return {
+      ok: false,
+      reason: "ACTION_FAILED",
+      message: "Supabase server configuration is missing.",
+    };
+  }
+
+  const { data: claims, error: claimsError } = await supabase
+    .from("premium_purchase_claims")
+    .select(purchaseClaimSelection)
+    .order("submitted_at", { ascending: false })
+    .limit(80)
+    .returns<PremiumPurchaseClaimRow[]>();
+
+  if (isFoundationMissingError(claimsError?.code)) {
+    return {
+      ok: false,
+      reason: "FOUNDATION_NOT_READY",
+      message:
+        "Premium purchase claim foundation is not ready. Apply Phase 22A migration.",
+    };
+  }
+
+  if (claimsError || !claims) {
+    return {
+      ok: false,
+      reason: "ACTION_FAILED",
+      message: "Failed to read premium purchase claims queue.",
+    };
+  }
+
+  return {
+    ok: true,
+    data: claims.map((claim) => toPurchaseClaimPayload(claim)),
+  };
+};
+
+export const reviewPremiumPurchaseClaim = async (params: {
+  claimId: string;
+  decision: PremiumAdminPurchaseClaimReviewDecision;
+  adminTelegramUserId: string;
+  note?: string;
+}): Promise<
+  AdminServiceResult<{
+    claim: PremiumPurchaseClaimPayload;
+    entitlementId: string | null;
+  }>
+> => {
+  const normalizedClaimId = params.claimId.trim();
+  if (!uuidLikePattern.test(normalizedClaimId)) {
+    return {
+      ok: false,
+      reason: "INVALID_INPUT",
+      message: "Claim id is invalid.",
+    };
+  }
+
+  if (params.decision !== "approve" && params.decision !== "reject") {
+    return {
+      ok: false,
+      reason: "INVALID_INPUT",
+      message: "Claim review decision is invalid.",
+    };
+  }
+
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return {
+      ok: false,
+      reason: "ACTION_FAILED",
+      message: "Supabase server configuration is missing.",
+    };
+  }
+
+  const { data: claim, error: claimError } = await supabase
+    .from("premium_purchase_claims")
+    .select(purchaseClaimSelection)
+    .eq("id", normalizedClaimId)
+    .maybeSingle<PremiumPurchaseClaimRow>();
+
+  if (isFoundationMissingError(claimError?.code)) {
+    return {
+      ok: false,
+      reason: "FOUNDATION_NOT_READY",
+      message:
+        "Premium purchase claim foundation is not ready. Apply Phase 22A migration.",
+    };
+  }
+
+  if (claimError) {
+    return {
+      ok: false,
+      reason: "ACTION_FAILED",
+      message: "Failed to read purchase claim for review.",
+    };
+  }
+
+  if (!claim) {
+    return {
+      ok: false,
+      reason: "CLAIM_NOT_FOUND",
+      message: "Purchase claim was not found.",
+    };
+  }
+
+  if (!reviewableClaimStatuses.has(claim.claim_status)) {
+    return {
+      ok: false,
+      reason: "CLAIM_INVALID_STATE",
+      message: "Only submitted or pending-review claims can be reviewed.",
+    };
+  }
+
+  const reviewTimestampIso = new Date().toISOString();
+  const normalizedNote = params.note?.trim() ?? "";
+  const adminNote = normalizedNote ? normalizedNote.slice(0, 1000) : null;
+  let entitlementId: string | null = null;
+
+  if (params.decision === "approve") {
+    const entitlementResult = await ensureBoostyEntitlementForApprovedClaim({
+      claim,
+      adminTelegramUserId: params.adminTelegramUserId,
+      adminNote,
+      reviewTimestampIso,
+    });
+    if (!entitlementResult.ok) {
+      return entitlementResult;
+    }
+
+    entitlementId = entitlementResult.data.entitlementId;
+  }
+
+  const nextStatus: PremiumPurchaseClaimPayload["status"] =
+    params.decision === "approve" ? "approved" : "rejected";
+  const nextMetadata = {
+    ...(claim.metadata ?? {}),
+    review_origin: "owner_admin_claim_queue",
+    review_decision: params.decision,
+    reviewed_by_admin_telegram_user_id: params.adminTelegramUserId,
+    reviewed_at: reviewTimestampIso,
+    linked_entitlement_id: entitlementId,
+  };
+
+  const { data: updatedClaim, error: updatedClaimError } = await supabase
+    .from("premium_purchase_claims")
+    .update({
+      claim_status: nextStatus,
+      admin_note: adminNote,
+      entitlement_id: entitlementId,
+      reviewed_at: reviewTimestampIso,
+      reviewed_by_admin_telegram_user_id: params.adminTelegramUserId,
+      metadata: nextMetadata,
+      updated_at: reviewTimestampIso,
+    })
+    .eq("id", claim.id)
+    .select(purchaseClaimSelection)
+    .single<PremiumPurchaseClaimRow>();
+
+  if (updatedClaimError || !updatedClaim) {
+    return {
+      ok: false,
+      reason: "ACTION_FAILED",
+      message: "Failed to update claim review result.",
+    };
+  }
+
+  return {
+    ok: true,
+    data: {
+      claim: toPurchaseClaimPayload(updatedClaim),
+      entitlementId,
+    },
   };
 };
 

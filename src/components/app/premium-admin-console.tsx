@@ -7,12 +7,15 @@ import {
   deactivatePremiumGiftCampaignByAdmin,
   grantPremiumByAdmin,
   listPremiumGiftCampaignsByAdmin,
+  listPremiumPurchaseClaimsByAdmin,
   readPremiumAdminSession,
+  reviewPremiumPurchaseClaimByAdmin,
   resolvePremiumAdminTarget,
   revokePremiumByAdmin,
 } from "@/lib/auth/client";
 import type {
   PremiumAdminCampaignPayload,
+  PremiumAdminPurchaseClaimReviewDecision,
   PremiumAdminTargetPayload,
   PremiumPurchaseClaimPayload,
 } from "@/lib/auth/types";
@@ -44,13 +47,19 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
   const [targetTelegramUserId, setTargetTelegramUserId] = useState("");
   const [target, setTarget] = useState<PremiumAdminTargetPayload | null>(null);
   const [campaigns, setCampaigns] = useState<PremiumAdminCampaignPayload[]>([]);
+  const [purchaseClaims, setPurchaseClaims] = useState<PremiumPurchaseClaimPayload[]>([]);
   const [isResolvingTarget, setIsResolvingTarget] = useState(false);
   const [isSavingPremium, setIsSavingPremium] = useState(false);
   const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(false);
+  const [isLoadingPurchaseClaims, setIsLoadingPurchaseClaims] = useState(false);
   const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
   const [deactivatingCampaignId, setDeactivatingCampaignId] = useState<
     string | null
   >(null);
+  const [reviewingClaimId, setReviewingClaimId] = useState<string | null>(null);
+  const [claimAdminNotes, setClaimAdminNotes] = useState<Record<string, string>>(
+    {},
+  );
   const [grantDurationDaysInput, setGrantDurationDaysInput] = useState("30");
   const [adminNoteInput, setAdminNoteInput] = useState("");
   const [campaignCodeInput, setCampaignCodeInput] = useState("");
@@ -96,6 +105,31 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     }
   }, [initData, showAdminMessage, tr]);
 
+  const loadPurchaseClaims = useCallback(async () => {
+    setIsLoadingPurchaseClaims(true);
+    try {
+      const response = await listPremiumPurchaseClaimsByAdmin(initData);
+      if (!response.ok) {
+        showAdminMessage(response.error.message, "error");
+        return;
+      }
+
+      setPurchaseClaims(response.claims);
+      setClaimAdminNotes((current) => {
+        const next: Record<string, string> = { ...current };
+        for (const claim of response.claims) {
+          next[claim.id] = current[claim.id] ?? claim.adminNote ?? "";
+        }
+
+        return next;
+      });
+    } catch {
+      showAdminMessage(tr("Premium admin request failed."), "error");
+    } finally {
+      setIsLoadingPurchaseClaims(false);
+    }
+  }, [initData, showAdminMessage, tr]);
+
   useEffect(() => {
     let isMounted = true;
     const loadSession = async () => {
@@ -115,7 +149,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
         setSessionChecked(true);
 
         if (response.session.isAdmin) {
-          await loadCampaigns();
+          await Promise.all([loadCampaigns(), loadPurchaseClaims()]);
         }
       } catch {
         if (!isMounted) {
@@ -131,7 +165,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     return () => {
       isMounted = false;
     };
-  }, [initData, loadCampaigns, showAdminMessage, tr]);
+  }, [initData, loadCampaigns, loadPurchaseClaims, showAdminMessage, tr]);
 
   const resolveTarget = async () => {
     if (!targetTelegramUserId.trim()) {
@@ -340,6 +374,55 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     }
   };
 
+  const updateClaimAdminNote = (claimId: string, value: string) => {
+    setClaimAdminNotes((current) => ({
+      ...current,
+      [claimId]: value,
+    }));
+  };
+
+  const isClaimReviewable = (status: PremiumPurchaseClaimPayload["status"]) => {
+    return status === "submitted" || status === "pending_review";
+  };
+
+  const reviewPurchaseClaim = async (
+    claimId: string,
+    decision: PremiumAdminPurchaseClaimReviewDecision,
+  ) => {
+    setReviewingClaimId(claimId);
+    clearAdminMessage();
+    try {
+      const response = await reviewPremiumPurchaseClaimByAdmin({
+        initData,
+        claimId,
+        decision,
+        adminNote: claimAdminNotes[claimId] ?? "",
+      });
+      if (!response.ok) {
+        showAdminMessage(response.error.message, "error");
+        return;
+      }
+
+      setPurchaseClaims((current) =>
+        current.map((claim) => (claim.id === response.claim.id ? response.claim : claim)),
+      );
+      setClaimAdminNotes((current) => ({
+        ...current,
+        [response.claim.id]: response.claim.adminNote ?? "",
+      }));
+      showAdminMessage(
+        decision === "approve"
+          ? tr("Claim approved: {claimId}", { claimId: response.claim.id })
+          : tr("Claim rejected: {claimId}", { claimId: response.claim.id }),
+        "success",
+      );
+    } catch {
+      showAdminMessage(tr("Premium admin request failed."), "error");
+    } finally {
+      setReviewingClaimId(null);
+    }
+  };
+
   const targetPremiumLabel = useMemo(() => {
     if (!target) {
       return null;
@@ -365,6 +448,34 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
 
     return tr("Gift campaign grant");
   }, [target, tr]);
+
+  const getClaimStatusPillClass = (status: PremiumPurchaseClaimPayload["status"]) => {
+    if (status === "approved") {
+      return "pc-status-pill-success";
+    }
+
+    if (status === "rejected" || status === "expired" || status === "cancelled") {
+      return "pc-status-pill-warning";
+    }
+
+    return "";
+  };
+
+  const getClaimStatusIcon = (status: PremiumPurchaseClaimPayload["status"]) => {
+    if (status === "approved") {
+      return "check" as const;
+    }
+
+    if (status === "rejected" || status === "expired" || status === "cancelled") {
+      return "alert" as const;
+    }
+
+    if (status === "pending_review") {
+      return "refresh" as const;
+    }
+
+    return "clock" as const;
+  };
 
   if (!sessionChecked || !isAdmin) {
     return null;
@@ -691,6 +802,147 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
             </p>
           </div>
         )}
+      </div>
+
+      <div className="pc-detail-surface mt-2 bg-app-surface">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          {tr("Premium purchase claim review queue")}
+        </p>
+        <p className="mt-1 text-xs text-app-text-muted">
+          {tr(
+            "Owner-only manual reconciliation queue for Boosty-first purchase claims.",
+          )}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void loadPurchaseClaims()}
+            disabled={isLoadingPurchaseClaims}
+            className="pc-btn-secondary disabled:opacity-60"
+          >
+            {isLoadingPurchaseClaims ? tr("Loading...") : tr("Refresh claim queue")}
+          </button>
+        </div>
+        <div className="mt-2 space-y-1.5">
+          {purchaseClaims.map((claim) => (
+            <details
+              key={claim.id}
+              className="pc-state-card bg-app-surface px-2 py-1.5 text-xs text-app-text-muted"
+            >
+              <summary className="flex cursor-pointer items-center justify-between gap-2">
+                <span className="inline-flex items-center gap-1.5 font-semibold text-app-text">
+                  {tr("Claim")} #{claim.id.slice(0, 8)}
+                  <span className="text-app-text-muted">
+                    · {tr("Telegram user id")}: {claim.telegramUserId}
+                  </span>
+                </span>
+                <span
+                  className={`pc-status-pill ${getClaimStatusPillClass(claim.status)}`}
+                >
+                  <AppIcon
+                    name={getClaimStatusIcon(claim.status)}
+                    className="h-3 w-3"
+                  />
+                  {tr(claim.status)}
+                </span>
+              </summary>
+              <p className="mt-1">
+                {tr("Rail")}: {claim.claimRail}. {tr("Expected tier")}:{" "}
+                {claim.expectedTier}.
+              </p>
+              <p className="mt-1">
+                {tr("Submitted at")}:{" "}
+                {formatDateTime(claim.submittedAt, claim.submittedAt)}
+                {". "}
+                {tr("Entitlement linked")}:{" "}
+                {claim.entitlementId ? tr("yes") : tr("no")}
+              </p>
+              {claim.paymentProofReference && (
+                <p className="mt-1">
+                  {tr("Payment proof reference")}: {claim.paymentProofReference}
+                </p>
+              )}
+              <div className="mt-1.5 space-y-1 text-xs">
+                <p>
+                  {tr("External payer handle")}:{" "}
+                  {claim.externalPayerHandle ?? tr("Not set")}
+                </p>
+                <p>
+                  {tr("Payment proof text")}:{" "}
+                  {claim.paymentProofText ?? tr("Not set")}
+                </p>
+                <p>
+                  {tr("Claim note")}: {claim.claimNote ?? tr("Not set")}
+                </p>
+                <p>
+                  {tr("Admin note")}: {claim.adminNote ?? tr("Not set")}
+                </p>
+                <p>
+                  {tr("Reviewed at")}:{" "}
+                  {claim.reviewedAt
+                    ? formatDateTime(claim.reviewedAt, claim.reviewedAt)
+                    : tr("Not set")}
+                </p>
+                <p>
+                  {tr("Reviewed by admin Telegram user id")}:{" "}
+                  {claim.reviewedByAdminTelegramUserId ?? tr("Not set")}
+                </p>
+                <p>
+                  {tr("Claim id")}: {claim.id}
+                </p>
+              </div>
+              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <input
+                  type="text"
+                  value={claimAdminNotes[claim.id] ?? ""}
+                  onChange={(event) =>
+                    updateClaimAdminNote(claim.id, event.target.value)
+                  }
+                  placeholder={tr("Admin note (optional)")}
+                  className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void reviewPurchaseClaim(claim.id, "approve")}
+                    disabled={
+                      reviewingClaimId === claim.id || !isClaimReviewable(claim.status)
+                    }
+                    className="pc-btn-secondary disabled:opacity-60"
+                  >
+                    {reviewingClaimId === claim.id
+                      ? tr("Saving...")
+                      : tr("Approve claim")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void reviewPurchaseClaim(claim.id, "reject")}
+                    disabled={
+                      reviewingClaimId === claim.id || !isClaimReviewable(claim.status)
+                    }
+                    className="pc-btn-quiet disabled:opacity-60"
+                  >
+                    {reviewingClaimId === claim.id
+                      ? tr("Saving...")
+                      : tr("Reject claim")}
+                  </button>
+                </div>
+              </div>
+              {!isClaimReviewable(claim.status) && (
+                <p className="mt-1.5 inline-flex items-center gap-1 text-xs text-app-text-muted">
+                  <AppIcon name="clock" className="h-3.5 w-3.5" />
+                  {tr("This claim is already reviewed.")}
+                </p>
+              )}
+            </details>
+          ))}
+          {!isLoadingPurchaseClaims && purchaseClaims.length === 0 && (
+            <p className="pc-state-inline">
+              <AppIcon name="clock" className="h-3.5 w-3.5" />
+              {tr("No premium purchase claims yet.")}
+            </p>
+          )}
+        </div>
       </div>
 
       {adminMessage && (

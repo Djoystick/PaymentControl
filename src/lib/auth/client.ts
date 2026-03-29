@@ -12,6 +12,9 @@ import type {
   PremiumAdminCampaignDeactivateResponse,
   PremiumAdminCampaignListResponse,
   PremiumAdminGrantResponse,
+  PremiumAdminPurchaseClaimListResponse,
+  PremiumAdminPurchaseClaimReviewDecision,
+  PremiumAdminPurchaseClaimReviewResponse,
   PremiumAdminRevokeResponse,
   PremiumAdminSessionResponse,
   PremiumAdminTargetResolveResponse,
@@ -257,6 +260,30 @@ export const deactivatePremiumGiftCampaignByAdmin = async (
     initData,
     action: "deactivate_campaign",
     campaignId,
+  });
+};
+
+export const listPremiumPurchaseClaimsByAdmin = async (
+  initData: string,
+): Promise<PremiumAdminPurchaseClaimListResponse> => {
+  return postJson<PremiumAdminPurchaseClaimListResponse>("/api/premium/admin", "POST", {
+    initData,
+    action: "list_purchase_claims",
+  });
+};
+
+export const reviewPremiumPurchaseClaimByAdmin = async (params: {
+  initData: string;
+  claimId: string;
+  decision: PremiumAdminPurchaseClaimReviewDecision;
+  adminNote?: string;
+}): Promise<PremiumAdminPurchaseClaimReviewResponse> => {
+  return postJson<PremiumAdminPurchaseClaimReviewResponse>("/api/premium/admin", "POST", {
+    initData: params.initData,
+    action: "review_purchase_claim",
+    claimId: params.claimId,
+    decision: params.decision,
+    note: params.adminNote ?? "",
   });
 };
 

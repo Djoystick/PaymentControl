@@ -438,6 +438,9 @@ export type PremiumAdminErrorCode =
   | "PREMIUM_ADMIN_INVALID_INPUT"
   | "PREMIUM_ADMIN_CAMPAIGN_NOT_FOUND"
   | "PREMIUM_ADMIN_CAMPAIGN_FOUNDATION_NOT_READY"
+  | "PREMIUM_ADMIN_CLAIM_NOT_FOUND"
+  | "PREMIUM_ADMIN_CLAIM_INVALID_STATE"
+  | "PREMIUM_ADMIN_CLAIM_FOUNDATION_NOT_READY"
   | "PREMIUM_ADMIN_ACTION_FAILED";
 
 export type PremiumAdminTargetPayload = {
@@ -505,6 +508,19 @@ export type PremiumAdminCampaignDeactivateSuccess = {
   campaign: PremiumAdminCampaignPayload;
 };
 
+export type PremiumAdminPurchaseClaimListSuccess = {
+  ok: true;
+  claims: PremiumPurchaseClaimPayload[];
+};
+
+export type PremiumAdminPurchaseClaimReviewDecision = "approve" | "reject";
+
+export type PremiumAdminPurchaseClaimReviewSuccess = {
+  ok: true;
+  claim: PremiumPurchaseClaimPayload;
+  entitlementId: string | null;
+};
+
 export type PremiumAdminError = {
   ok: false;
   error: {
@@ -539,4 +555,12 @@ export type PremiumAdminCampaignListResponse =
 
 export type PremiumAdminCampaignDeactivateResponse =
   | PremiumAdminCampaignDeactivateSuccess
+  | PremiumAdminError;
+
+export type PremiumAdminPurchaseClaimListResponse =
+  | PremiumAdminPurchaseClaimListSuccess
+  | PremiumAdminError;
+
+export type PremiumAdminPurchaseClaimReviewResponse =
+  | PremiumAdminPurchaseClaimReviewSuccess
   | PremiumAdminError;
