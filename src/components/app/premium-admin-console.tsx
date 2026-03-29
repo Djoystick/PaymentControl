@@ -331,18 +331,18 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
   }
 
   return (
-    <details className="pc-detail-surface mb-3">
+    <details className="pc-detail-surface bg-app-surface">
       <summary className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
         <AppIcon name="premium" className="h-3.5 w-3.5" />
         {tr("Owner premium admin")}
       </summary>
-      <p className="mt-2 text-xs text-app-text-muted">
+      <p className="mt-1.5 text-xs text-app-text-muted">
         {tr(
           "Owner-only internal console. All actions use stable Telegram numeric user id.",
         )}
       </p>
 
-      <div className="mt-3 rounded-xl border border-app-border bg-white p-3">
+      <div className="pc-detail-surface mt-2 bg-app-surface">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           {tr("Target account")}
         </p>
@@ -352,19 +352,19 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
             value={targetTelegramUserId}
             onChange={(event) => setTargetTelegramUserId(event.target.value)}
             placeholder={tr("Target Telegram user id")}
-            className="min-w-[170px] flex-1 rounded-xl border border-app-border px-3 py-2 text-sm text-app-text outline-none"
+            className="min-w-[170px] flex-1 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
           />
           <button
             type="button"
             onClick={() => void resolveTarget()}
             disabled={isResolvingTarget || !targetTelegramUserId.trim()}
-            className="rounded-xl border border-app-border px-3 py-2 text-xs font-semibold text-app-text disabled:opacity-60"
+            className="pc-btn-secondary disabled:opacity-60"
           >
             {isResolvingTarget ? tr("Loading...") : tr("Resolve target")}
           </button>
         </div>
         {target && (
-          <div className="mt-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-xs text-app-text-muted">
+          <div className="pc-state-card mt-2 bg-app-surface px-2 py-1.5 text-xs text-app-text-muted">
             <p className="font-semibold text-app-text">
               {target.firstName} {target.lastName ?? ""}{" "}
               {target.username ? `(@${target.username})` : ""}
@@ -397,7 +397,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
         )}
       </div>
 
-      <div className="mt-3 rounded-xl border border-app-border bg-white p-3">
+      <div className="pc-detail-surface mt-2 bg-app-surface">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           {tr("Manual premium actions")}
         </p>
@@ -410,14 +410,14 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
             value={grantDurationDaysInput}
             onChange={(event) => setGrantDurationDaysInput(event.target.value)}
             placeholder={tr("Grant duration days (empty = no expiry)")}
-            className="rounded-xl border border-app-border px-3 py-2 text-sm text-app-text outline-none"
+            className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
           />
           <input
             type="text"
             value={adminNoteInput}
             onChange={(event) => setAdminNoteInput(event.target.value)}
             placeholder={tr("Admin note (optional)")}
-            className="rounded-xl border border-app-border px-3 py-2 text-sm text-app-text outline-none"
+            className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
           />
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -425,7 +425,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
             type="button"
             onClick={() => void grantPremium()}
             disabled={isSavingPremium || !target}
-            className="rounded-xl border border-app-border px-3 py-2 text-xs font-semibold text-app-text disabled:opacity-60"
+            className="pc-btn-secondary disabled:opacity-60"
           >
             {tr("Grant premium")}
           </button>
@@ -433,14 +433,14 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
             type="button"
             onClick={() => void revokePremium()}
             disabled={isSavingPremium || !target}
-            className="rounded-xl border border-app-border px-3 py-2 text-xs font-semibold text-app-text disabled:opacity-60"
+            className="pc-btn-secondary disabled:opacity-60"
           >
             {tr("Revoke premium")}
           </button>
         </div>
       </div>
 
-      <div className="mt-3 rounded-xl border border-app-border bg-white p-3">
+      <div className="pc-detail-surface mt-2 bg-app-surface">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           {tr("Gift campaign control")}
         </p>
@@ -450,40 +450,40 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
             value={campaignCodeInput}
             onChange={(event) => setCampaignCodeInput(event.target.value)}
             placeholder={tr("Campaign code")}
-            className="rounded-xl border border-app-border px-3 py-2 text-sm text-app-text outline-none"
+            className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
           />
           <input
             type="text"
             value={campaignTitleInput}
             onChange={(event) => setCampaignTitleInput(event.target.value)}
             placeholder={tr("Campaign title")}
-            className="rounded-xl border border-app-border px-3 py-2 text-sm text-app-text outline-none"
+            className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
           />
           <input
             type="text"
             value={campaignQuotaInput}
             onChange={(event) => setCampaignQuotaInput(event.target.value)}
             placeholder={tr("Quota")}
-            className="rounded-xl border border-app-border px-3 py-2 text-sm text-app-text outline-none"
+            className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
           />
           <input
             type="text"
             value={campaignDurationInput}
             onChange={(event) => setCampaignDurationInput(event.target.value)}
             placeholder={tr("Premium days")}
-            className="rounded-xl border border-app-border px-3 py-2 text-sm text-app-text outline-none"
+            className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
           />
           <input
             type="datetime-local"
             value={campaignStartsAtInput}
             onChange={(event) => setCampaignStartsAtInput(event.target.value)}
-            className="rounded-xl border border-app-border px-3 py-2 text-sm text-app-text outline-none"
+            className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
           />
           <input
             type="datetime-local"
             value={campaignEndsAtInput}
             onChange={(event) => setCampaignEndsAtInput(event.target.value)}
-            className="rounded-xl border border-app-border px-3 py-2 text-sm text-app-text outline-none"
+            className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
           />
         </div>
         <div className="mt-2 flex flex-wrap gap-2">
@@ -491,7 +491,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
             type="button"
             onClick={() => void createCampaign()}
             disabled={isCreatingCampaign}
-            className="rounded-xl border border-app-border px-3 py-2 text-xs font-semibold text-app-text disabled:opacity-60"
+            className="pc-btn-secondary disabled:opacity-60"
           >
             {isCreatingCampaign ? tr("Saving...") : tr("Create campaign")}
           </button>
@@ -499,17 +499,17 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
             type="button"
             onClick={() => void loadCampaigns()}
             disabled={isLoadingCampaigns}
-            className="rounded-xl border border-app-border px-3 py-2 text-xs font-semibold text-app-text disabled:opacity-60"
+            className="pc-btn-secondary disabled:opacity-60"
           >
             {isLoadingCampaigns ? tr("Loading...") : tr("Refresh campaigns")}
           </button>
         </div>
 
-        <div className="mt-2 space-y-2">
+        <div className="mt-2 space-y-1.5">
           {campaigns.map((campaign) => (
             <div
               key={campaign.id}
-              className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-xs text-app-text-muted"
+              className="pc-state-card bg-app-surface px-2 py-1.5 text-xs text-app-text-muted"
             >
               <div className="flex items-center justify-between gap-2">
                 <p className="font-semibold text-app-text">
@@ -555,7 +555,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                   deactivatingCampaignId === campaign.id ||
                   campaign.status === "ended"
                 }
-                className="mt-2 rounded-lg border border-app-border px-2 py-1 text-[11px] font-semibold text-app-text disabled:opacity-60"
+                className="pc-btn-quiet mt-1.5 disabled:opacity-60"
               >
                 {campaign.status === "ended"
                   ? tr("Campaign ended")

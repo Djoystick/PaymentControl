@@ -455,7 +455,12 @@ function ProfileScenariosContent() {
           </HelpPopover>
         </div>
       </div>
-      <div className="pc-surface pc-surface-soft">
+      <section className="pc-surface pc-surface-soft space-y-2">
+        <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          <AppIcon name="support" className="h-3.5 w-3.5" />
+          {tr("Premium and support")}
+        </p>
+        <div className="pc-detail-surface bg-app-surface">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="premium" className="h-3.5 w-3.5" />
           {tr("Premium status")}
@@ -508,8 +513,8 @@ function ProfileScenariosContent() {
             </p>
           </>
         )}
-      </div>
-      <details className="pc-surface pc-surface-soft">
+        </div>
+      <details className="pc-detail-surface bg-app-surface">
         <summary className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="support" className="h-3.5 w-3.5" />
           {tr("Report a bug")}
@@ -595,7 +600,7 @@ function ProfileScenariosContent() {
         </form>
       </details>
       <PremiumAdminConsole initData={initData} />
-      <details className="pc-surface pc-surface-soft">
+      <details className="pc-detail-surface bg-app-surface">
         <summary className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="premium" className="h-3.5 w-3.5" />
           {tr("Gift premium claim (verification)")}
@@ -650,6 +655,7 @@ function ProfileScenariosContent() {
           </div>
         )}
       </details>
+      </section>
       <div className="pc-surface pc-surface-soft">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="workspace" className="h-3.5 w-3.5" />

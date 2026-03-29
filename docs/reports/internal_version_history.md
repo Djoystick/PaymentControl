@@ -4,7 +4,8 @@
 
 | Date | Phase | Status | Summary | Report |
 |---|---|---|---|---|
-| 2026-03-29 | Phase 20G | implemented (code/report), pending manual verification | Honest viewport fit correction: removed forced inner-main scroll and restored natural page scroll for long screens while keeping compact first-screen utility | `docs/reports/phase_20G_honest_viewport_fit_scroll_behavior_correction.md` |
+| 2026-03-29 | Phase 20H | implemented (code/report), pending manual verification | Secondary surface alignment pass: Profile/Premium/Support/Admin visible blocks aligned to shared system grammar with calmer grouping and compact cohesion | `docs/reports/phase_20H_secondary_surface_alignment_support_admin_premium_cohesion.md` |
+| 2026-03-29 | Phase 20G | implemented (code/report), manual verification completed by user | Honest viewport fit correction: removed forced inner-main scroll and restored natural page scroll for long screens while keeping compact first-screen utility | `docs/reports/phase_20G_honest_viewport_fit_scroll_behavior_correction.md` |
 | 2026-03-29 | Phase 20F | implemented (code/report), manual verification completed by user | Dense card rows + high-frequency surface compression for Reminders/Home/History/Profile top blocks to fit more useful rows above the fold | `docs/reports/phase_20F_dense_card_rows_high_frequency_surface_compression.md` |
 | 2026-03-29 | Phase 20E | implemented (code/report), manual verification completed by user | Viewport-first layout compression and scroll minimization across Home/Reminders/History/Profile with tighter shell and compact shared spacing | `docs/reports/phase_20E_viewport_first_layout_compression_scroll_minimization.md` |
 | 2026-03-29 | Phase 20D | implemented (code/report), manual verification completed by user | State language + theme parity pass: unified empty/loading/error/success feedback and status treatment across user surfaces | `docs/reports/phase_20D_state_language_theme_parity_pass.md` |
