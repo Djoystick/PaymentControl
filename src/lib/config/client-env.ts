@@ -32,6 +32,11 @@ export const clientEnv = {
   telegramBotUsername: normalizeTelegramBotUsername(
     readEnvValue(process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME),
   ),
+  premiumBuyUrl:
+    readEnvValue(process.env.NEXT_PUBLIC_PREMIUM_BUY_URL) || "https://boosty.to",
+  supportProjectUrl:
+    readEnvValue(process.env.NEXT_PUBLIC_SUPPORT_PROJECT_URL) ||
+    "https://boosty.to",
   supabaseUrl: readEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL),
   supabaseAnonKey: readEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
 } as const;

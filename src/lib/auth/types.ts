@@ -366,6 +366,27 @@ export type PremiumPurchaseClaimCreateResponse =
   | PremiumPurchaseClaimCreateSuccess
   | PremiumPurchaseClaimCreateError;
 
+export type PremiumPurchaseClaimReadMineSuccess = {
+  ok: true;
+  claims: PremiumPurchaseClaimPayload[];
+};
+
+export type PremiumPurchaseClaimReadMineErrorCode =
+  | CurrentAppContextErrorCode
+  | "PREMIUM_PURCHASE_CLAIM_READ_FAILED";
+
+export type PremiumPurchaseClaimReadMineError = {
+  ok: false;
+  error: {
+    code: PremiumPurchaseClaimReadMineErrorCode;
+    message: string;
+  };
+};
+
+export type PremiumPurchaseClaimReadMineResponse =
+  | PremiumPurchaseClaimReadMineSuccess
+  | PremiumPurchaseClaimReadMineError;
+
 export type GiftPremiumClaimStatus =
   | "granted"
   | "rejected_invalid_code"

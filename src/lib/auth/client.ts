@@ -19,6 +19,7 @@ import type {
   PremiumAdminSessionResponse,
   PremiumAdminTargetResolveResponse,
   PremiumPurchaseClaimCreateResponse,
+  PremiumPurchaseClaimReadMineResponse,
   GiftPremiumClaimResponse,
   PremiumEntitlementReadResponse,
   ScenarioUpdateResponse,
@@ -170,6 +171,20 @@ export const createPremiumPurchaseClaim = async (params: {
       paymentProofReference: params.paymentProofReference ?? "",
       paymentProofText: params.paymentProofText ?? "",
       claimNote: params.claimNote ?? "",
+    },
+  );
+};
+
+export const readMyPremiumPurchaseClaims = async (params: {
+  initData: string;
+  limit?: number;
+}): Promise<PremiumPurchaseClaimReadMineResponse> => {
+  return postJson<PremiumPurchaseClaimReadMineResponse>(
+    "/api/premium/purchase-claims/mine",
+    "POST",
+    {
+      initData: params.initData,
+      limit: params.limit ?? 10,
     },
   );
 };

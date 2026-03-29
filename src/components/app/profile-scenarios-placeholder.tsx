@@ -1,11 +1,16 @@
 ﻿"use client";
 
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import type {
   FamilyWorkspaceInvitePayload,
   FamilyWorkspaceInviteStatus,
+  PremiumPurchaseClaimPayload,
 } from "@/lib/auth/types";
-import { submitBugReport } from "@/lib/auth/client";
+import {
+  createPremiumPurchaseClaim,
+  readMyPremiumPurchaseClaims,
+  submitBugReport,
+} from "@/lib/auth/client";
 import { useCurrentAppContext } from "@/hooks/use-current-app-context";
 import {
   maskInviteToken,
@@ -24,6 +29,7 @@ import { RecurringPaymentsSection } from "@/components/app/recurring-payments-se
 import { PremiumAdminConsole } from "@/components/app/premium-admin-console";
 import { HelpPopover } from "@/components/app/help-popover";
 import { AppIcon } from "@/components/app/app-icon";
+import { clientEnv } from "@/lib/config/client-env";
 import { ThemeProvider, useTheme } from "@/lib/theme/theme-context";
 
 const inviteStatusLabels: Record<FamilyWorkspaceInviteStatus, string> = {
@@ -98,11 +104,23 @@ function ProfileScenariosContent() {
     "idle",
   );
   const [giftCampaignCodeInput, setGiftCampaignCodeInput] = useState("");
+  const [isLoadingPurchaseClaims, setIsLoadingPurchaseClaims] = useState(false);
+  const [isSubmittingPremiumClaim, setIsSubmittingPremiumClaim] = useState(false);
+  const [purchaseClaimExternalHandle, setPurchaseClaimExternalHandle] = useState("");
+  const [purchaseClaimProofReference, setPurchaseClaimProofReference] = useState("");
+  const [purchaseClaimProofText, setPurchaseClaimProofText] = useState("");
+  const [purchaseClaimNote, setPurchaseClaimNote] = useState("");
+  const [latestPurchaseClaim, setLatestPurchaseClaim] =
+    useState<PremiumPurchaseClaimPayload | null>(null);
   const [bugReportTitle, setBugReportTitle] = useState("");
   const [bugReportDescription, setBugReportDescription] = useState("");
   const [bugReportSteps, setBugReportSteps] = useState("");
   const [isSubmittingBugReport, setIsSubmittingBugReport] = useState(false);
   const [bugReportFeedback, setBugReportFeedback] = useState<{
+    kind: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [purchaseClaimFeedback, setPurchaseClaimFeedback] = useState<{
     kind: "success" | "error";
     message: string;
   } | null>(null);
@@ -179,6 +197,152 @@ function ProfileScenariosContent() {
     return tr("Gift claim rejected: already claimed");
   })();
   const isGiftClaimGranted = giftPremiumClaimResult?.status === "granted";
+  const buyPremiumUrl = clientEnv.premiumBuyUrl;
+  const supportProjectUrl = clientEnv.supportProjectUrl;
+  const isClaimPending =
+    latestPurchaseClaim?.status === "submitted" ||
+    latestPurchaseClaim?.status === "pending_review";
+  const isClaimRejected = latestPurchaseClaim?.status === "rejected";
+  const purchaseClaimStatusLabel = (() => {
+    if (!latestPurchaseClaim) {
+      return null;
+    }
+
+    if (latestPurchaseClaim.status === "submitted") {
+      return tr("Claim pending review");
+    }
+
+    if (latestPurchaseClaim.status === "pending_review") {
+      return tr("Claim in review");
+    }
+
+    if (latestPurchaseClaim.status === "approved") {
+      return tr("Claim approved");
+    }
+
+    if (latestPurchaseClaim.status === "rejected") {
+      return tr("Claim rejected");
+    }
+
+    if (latestPurchaseClaim.status === "expired") {
+      return tr("Claim expired");
+    }
+
+    if (latestPurchaseClaim.status === "cancelled") {
+      return tr("Claim cancelled");
+    }
+
+    return tr("Claim draft");
+  })();
+
+  const refreshMyPurchaseClaims = useCallback(
+    async ({ silent = false }: { silent?: boolean } = {}) => {
+      if (!initData || !profile) {
+        setLatestPurchaseClaim(null);
+        setIsLoadingPurchaseClaims(false);
+        return;
+      }
+
+      setIsLoadingPurchaseClaims(true);
+      if (!silent) {
+        setPurchaseClaimFeedback(null);
+      }
+      try {
+        const response = await readMyPremiumPurchaseClaims({
+          initData,
+          limit: 5,
+        });
+
+        if (!response.ok) {
+          setLatestPurchaseClaim(null);
+          if (!silent) {
+            setPurchaseClaimFeedback({
+              kind: "error",
+              message: tr(response.error.message),
+            });
+          }
+          return;
+        }
+
+        setLatestPurchaseClaim(response.claims[0] ?? null);
+      } catch {
+        setLatestPurchaseClaim(null);
+        if (!silent) {
+          setPurchaseClaimFeedback({
+            kind: "error",
+            message: tr("Failed to read premium purchase claims."),
+          });
+        }
+      } finally {
+        setIsLoadingPurchaseClaims(false);
+      }
+    },
+    [initData, profile, tr],
+  );
+
+  useEffect(() => {
+    if (!initData || !profile) {
+      setLatestPurchaseClaim(null);
+      setIsLoadingPurchaseClaims(false);
+      return;
+    }
+
+    void refreshMyPurchaseClaims({ silent: true });
+  }, [initData, profile, refreshMyPurchaseClaims]);
+
+  const submitPremiumClaim = async () => {
+    if (!initData || !profile || isSubmittingPremiumClaim) {
+      return;
+    }
+
+    if (
+      !purchaseClaimExternalHandle.trim() &&
+      !purchaseClaimProofReference.trim() &&
+      !purchaseClaimProofText.trim()
+    ) {
+      setPurchaseClaimFeedback({
+        kind: "error",
+        message: tr("Add at least one payment proof field before claim submission."),
+      });
+      return;
+    }
+
+    setIsSubmittingPremiumClaim(true);
+    setPurchaseClaimFeedback(null);
+    try {
+      const response = await createPremiumPurchaseClaim({
+        initData,
+        claimRail: "boosty_premium",
+        expectedTier: "premium_monthly",
+        externalPayerHandle: purchaseClaimExternalHandle.trim(),
+        paymentProofReference: purchaseClaimProofReference.trim(),
+        paymentProofText: purchaseClaimProofText.trim(),
+        claimNote: purchaseClaimNote.trim(),
+      });
+      if (!response.ok) {
+        setPurchaseClaimFeedback({
+          kind: "error",
+          message: tr(response.error.message),
+        });
+        return;
+      }
+
+      setLatestPurchaseClaim(response.claim);
+      setPurchaseClaimFeedback({
+        kind: "success",
+        message: tr("Claim submitted. Owner review is now pending."),
+      });
+      await refreshContext();
+    } catch {
+      setPurchaseClaimFeedback({
+        kind: "error",
+        message: tr("Failed to submit premium claim."),
+      });
+    } finally {
+      setIsSubmittingPremiumClaim(false);
+    }
+  };
+
   useEffect(() => {
     const syncOnboardingFlagState = () => {
       setIsOnboardingFlagCompleted(readOnboardingFlagState());
@@ -460,59 +624,217 @@ function ProfileScenariosContent() {
           <AppIcon name="support" className="h-3.5 w-3.5" />
           {tr("Premium and support")}
         </p>
-        <div className="pc-detail-surface bg-app-surface">
-        <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-          <AppIcon name="premium" className="h-3.5 w-3.5" />
-          {tr("Premium status")}
+        <p className="text-xs text-app-text-muted">
+          {tr(
+            "Buy Premium, Support, and Claim Premium are separate rails with different meaning.",
+          )}
         </p>
-        {isLoadingPremium ? (
-          <p className="pc-state-inline mt-1">
-            <AppIcon name="refresh" className="h-3.5 w-3.5 pc-spin" />
-            {tr("Loading premium status...")}
+        <div className="pc-detail-surface bg-app-surface">
+          <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+            <AppIcon name="premium" className="h-3.5 w-3.5" />
+            {tr("Premium status")}
           </p>
-        ) : !premiumEntitlement ? (
-          <p className="pc-feedback pc-feedback-warning mt-1">
-            <AppIcon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span>
-            {tr("Premium status is temporarily unavailable.")}
-            </span>
-          </p>
-        ) : (
-          <>
+          {isLoadingPremium ? (
+            <p className="pc-state-inline mt-1">
+              <AppIcon name="refresh" className="h-3.5 w-3.5 pc-spin" />
+              {tr("Loading premium status...")}
+            </p>
+          ) : !premiumEntitlement ? (
+            <p className="pc-feedback pc-feedback-warning mt-1">
+              <AppIcon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>{tr("Premium status is temporarily unavailable.")}</span>
+            </p>
+          ) : (
+            <>
+              <p
+                className={`pc-status-pill mt-1 ${
+                  premiumEntitlement.isPremium ? "pc-status-pill-success" : ""
+                }`}
+              >
+                <AppIcon
+                  name={premiumEntitlement.isPremium ? "check" : "clock"}
+                  className="h-3 w-3"
+                />
+                {premiumEntitlement.isPremium
+                  ? tr("Premium active")
+                  : tr("Free plan active")}
+              </p>
+              {premiumEntitlement.isPremium && (
+                <p className="mt-1 text-xs text-app-text-muted">
+                  {premiumScopeLabel ? `${tr("Entitlement scope")}: ${premiumScopeLabel}. ` : ""}
+                  {premiumSourceLabel
+                    ? `${tr("Entitlement source")}: ${premiumSourceLabel}. `
+                    : ""}
+                  {premiumEntitlement.endsAt
+                    ? `${tr("Premium valid until")}: ${formatDateTime(premiumEntitlement.endsAt)}.`
+                    : tr("No expiry")}
+                </p>
+              )}
+              {!premiumEntitlement.isPremium && (
+                <p className="mt-1 text-xs text-app-text-muted">
+                  {tr("Core features remain free in this phase.")}
+                </p>
+              )}
+              <p className="mt-1 text-xs text-app-text-muted">
+                {tr("No core features are locked in this phase.")}
+              </p>
+            </>
+          )}
+
+          {isLoadingPurchaseClaims ? (
+            <p className="pc-state-inline mt-1.5">
+              <AppIcon name="refresh" className="h-3.5 w-3.5 pc-spin" />
+              {tr("Loading claim status...")}
+            </p>
+          ) : purchaseClaimStatusLabel && !premiumEntitlement?.isPremium ? (
             <p
-              className={`pc-status-pill mt-1 ${
-                premiumEntitlement.isPremium
+              className={`pc-status-pill mt-1.5 ${
+                latestPurchaseClaim?.status === "approved"
                   ? "pc-status-pill-success"
-                  : ""
+                  : isClaimPending || isClaimRejected
+                    ? "pc-status-pill-warning"
+                    : ""
               }`}
             >
               <AppIcon
-                name={premiumEntitlement.isPremium ? "check" : "clock"}
+                name={
+                  latestPurchaseClaim?.status === "approved"
+                    ? "check"
+                    : isClaimRejected
+                      ? "alert"
+                      : "clock"
+                }
                 className="h-3 w-3"
               />
-              {premiumEntitlement.isPremium
-                ? tr("Premium active")
-                : tr("Free plan active")}
+              {purchaseClaimStatusLabel}
             </p>
-            {premiumEntitlement.isPremium && (
+          ) : null}
+
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <a
+              href={buyPremiumUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="pc-state-card border border-app-accent/70 bg-app-accent/10 px-3 py-2 text-app-text"
+            >
+              <p className="inline-flex items-center gap-1.5 text-sm font-semibold">
+                <AppIcon name="premium" className="h-4 w-4" />
+                {tr("Buy Premium")}
+              </p>
               <p className="mt-1 text-xs text-app-text-muted">
-                {premiumScopeLabel ? `${tr("Entitlement scope")}: ${premiumScopeLabel}. ` : ""}
-                {premiumSourceLabel ? `${tr("Entitlement source")}: ${premiumSourceLabel}. ` : ""}
-                {premiumEntitlement.endsAt
-                  ? `${tr("Premium valid until")}: ${formatDateTime(premiumEntitlement.endsAt)}.`
-                  : tr("No expiry")}
+                {tr("Paid expansion via Boosty subscription. Core usage stays free.")}
+              </p>
+              <span className="pc-btn-primary mt-2 w-full justify-center text-xs">
+                {tr("Open Boosty")}
+              </span>
+            </a>
+            <a
+              href={supportProjectUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="pc-state-card border border-app-border bg-app-surface px-3 py-2 text-app-text"
+            >
+              <p className="inline-flex items-center gap-1.5 text-sm font-semibold">
+                <AppIcon name="support" className="h-4 w-4" />
+                {tr("Support the project")}
+              </p>
+              <p className="mt-1 text-xs text-app-text-muted">
+                {tr("Voluntary support rail. It does not grant Premium automatically.")}
+              </p>
+              <span className="pc-btn-secondary mt-2 w-full justify-center text-xs">
+                {tr("Open support page")}
+              </span>
+            </a>
+          </div>
+
+          <details className="pc-state-card mt-2 bg-app-surface px-3 py-2 text-xs text-app-text-muted">
+            <summary className="inline-flex cursor-pointer items-center gap-1.5 font-semibold text-app-text">
+              <AppIcon name="wallet" className="h-3.5 w-3.5" />
+              {tr("I already paid / Claim Premium")}
+            </summary>
+            <p className="mt-1">
+              {tr("Use this after external payment to submit claim for owner review.")}
+            </p>
+            <div className="mt-2 grid grid-cols-1 gap-2">
+              <input
+                type="text"
+                value={purchaseClaimExternalHandle}
+                onChange={(event) => setPurchaseClaimExternalHandle(event.target.value)}
+                placeholder={tr("External payer handle (optional)")}
+                className="w-full rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
+              />
+              <input
+                type="text"
+                value={purchaseClaimProofReference}
+                onChange={(event) => setPurchaseClaimProofReference(event.target.value)}
+                placeholder={tr("Payment proof reference (optional)")}
+                className="w-full rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
+              />
+              <textarea
+                value={purchaseClaimProofText}
+                onChange={(event) => setPurchaseClaimProofText(event.target.value)}
+                rows={3}
+                placeholder={tr("Payment proof text (optional)")}
+                className="w-full resize-y rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
+              />
+              <input
+                type="text"
+                value={purchaseClaimNote}
+                onChange={(event) => setPurchaseClaimNote(event.target.value)}
+                placeholder={tr("Claim note (optional)")}
+                className="w-full rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
+              />
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void submitPremiumClaim()}
+                disabled={isSubmittingPremiumClaim}
+                className="pc-btn-secondary"
+              >
+                <AppIcon name="check" className="h-3.5 w-3.5" />
+                {isSubmittingPremiumClaim
+                  ? tr("Submitting claim...")
+                  : tr("Submit premium claim")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void refreshMyPurchaseClaims()}
+                disabled={!initData || isLoadingPurchaseClaims}
+                className="pc-btn-quiet disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <AppIcon name="refresh" className="h-3.5 w-3.5" />
+                {tr("Refresh claim status")}
+              </button>
+            </div>
+            {latestPurchaseClaim && (
+              <p className="mt-1.5 text-xs">
+                {tr("Latest claim")}: {purchaseClaimStatusLabel ?? tr(latestPurchaseClaim.status)}.{" "}
+                {tr("Submitted at")}:{" "}
+                {formatDateTime(latestPurchaseClaim.submittedAt, latestPurchaseClaim.submittedAt)}
               </p>
             )}
-            {!premiumEntitlement.isPremium && (
-              <p className="mt-1 text-xs text-app-text-muted">
-                {tr("Core features remain free in this phase.")}
+            {isClaimRejected && (
+              <p className="mt-1.5 text-xs text-app-text-muted">
+                {tr("Claim was rejected. Update proof and submit a new claim.")}
               </p>
             )}
-            <p className="mt-1 text-xs text-app-text-muted">
-              {tr("No core features are locked in this phase.")}
-            </p>
-          </>
-        )}
+            {purchaseClaimFeedback && (
+              <p
+                className={`pc-feedback mt-2 ${
+                  purchaseClaimFeedback.kind === "success"
+                    ? "pc-feedback-success"
+                    : "pc-feedback-error"
+                }`}
+              >
+                <AppIcon
+                  name={purchaseClaimFeedback.kind === "success" ? "check" : "alert"}
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0"
+                />
+                <span>{purchaseClaimFeedback.message}</span>
+              </p>
+            )}
+          </details>
         </div>
       <details className="pc-detail-surface bg-app-surface">
         <summary className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">

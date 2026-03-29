@@ -4,6 +4,7 @@
 
 | Date | Phase | Status | Summary | Report |
 |---|---|---|---|---|
+| 2026-03-29 | Phase 22B | implemented (code/report), pending manual verification | Added Profile monetization entry separation with distinct Buy Premium / Support / Claim Premium rails, premium status presentation, and user claim submission/status refresh integrated with existing 22A/22C foundation | `docs/reports/phase_22B_profile_premium_support_entry_separation.md` |
 | 2026-03-29 | Phase 22C | implemented (code/report), pending manual verification | Added owner-only premium purchase claim review queue with claim listing, proof inspection, approve/reject actions, and entitlement linkage on approval | `docs/reports/phase_22C_owner_claim_review_queue.md` |
 | 2026-03-29 | Phase 22A.1 | implemented (code/report), pending manual verification | Added owner-only temporary runtime trigger for premium purchase claim creation (fixed QA payload via real client/API path) to complete 22A create-path verification readiness | `docs/reports/phase_22A_1_temporary_premium_claim_verification_trigger.md` |
 | 2026-03-29 | Phase 22A | implemented (code/report), pending manual verification | Added premium purchase claim foundation: new `premium_purchase_claims` schema, lifecycle status model, and `POST /api/premium/purchase-claims` creation path with Telegram ID as primary identity anchor | `docs/reports/phase_22A_premium_purchase_claim_foundation.md` |
