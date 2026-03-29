@@ -4,6 +4,7 @@
 
 | Date | Phase | Status | Summary | Report |
 |---|---|---|---|---|
+| 2026-03-29 | Phase 21B.2 | implemented (audit/report), pending manual verification | Phase 13B formal closure readiness audit + deterministic manual verification pack; confirmed no additional enabling code changes required | `docs/reports/phase_21B_2_phase_13B_formal_closure_readiness_and_verification_pack.md` |
 | 2026-03-29 | Phase 21B.1 | implemented (audit/report), pending manual verification | True first-run onboarding verification readiness audit: confirmed first-run gate model, replay separation, and deterministic manual verification procedure without code changes | `docs/reports/phase_21B_1_true_first_run_onboarding_verification_readiness_audit.md` |
 | 2026-03-29 | Phase 21A.1 | implemented (code/report), pending manual verification | Onboarding viewport overlay positioning fix: moved onboarding modal to viewport-level portal, added safe max-height/internal scroll and background scroll lock | `docs/reports/phase_21A_1_onboarding_viewport_overlay_positioning_fix.md` |
 | 2026-03-29 | Phase 21A | implemented (code/report), pending manual verification | Onboarding overhaul on stabilized UI system: shorter action-first 4-step flow, updated system-aligned overlay framing, and tighter first-use/replay guidance | `docs/reports/phase_21A_onboarding_overhaul_on_stabilized_ui_system.md` |
