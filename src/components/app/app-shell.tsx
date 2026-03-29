@@ -195,7 +195,7 @@ export function AppShell({ screens }: AppShellProps) {
 
   return (
     <div className="relative mx-auto flex min-h-dvh w-full max-w-[420px] flex-col px-1.5 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] pt-1.5 sm:px-2.5">
-      <div className="relative flex h-[calc(100dvh-0.75rem)] flex-1 flex-col rounded-[30px] border border-app-border/80 bg-gradient-to-b from-app-surface via-app-surface/94 to-app-surface-soft/55 p-2 shadow-[0_20px_48px_var(--app-frame-shadow)] backdrop-blur">
+      <div className="relative flex min-h-[calc(100dvh-0.75rem)] flex-1 flex-col rounded-[30px] border border-app-border/80 bg-gradient-to-b from-app-surface via-app-surface/94 to-app-surface-soft/55 p-2 shadow-[0_20px_48px_var(--app-frame-shadow)] backdrop-blur">
         <div className="mb-1.5 flex items-center justify-between rounded-2xl border border-app-border/80 bg-app-surface px-2 py-1 shadow-sm">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
@@ -212,7 +212,7 @@ export function AppShell({ screens }: AppShellProps) {
           </span>
         </div>
 
-        <main className="relative z-0 flex-1 overflow-y-auto overflow-x-clip overscroll-contain pb-2 pt-0.5">
+        <main className="relative z-0 flex-1 overflow-x-clip pb-2 pt-0.5">
           <div key={activeTab} className="app-screen-enter space-y-2">
             {screens[activeTab]}
           </div>
