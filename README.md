@@ -129,6 +129,11 @@ Phase 8C keeps accepted subscriptions/reminders foundations intact, preserves Ph
   - manual premium grant/revoke by target Telegram user id
   - gift campaign create/list/deactivate operations
   - compact owner-only admin section in Profile (hidden for non-admin users)
+- Added premium purchase claim foundation (Boosty-first manual reconciliation):
+  - purchase-claim model (`premium_purchase_claims`)
+  - lifecycle status model (`draft/submitted/pending_review/approved/rejected/expired/cancelled`)
+  - claim creation endpoint (`POST /api/premium/purchase-claims`)
+  - primary identity anchor (`telegram_user_id`) stored from verified app context
 - Added improved Telegram chat-not-found mapping:
   - `TELEGRAM_CHAT_NOT_FOUND_BOT_NOT_STARTED_INFERENCE`
   - `TELEGRAM_CHAT_NOT_FOUND_STALE_BINDING_INFERENCE`
@@ -182,6 +187,7 @@ Phase 8C keeps accepted subscriptions/reminders foundations intact, preserves Ph
 - `POST /api/workspaces/family/invites/accept`
 - `POST /api/premium/entitlement`
 - `POST /api/premium/gift-campaigns/claim`
+- `POST /api/premium/purchase-claims`
 - `POST /api/premium/admin`
 - `POST /api/internal/reminders/scheduled-dispatch`
 - `GET /api/internal/reminders/scheduled-dispatch`
@@ -203,6 +209,7 @@ Apply migrations in order (`YYYYMMDDHHMMSS_name.sql`):
 13. `supabase/migrations/20260327090000_phase9c_family_shared_economics_foundation.sql`
 14. `supabase/migrations/20260327110000_phase13a_premium_entitlements_foundation.sql`
 15. `supabase/migrations/20260327120000_phase13b_gift_premium_campaign_foundation.sql`
+16. `supabase/migrations/20260329100000_phase22a_premium_purchase_claim_foundation.sql`
 
 ## Env Notes
 Server:

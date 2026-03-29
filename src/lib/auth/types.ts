@@ -312,6 +312,60 @@ export type PremiumEntitlementReadResponse =
 
 export type GiftPremiumCampaignStatus = "draft" | "active" | "paused" | "ended";
 
+export type PremiumPurchaseClaimRail = "boosty_premium";
+export type PremiumPurchaseClaimStatus =
+  | "draft"
+  | "submitted"
+  | "pending_review"
+  | "approved"
+  | "rejected"
+  | "expired"
+  | "cancelled";
+
+export type PremiumPurchaseClaimPayload = {
+  id: string;
+  profileId: string;
+  workspaceId: string | null;
+  telegramUserId: string;
+  claimRail: PremiumPurchaseClaimRail;
+  expectedTier: string;
+  externalPayerHandle: string | null;
+  paymentProofReference: string | null;
+  paymentProofText: string | null;
+  status: PremiumPurchaseClaimStatus;
+  claimNote: string | null;
+  adminNote: string | null;
+  entitlementId: string | null;
+  submittedAt: string;
+  reviewedAt: string | null;
+  reviewedByAdminTelegramUserId: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PremiumPurchaseClaimCreateSuccess = {
+  ok: true;
+  claim: PremiumPurchaseClaimPayload;
+};
+
+export type PremiumPurchaseClaimCreateErrorCode =
+  | CurrentAppContextErrorCode
+  | "PREMIUM_PURCHASE_CLAIM_INVALID_INPUT"
+  | "PREMIUM_PURCHASE_CLAIM_FAILED";
+
+export type PremiumPurchaseClaimCreateError = {
+  ok: false;
+  error: {
+    code: PremiumPurchaseClaimCreateErrorCode;
+    message: string;
+  };
+};
+
+export type PremiumPurchaseClaimCreateResponse =
+  | PremiumPurchaseClaimCreateSuccess
+  | PremiumPurchaseClaimCreateError;
+
 export type GiftPremiumClaimStatus =
   | "granted"
   | "rejected_invalid_code"

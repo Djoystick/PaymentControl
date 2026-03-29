@@ -15,6 +15,7 @@ import type {
   PremiumAdminRevokeResponse,
   PremiumAdminSessionResponse,
   PremiumAdminTargetResolveResponse,
+  PremiumPurchaseClaimCreateResponse,
   GiftPremiumClaimResponse,
   PremiumEntitlementReadResponse,
   ScenarioUpdateResponse,
@@ -144,6 +145,30 @@ export const claimGiftPremiumCampaign = async (
     initData,
     campaignCode,
   });
+};
+
+export const createPremiumPurchaseClaim = async (params: {
+  initData: string;
+  claimRail?: "boosty_premium";
+  expectedTier?: string;
+  externalPayerHandle?: string;
+  paymentProofReference?: string;
+  paymentProofText?: string;
+  claimNote?: string;
+}): Promise<PremiumPurchaseClaimCreateResponse> => {
+  return postJson<PremiumPurchaseClaimCreateResponse>(
+    "/api/premium/purchase-claims",
+    "POST",
+    {
+      initData: params.initData,
+      claimRail: params.claimRail ?? "boosty_premium",
+      expectedTier: params.expectedTier ?? "premium",
+      externalPayerHandle: params.externalPayerHandle ?? "",
+      paymentProofReference: params.paymentProofReference ?? "",
+      paymentProofText: params.paymentProofText ?? "",
+      claimNote: params.claimNote ?? "",
+    },
+  );
 };
 
 export const readPremiumAdminSession = async (
