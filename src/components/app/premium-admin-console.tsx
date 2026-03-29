@@ -20,6 +20,10 @@ import type {
   PremiumPurchaseClaimPayload,
 } from "@/lib/auth/types";
 import { useLocalization } from "@/lib/i18n/localization";
+import {
+  DEFAULT_PREMIUM_EXPECTED_TIER,
+  DEFAULT_PREMIUM_PURCHASE_RAIL,
+} from "@/lib/premium/purchase-semantics";
 import { AppIcon } from "@/components/app/app-icon";
 
 type PremiumAdminConsoleProps = {
@@ -346,10 +350,10 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     try {
       const response = await createPremiumPurchaseClaim({
         initData,
-        claimRail: "boosty_premium",
-        expectedTier: "premium_monthly",
-        externalPayerHandle: "test_boosty_user",
-        paymentProofReference: "BOOSTY-QA-001",
+        claimRail: DEFAULT_PREMIUM_PURCHASE_RAIL,
+        expectedTier: DEFAULT_PREMIUM_EXPECTED_TIER,
+        externalPayerHandle: "test_payment_user",
+        paymentProofReference: "PAYMENT-QA-001",
         paymentProofText: "manual test payment proof",
         claimNote: "phase 22A manual verification",
       });
@@ -412,8 +416,12 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
       }));
       showAdminMessage(
         decision === "approve"
-          ? tr("Claim approved: {claimId}", { claimId: response.claim.id })
-          : tr("Claim rejected: {claimId}", { claimId: response.claim.id }),
+          ? tr("Purchase confirmation approved: {claimId}", {
+              claimId: response.claim.id,
+            })
+          : tr("Purchase confirmation rejected: {claimId}", {
+              claimId: response.claim.id,
+            }),
         "success",
       );
     } catch {
@@ -442,8 +450,12 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
       return tr("Manual/admin grant");
     }
 
+    if (target.premium.effectiveSource === "one_time_purchase") {
+      return tr("Premium purchase confirmation");
+    }
+
     if (target.premium.effectiveSource === "boosty") {
-      return tr("Boosty sync (future)");
+      return tr("Premium purchase confirmation (legacy)");
     }
 
     return tr("Gift campaign grant");
@@ -475,6 +487,41 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     }
 
     return "clock" as const;
+  };
+
+  const isLegacyClaimRecord = (claim: PremiumPurchaseClaimPayload) => {
+    const normalizedTier = claim.expectedTier.trim().toLowerCase();
+    return (
+      claim.claimRail === "boosty_premium" ||
+      normalizedTier.includes("monthly") ||
+      normalizedTier.includes("subscription") ||
+      normalizedTier.includes("boosty")
+    );
+  };
+
+  const getClaimRailLabel = (claim: PremiumPurchaseClaimPayload) => {
+    if (claim.claimRail === "one_time_premium") {
+      return tr("One-time Premium purchase rail");
+    }
+
+    return tr("Legacy Premium rail (subscription-era)");
+  };
+
+  const getClaimTierLabel = (claim: PremiumPurchaseClaimPayload) => {
+    const normalizedTier = claim.expectedTier.trim().toLowerCase();
+    if (normalizedTier === "premium_one_time" || normalizedTier.includes("one_time")) {
+      return tr("One-time Premium package");
+    }
+
+    if (normalizedTier.includes("monthly")) {
+      return tr("Legacy monthly package code");
+    }
+
+    if (normalizedTier.includes("year") || normalizedTier.includes("annual")) {
+      return tr("Legacy annual package code");
+    }
+
+    return tr("Custom package code");
   };
 
   if (!sessionChecked || !isAdmin) {
@@ -747,19 +794,19 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
         <div className="pc-state-card mt-2 bg-app-surface px-2 py-1.5 text-xs text-app-text-muted">
           <p className="font-semibold text-app-text">{tr("Test payload")}</p>
           <p className="mt-1">
-            {tr("Rail")}: <span className="font-semibold text-app-text">boosty_premium</span>
+            {tr("Rail")}: <span className="font-semibold text-app-text">one_time_premium</span>
           </p>
           <p className="mt-1">
             {tr("Expected tier")}:{" "}
-            <span className="font-semibold text-app-text">premium_monthly</span>
+            <span className="font-semibold text-app-text">premium_one_time</span>
           </p>
           <p className="mt-1">
             {tr("External payer handle")}:{" "}
-            <span className="font-semibold text-app-text">test_boosty_user</span>
+            <span className="font-semibold text-app-text">test_payment_user</span>
           </p>
           <p className="mt-1">
             {tr("Payment proof reference")}:{" "}
-            <span className="font-semibold text-app-text">BOOSTY-QA-001</span>
+            <span className="font-semibold text-app-text">PAYMENT-QA-001</span>
           </p>
           <p className="mt-1">
             {tr("Payment proof text")}:{" "}
@@ -810,7 +857,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
         </p>
         <p className="mt-1 text-xs text-app-text-muted">
           {tr(
-            "Owner-only manual reconciliation queue for Boosty-first purchase claims.",
+            "Owner-only manual reconciliation queue for premium purchase claims.",
           )}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -830,14 +877,22 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
               className="pc-state-card bg-app-surface px-2 py-1.5 text-xs text-app-text-muted"
             >
               <summary className="flex cursor-pointer items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-1.5 font-semibold text-app-text">
-                  {tr("Claim")} #{claim.id.slice(0, 8)}
+                <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-semibold text-app-text">
+                  <span>
+                    {tr("Claim")} #{claim.id.slice(0, 8)}
+                  </span>
                   <span className="text-app-text-muted">
-                    · {tr("Telegram user id")}: {claim.telegramUserId}
+                    | {tr("Telegram user id")}: {claim.telegramUserId}
+                  </span>
+                  <span className="text-app-text-muted">
+                    |{" "}
+                    {isLegacyClaimRecord(claim)
+                      ? tr("Legacy format")
+                      : tr("One-time format")}
                   </span>
                   {claim.purchaseCorrelationCode && (
                     <span className="text-app-text-muted">
-                      {tr("Purchase code")}: {claim.purchaseCorrelationCode}
+                      | {tr("Purchase code")}: {claim.purchaseCorrelationCode}
                     </span>
                   )}
                 </span>
@@ -851,60 +906,93 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                   {tr(claim.status)}
                 </span>
               </summary>
-              <p className="mt-1">
-                {tr("Rail")}: {claim.claimRail}. {tr("Expected tier")}:{" "}
-                {claim.expectedTier}.
-              </p>
-              <p className="mt-1">
-                {tr("Submitted at")}:{" "}
-                {formatDateTime(claim.submittedAt, claim.submittedAt)}
-                {". "}
-                {tr("Entitlement linked")}:{" "}
-                {claim.entitlementId ? tr("yes") : tr("no")}
-              </p>
-              {claim.purchaseCorrelationCode && (
+              <div className="mt-1.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-app-text-muted">
+                  {tr("Decision context")}
+                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <span
+                    className={`pc-status-pill ${
+                      isLegacyClaimRecord(claim)
+                        ? "pc-status-pill-warning"
+                        : "pc-status-pill-success"
+                    }`}
+                  >
+                    <AppIcon
+                      name={isLegacyClaimRecord(claim) ? "clock" : "check"}
+                      className="h-3 w-3"
+                    />
+                    {isLegacyClaimRecord(claim)
+                      ? tr("Legacy claim data")
+                      : tr("Current one-time claim path")}
+                  </span>
+                  <span className="pc-status-pill">
+                    <AppIcon name="premium" className="h-3 w-3" />
+                    {tr("Expected package")}: {getClaimTierLabel(claim)}
+                  </span>
+                </div>
                 <p className="mt-1">
-                  {tr("Purchase code")}: {claim.purchaseCorrelationCode}
+                  {tr("Rail")}: {getClaimRailLabel(claim)} ({claim.claimRail})
                 </p>
-              )}
-              {claim.purchaseIntentId && (
                 <p className="mt-1">
-                  {tr("Purchase intent id")}: {claim.purchaseIntentId}
+                  {tr("Expected tier")}: {claim.expectedTier}
                 </p>
-              )}
-              {claim.paymentProofReference && (
                 <p className="mt-1">
-                  {tr("Payment proof reference")}: {claim.paymentProofReference}
+                  {tr("Submitted at")}: {formatDateTime(claim.submittedAt, claim.submittedAt)}
+                  {". "}
+                  {tr("Entitlement linked")}: {claim.entitlementId ? tr("yes") : tr("no")}
                 </p>
-              )}
-              <div className="mt-1.5 space-y-1 text-xs">
-                <p>
-                  {tr("External payer handle")}:{" "}
-                  {claim.externalPayerHandle ?? tr("Not set")}
+                {claim.purchaseCorrelationCode && (
+                  <p className="mt-1">
+                    {tr("Purchase code")}: {claim.purchaseCorrelationCode}
+                  </p>
+                )}
+                {claim.purchaseIntentId && (
+                  <p className="mt-1">
+                    {tr("Purchase intent id")}: {claim.purchaseIntentId}
+                  </p>
+                )}
+              </div>
+              <div className="mt-1.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-app-text-muted">
+                  {tr("Submitted proof")}
                 </p>
-                <p>
-                  {tr("Payment proof text")}:{" "}
-                  {claim.paymentProofText ?? tr("Not set")}
+                <div className="mt-1 space-y-1 text-xs">
+                  <p>
+                    {tr("Payment proof reference")}: {claim.paymentProofReference ?? tr("Not set")}
+                  </p>
+                  <p>
+                    {tr("External payer handle")}: {claim.externalPayerHandle ?? tr("Not set")}
+                  </p>
+                  <p>
+                    {tr("Payment proof text")}: {claim.paymentProofText ?? tr("Not set")}
+                  </p>
+                  <p>
+                    {tr("Claim note")}: {claim.claimNote ?? tr("Not set")}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-1.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-app-text-muted">
+                  {tr("Review metadata")}
                 </p>
-                <p>
-                  {tr("Claim note")}: {claim.claimNote ?? tr("Not set")}
-                </p>
-                <p>
-                  {tr("Admin note")}: {claim.adminNote ?? tr("Not set")}
-                </p>
-                <p>
-                  {tr("Reviewed at")}:{" "}
-                  {claim.reviewedAt
-                    ? formatDateTime(claim.reviewedAt, claim.reviewedAt)
-                    : tr("Not set")}
-                </p>
-                <p>
-                  {tr("Reviewed by admin Telegram user id")}:{" "}
-                  {claim.reviewedByAdminTelegramUserId ?? tr("Not set")}
-                </p>
-                <p>
-                  {tr("Claim id")}: {claim.id}
-                </p>
+                <div className="mt-1 space-y-1 text-xs">
+                  <p>
+                    {tr("Admin note")}: {claim.adminNote ?? tr("Not set")}
+                  </p>
+                  <p>
+                    {tr("Reviewed at")}:{" "}
+                    {claim.reviewedAt
+                      ? formatDateTime(claim.reviewedAt, claim.reviewedAt)
+                      : tr("Not set")}
+                  </p>
+                  <p>
+                    {tr("Reviewed by admin Telegram user id")}: {claim.reviewedByAdminTelegramUserId ?? tr("Not set")}
+                  </p>
+                  <p>
+                    {tr("Claim id")}: {claim.id}
+                  </p>
+                </div>
               </div>
               <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <input
@@ -927,7 +1015,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                   >
                     {reviewingClaimId === claim.id
                       ? tr("Saving...")
-                      : tr("Approve claim")}
+                      : tr("Approve purchase confirmation")}
                   </button>
                   <button
                     type="button"
@@ -939,10 +1027,18 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                   >
                     {reviewingClaimId === claim.id
                       ? tr("Saving...")
-                      : tr("Reject claim")}
+                      : tr("Reject purchase confirmation")}
                   </button>
                 </div>
               </div>
+              {isClaimReviewable(claim.status) && (
+                <p className="mt-1.5 inline-flex items-center gap-1 text-xs text-app-text-muted">
+                  <AppIcon name="help" className="h-3.5 w-3.5" />
+                  {tr(
+                    "Approve confirms one-time purchase and applies Premium. Reject keeps free core access unchanged.",
+                  )}
+                </p>
+              )}
               {!isClaimReviewable(claim.status) && (
                 <p className="mt-1.5 inline-flex items-center gap-1 text-xs text-app-text-muted">
                   <AppIcon name="clock" className="h-3.5 w-3.5" />

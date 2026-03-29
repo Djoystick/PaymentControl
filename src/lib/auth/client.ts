@@ -22,12 +22,18 @@ import type {
   PremiumPurchaseIntentReadMineResponse,
   PremiumPurchaseClaimCreateResponse,
   PremiumPurchaseClaimReadMineResponse,
+  PremiumPurchaseClaimRail,
   GiftPremiumClaimResponse,
   PremiumEntitlementReadResponse,
+  PremiumPurchaseIntentRail,
   ScenarioUpdateResponse,
   SelectedScenario,
   WorkspaceSwitchResponse,
 } from "@/lib/auth/types";
+import {
+  DEFAULT_PREMIUM_EXPECTED_TIER,
+  DEFAULT_PREMIUM_PURCHASE_RAIL,
+} from "@/lib/premium/purchase-semantics";
 
 type RequestBody = Record<string, unknown>;
 
@@ -155,7 +161,7 @@ export const claimGiftPremiumCampaign = async (
 
 export const createPremiumPurchaseClaim = async (params: {
   initData: string;
-  claimRail?: "boosty_premium";
+  claimRail?: PremiumPurchaseClaimRail;
   expectedTier?: string;
   externalPayerHandle?: string;
   paymentProofReference?: string;
@@ -169,8 +175,8 @@ export const createPremiumPurchaseClaim = async (params: {
     "POST",
     {
       initData: params.initData,
-      claimRail: params.claimRail ?? "boosty_premium",
-      expectedTier: params.expectedTier ?? "premium",
+      claimRail: params.claimRail ?? DEFAULT_PREMIUM_PURCHASE_RAIL,
+      expectedTier: params.expectedTier ?? DEFAULT_PREMIUM_EXPECTED_TIER,
       externalPayerHandle: params.externalPayerHandle ?? "",
       paymentProofReference: params.paymentProofReference ?? "",
       paymentProofText: params.paymentProofText ?? "",
@@ -183,7 +189,7 @@ export const createPremiumPurchaseClaim = async (params: {
 
 export const createPremiumPurchaseIntent = async (params: {
   initData: string;
-  intentRail?: "boosty_premium";
+  intentRail?: PremiumPurchaseIntentRail;
   expectedTier?: string;
 }): Promise<PremiumPurchaseIntentCreateResponse> => {
   return postJson<PremiumPurchaseIntentCreateResponse>(
@@ -191,8 +197,8 @@ export const createPremiumPurchaseIntent = async (params: {
     "POST",
     {
       initData: params.initData,
-      intentRail: params.intentRail ?? "boosty_premium",
-      expectedTier: params.expectedTier ?? "premium_monthly",
+      intentRail: params.intentRail ?? DEFAULT_PREMIUM_PURCHASE_RAIL,
+      expectedTier: params.expectedTier ?? DEFAULT_PREMIUM_EXPECTED_TIER,
     },
   );
 };

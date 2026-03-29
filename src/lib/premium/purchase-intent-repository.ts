@@ -5,6 +5,11 @@ import type {
   PremiumPurchaseIntentRail,
   PremiumPurchaseIntentStatus,
 } from "@/lib/auth/types";
+import {
+  DEFAULT_PREMIUM_PURCHASE_RAIL,
+  LEGACY_PREMIUM_PURCHASE_RAIL,
+  isSupportedPremiumPurchaseRail,
+} from "@/lib/premium/purchase-semantics";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type PremiumPurchaseIntentRow = {
@@ -130,7 +135,7 @@ export const createPremiumPurchaseIntent = async (
     };
   }
 
-  if (params.intentRail !== "boosty_premium") {
+  if (!isSupportedPremiumPurchaseRail(params.intentRail)) {
     return {
       ok: false,
       reason: "INVALID_INPUT",
@@ -321,42 +326,59 @@ export const resolvePremiumPurchaseIntentForClaim = async (
     };
   }
 
-  let query = supabase
-    .from("premium_purchase_intents")
-    .select(selection)
-    .eq("profile_id", params.profileId)
-    .eq("telegram_user_id", normalizedTelegramUserId)
-    .eq("intent_rail", params.claimRail)
-    .limit(2);
+  const runQuery = async (intentRail: PremiumPurchaseIntentRail) => {
+    let query = supabase
+      .from("premium_purchase_intents")
+      .select(selection)
+      .eq("profile_id", params.profileId)
+      .eq("telegram_user_id", normalizedTelegramUserId)
+      .eq("intent_rail", intentRail)
+      .limit(2);
 
-  if (normalizedIntentId) {
-    query = query.eq("id", normalizedIntentId);
+    if (normalizedIntentId) {
+      query = query.eq("id", normalizedIntentId);
+    }
+
+    if (normalizedCorrelationCode) {
+      query = query.eq("correlation_code", normalizedCorrelationCode);
+    }
+
+    return query.returns<PremiumPurchaseIntentRow[]>();
+  };
+
+  const queryRails =
+    params.claimRail === DEFAULT_PREMIUM_PURCHASE_RAIL
+      ? [DEFAULT_PREMIUM_PURCHASE_RAIL, LEGACY_PREMIUM_PURCHASE_RAIL]
+      : [params.claimRail];
+
+  let resolvedRows: PremiumPurchaseIntentRow[] | null = null;
+  for (const rail of queryRails) {
+    const { data, error } = await runQuery(rail);
+
+    if (error?.code === "42P01" || error?.code === "PGRST205") {
+      return {
+        ok: false,
+        reason: "FOUNDATION_NOT_READY",
+        message:
+          "Premium purchase intent foundation is not ready. Apply Phase 22E migration.",
+      };
+    }
+
+    if (error) {
+      return {
+        ok: false,
+        reason: "ACTION_FAILED",
+        message: "Failed to resolve purchase intent for claim.",
+      };
+    }
+
+    if (data && data.length > 0) {
+      resolvedRows = data;
+      break;
+    }
   }
 
-  if (normalizedCorrelationCode) {
-    query = query.eq("correlation_code", normalizedCorrelationCode);
-  }
-
-  const { data, error } = await query.returns<PremiumPurchaseIntentRow[]>();
-
-  if (error?.code === "42P01" || error?.code === "PGRST205") {
-    return {
-      ok: false,
-      reason: "FOUNDATION_NOT_READY",
-      message:
-        "Premium purchase intent foundation is not ready. Apply Phase 22E migration.",
-    };
-  }
-
-  if (error) {
-    return {
-      ok: false,
-      reason: "ACTION_FAILED",
-      message: "Failed to resolve purchase intent for claim.",
-    };
-  }
-
-  if (!data || data.length === 0) {
+  if (!resolvedRows || resolvedRows.length === 0) {
     return {
       ok: false,
       reason: "NOT_FOUND",
@@ -364,7 +386,7 @@ export const resolvePremiumPurchaseIntentForClaim = async (
     };
   }
 
-  const row = data[0];
+  const row = resolvedRows[0];
   if (row.claim_id) {
     return {
       ok: false,

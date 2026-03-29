@@ -261,7 +261,11 @@ export type FamilyInviteAcceptResponse =
   | FamilyInviteAcceptError;
 
 export type PremiumEntitlementScope = "profile" | "workspace";
-export type PremiumEntitlementSource = "manual_admin" | "boosty" | "gift_campaign";
+export type PremiumEntitlementSource =
+  | "manual_admin"
+  | "one_time_purchase"
+  | "boosty"
+  | "gift_campaign";
 export type PremiumEntitlementStatus = "active" | "expired" | "revoked";
 
 export type PremiumEntitlementPayload = {
@@ -312,7 +316,7 @@ export type PremiumEntitlementReadResponse =
 
 export type GiftPremiumCampaignStatus = "draft" | "active" | "paused" | "ended";
 
-export type PremiumPurchaseClaimRail = "boosty_premium";
+export type PremiumPurchaseClaimRail = "one_time_premium" | "boosty_premium";
 export type PremiumPurchaseClaimStatus =
   | "draft"
   | "submitted"
@@ -322,7 +326,7 @@ export type PremiumPurchaseClaimStatus =
   | "expired"
   | "cancelled";
 
-export type PremiumPurchaseIntentRail = "boosty_premium";
+export type PremiumPurchaseIntentRail = "one_time_premium" | "boosty_premium";
 export type PremiumPurchaseIntentStatus =
   | "created"
   | "opened_external"

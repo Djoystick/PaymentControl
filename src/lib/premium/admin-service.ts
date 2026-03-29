@@ -1,4 +1,4 @@
-import "server-only";
+﻿import "server-only";
 import type {
   PremiumAdminCampaignPayload,
   PremiumAdminPurchaseClaimReviewDecision,
@@ -30,8 +30,9 @@ type PremiumEntitlementActiveRow = {
   metadata: Record<string, unknown> | null;
 };
 
-type ActiveBoostyEntitlementRow = {
+type ActivePurchaseEntitlementRow = {
   id: string;
+  entitlement_source: "one_time_purchase" | "boosty";
   starts_at: string;
   ends_at: string | null;
   metadata: Record<string, unknown> | null;
@@ -166,22 +167,35 @@ const toPurchaseClaimPayload = (
 
 const resolveTierDurationDays = (expectedTier: string): number => {
   const normalizedTier = expectedTier.trim().toLowerCase();
+  if (normalizedTier.includes("lifetime") || normalizedTier.includes("forever")) {
+    return 3650;
+  }
+
   if (
     normalizedTier.includes("year") ||
     normalizedTier.includes("annual") ||
-    normalizedTier.includes("год")
+    normalizedTier.includes("365")
   ) {
     return 365;
   }
 
-  if (
-    normalizedTier.includes("quarter") ||
-    normalizedTier.includes("кварт")
-  ) {
+  if (normalizedTier.includes("half") || normalizedTier.includes("180")) {
+    return 180;
+  }
+
+  if (normalizedTier.includes("quarter") || normalizedTier.includes("90")) {
     return 90;
   }
 
-  if (normalizedTier.includes("week") || normalizedTier.includes("недел")) {
+  if (normalizedTier.includes("60")) {
+    return 60;
+  }
+
+  if (normalizedTier.includes("14")) {
+    return 14;
+  }
+
+  if (normalizedTier.includes("week") || normalizedTier.includes("7")) {
     return 7;
   }
 
@@ -741,7 +755,7 @@ export const listPremiumGiftCampaignsWithUsage = async (): Promise<
   };
 };
 
-const ensureBoostyEntitlementForApprovedClaim = async (params: {
+const ensureOneTimeEntitlementForApprovedClaim = async (params: {
   claim: PremiumPurchaseClaimRow;
   adminTelegramUserId: string;
   adminNote: string | null;
@@ -757,19 +771,19 @@ const ensureBoostyEntitlementForApprovedClaim = async (params: {
   }
 
   const durationDays = resolveTierDurationDays(params.claim.expected_tier);
-  const { data: activeBoostyRows, error: activeBoostyRowsError } = await supabase
+  const { data: activePurchaseRows, error: activePurchaseRowsError } = await supabase
     .from("premium_entitlements")
-    .select("id, starts_at, ends_at, metadata")
+    .select("id, entitlement_source, starts_at, ends_at, metadata")
     .eq("scope", "profile")
     .eq("profile_id", params.claim.profile_id)
-    .eq("entitlement_source", "boosty")
+    .in("entitlement_source", ["one_time_purchase", "boosty"])
     .eq("status", "active")
     .order("starts_at", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(10)
-    .returns<ActiveBoostyEntitlementRow[]>();
+    .returns<ActivePurchaseEntitlementRow[]>();
 
-  if (isFoundationMissingError(activeBoostyRowsError?.code)) {
+  if (isFoundationMissingError(activePurchaseRowsError?.code)) {
     return {
       ok: false,
       reason: "FOUNDATION_NOT_READY",
@@ -778,16 +792,16 @@ const ensureBoostyEntitlementForApprovedClaim = async (params: {
     };
   }
 
-  if (activeBoostyRowsError || !activeBoostyRows) {
+  if (activePurchaseRowsError || !activePurchaseRows) {
     return {
       ok: false,
       reason: "ACTION_FAILED",
-      message: "Failed to read active boosty entitlements for claim approval.",
+      message: "Failed to read active premium purchase entitlements for claim approval.",
     };
   }
 
   const now = new Date(params.reviewTimestampIso);
-  const activeRow = activeBoostyRows.find((row) => {
+  const activeRow = activePurchaseRows.find((row) => {
     const startsAt = new Date(row.starts_at);
     if (Number.isNaN(startsAt.getTime()) || startsAt.getTime() > now.getTime()) {
       return false;
@@ -827,6 +841,7 @@ const ensureBoostyEntitlementForApprovedClaim = async (params: {
     const { error: updateEntitlementError } = await supabase
       .from("premium_entitlements")
       .update({
+        entitlement_source: "one_time_purchase",
         ends_at: nextEndsAt,
         metadata: nextMetadata,
         updated_at: params.reviewTimestampIso,
@@ -837,7 +852,7 @@ const ensureBoostyEntitlementForApprovedClaim = async (params: {
       return {
         ok: false,
         reason: "ACTION_FAILED",
-        message: "Failed to extend existing boosty entitlement.",
+        message: "Failed to extend existing premium purchase entitlement.",
       };
     }
 
@@ -856,7 +871,7 @@ const ensureBoostyEntitlementForApprovedClaim = async (params: {
       scope: "profile",
       profile_id: params.claim.profile_id,
       workspace_id: null,
-      entitlement_source: "boosty",
+      entitlement_source: "one_time_purchase",
       status: "active",
       starts_at: params.reviewTimestampIso,
       ends_at: newEntitlementEndsAt,
@@ -888,7 +903,7 @@ const ensureBoostyEntitlementForApprovedClaim = async (params: {
     return {
       ok: false,
       reason: "ACTION_FAILED",
-      message: "Failed to grant boosty entitlement from approved claim.",
+      message: "Failed to grant premium purchase entitlement from approved claim.",
     };
   }
 
@@ -1024,7 +1039,7 @@ export const reviewPremiumPurchaseClaim = async (params: {
   let entitlementId: string | null = null;
 
   if (params.decision === "approve") {
-    const entitlementResult = await ensureBoostyEntitlementForApprovedClaim({
+    const entitlementResult = await ensureOneTimeEntitlementForApprovedClaim({
       claim,
       adminTelegramUserId: params.adminTelegramUserId,
       adminNote,
@@ -1161,3 +1176,5 @@ export const deactivatePremiumGiftCampaign = async (
     data: toCampaignPayload(campaign, usage),
   };
 };
+
+

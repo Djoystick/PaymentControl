@@ -7,6 +7,11 @@ import type {
 } from "@/lib/auth/types";
 import { isSupabaseServerConfigured } from "@/lib/config/server-env";
 import { createPremiumPurchaseIntent } from "@/lib/premium/purchase-intent-repository";
+import {
+  DEFAULT_PREMIUM_EXPECTED_TIER,
+  DEFAULT_PREMIUM_PURCHASE_RAIL,
+  isSupportedPremiumPurchaseRail,
+} from "@/lib/premium/purchase-semantics";
 
 type PremiumPurchaseIntentBody = {
   initData?: string;
@@ -51,8 +56,8 @@ export async function POST(request: Request) {
     body = {};
   }
 
-  const intentRail = (body.intentRail?.trim() || "boosty_premium") as PremiumPurchaseIntentRail;
-  if (intentRail !== "boosty_premium") {
+  const normalizedIntentRail = body.intentRail?.trim() || DEFAULT_PREMIUM_PURCHASE_RAIL;
+  if (!isSupportedPremiumPurchaseRail(normalizedIntentRail)) {
     return NextResponse.json<PremiumPurchaseIntentCreateResponse>(
       {
         ok: false,
@@ -64,8 +69,9 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  const intentRail = normalizedIntentRail as PremiumPurchaseIntentRail;
 
-  const expectedTier = body.expectedTier?.trim() || "premium_monthly";
+  const expectedTier = body.expectedTier?.trim() || DEFAULT_PREMIUM_EXPECTED_TIER;
   if (!expectedTier || expectedTier.length > 64) {
     return NextResponse.json<PremiumPurchaseIntentCreateResponse>(
       {

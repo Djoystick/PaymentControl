@@ -8,6 +8,7 @@ import {
   markPremiumPurchaseIntentClaimed,
   resolvePremiumPurchaseIntentForClaim,
 } from "@/lib/premium/purchase-intent-repository";
+import { isSupportedPremiumPurchaseRail } from "@/lib/premium/purchase-semantics";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type PremiumPurchaseClaimRow = {
@@ -122,7 +123,7 @@ export const createPremiumPurchaseClaim = async (
     };
   }
 
-  if (params.claimRail !== "boosty_premium") {
+  if (!isSupportedPremiumPurchaseRail(params.claimRail)) {
     return {
       ok: false,
       reason: "INVALID_INPUT",

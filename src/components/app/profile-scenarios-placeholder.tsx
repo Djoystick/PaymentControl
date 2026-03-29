@@ -33,6 +33,10 @@ import { PremiumAdminConsole } from "@/components/app/premium-admin-console";
 import { HelpPopover } from "@/components/app/help-popover";
 import { AppIcon } from "@/components/app/app-icon";
 import { clientEnv } from "@/lib/config/client-env";
+import {
+  DEFAULT_PREMIUM_EXPECTED_TIER,
+  DEFAULT_PREMIUM_PURCHASE_RAIL,
+} from "@/lib/premium/purchase-semantics";
 import { ThemeProvider, useTheme } from "@/lib/theme/theme-context";
 
 const inviteStatusLabels: Record<FamilyWorkspaceInviteStatus, string> = {
@@ -173,8 +177,12 @@ function ProfileScenariosContent() {
       return tr("Manual/admin grant");
     }
 
+    if (premiumEntitlement.effectiveSource === "one_time_purchase") {
+      return tr("Premium purchase confirmation");
+    }
+
     if (premiumEntitlement.effectiveSource === "boosty") {
-      return tr("Boosty sync (future)");
+      return tr("Premium purchase confirmation (legacy)");
     }
 
     return tr("Gift campaign grant");
@@ -304,7 +312,7 @@ function ProfileScenariosContent() {
         : "";
   const purchaseIntentSummaryLabel = (() => {
     if (!latestPurchaseIntent) {
-      return tr("No purchase intent yet");
+      return tr("No purchase code yet");
     }
 
     if (
@@ -316,10 +324,10 @@ function ProfileScenariosContent() {
     }
 
     if (latestPurchaseIntent.status === "claimed") {
-      return tr("Purchase intent linked to claim");
+      return tr("Purchase code linked to claim");
     }
 
-    return tr("Purchase intent closed");
+    return tr("Purchase code closed");
   })();
   const linkablePurchaseIntent =
     latestPurchaseIntent &&
@@ -456,8 +464,8 @@ function ProfileScenariosContent() {
     try {
       const response = await createPremiumPurchaseIntent({
         initData,
-        intentRail: "boosty_premium",
-        expectedTier: "premium_monthly",
+        intentRail: DEFAULT_PREMIUM_PURCHASE_RAIL,
+        expectedTier: DEFAULT_PREMIUM_EXPECTED_TIER,
       });
 
       if (!response.ok) {
@@ -477,7 +485,7 @@ function ProfileScenariosContent() {
       setIsClaimPanelOpen(true);
       setPurchaseIntentFeedback({
         kind: "success",
-        message: tr("Purchase code is ready. Continue to Boosty, then submit claim."),
+        message: tr("Purchase code is ready. Open payment page, then submit claim."),
       });
     } catch {
       setPurchaseIntentFeedback({
@@ -533,8 +541,8 @@ function ProfileScenariosContent() {
     try {
       const response = await createPremiumPurchaseClaim({
         initData,
-        claimRail: linkablePurchaseIntent?.intentRail ?? "boosty_premium",
-        expectedTier: linkablePurchaseIntent?.expectedTier ?? "premium_monthly",
+        claimRail: linkablePurchaseIntent?.intentRail ?? DEFAULT_PREMIUM_PURCHASE_RAIL,
+        expectedTier: linkablePurchaseIntent?.expectedTier ?? DEFAULT_PREMIUM_EXPECTED_TIER,
         externalPayerHandle: purchaseClaimExternalHandle.trim(),
         paymentProofReference: purchaseClaimProofReference.trim(),
         paymentProofText: purchaseClaimProofText.trim(),
@@ -885,11 +893,9 @@ function ProfileScenariosContent() {
             "Buy Premium, Support, and Claim Premium are separate rails with different meaning.",
           )}
         </p>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-app-text-muted">
-          <span className="pc-status-pill">{tr("Step 1: Prepare code")}</span>
-          <span className="pc-status-pill">{tr("Step 2: Pay on Boosty")}</span>
-          <span className="pc-status-pill">{tr("Step 3: Submit claim")}</span>
-        </div>
+        <p className="text-[11px] text-app-text-muted">
+          {tr("One-time flow: Buy Premium -> external payment -> Claim Premium in app.")}
+        </p>
         <div className="pc-detail-surface bg-app-surface">
           <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
             <AppIcon name="premium" className="h-3.5 w-3.5" />
@@ -942,38 +948,6 @@ function ProfileScenariosContent() {
             </>
           )}
 
-          <div className="mt-1.5 rounded-xl border border-app-border/70 bg-white px-3 py-2">
-            {isLoadingPurchaseClaims ? (
-              <p className="pc-state-inline">
-                <AppIcon name="refresh" className="h-3.5 w-3.5 pc-spin" />
-                {tr("Loading claim status...")}
-              </p>
-            ) : (
-              <>
-                <p className={`pc-status-pill ${claimLifecycleToneClass}`}>
-                  <AppIcon
-                    name={
-                      claimLifecycle.tone === "success"
-                        ? "check"
-                        : claimLifecycle.tone === "warning"
-                          ? "alert"
-                          : "clock"
-                    }
-                    className="h-3 w-3"
-                  />
-                  {claimLifecycle.label}
-                </p>
-                <p className="mt-1 text-xs text-app-text-muted">{claimLifecycle.hint}</p>
-              </>
-            )}
-            <p className="mt-1 text-[11px] text-app-text-muted">
-              {tr("Claim status last checked")}:{" "}
-              {claimStatusCheckedAt
-                ? formatDateTime(claimStatusCheckedAt, claimStatusCheckedAt)
-                : tr("No claim status check yet.")}
-            </p>
-          </div>
-
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div className="pc-state-card border border-app-accent/70 bg-app-accent/10 px-3 py-2 text-app-text">
               <p className="inline-flex items-center gap-1.5 text-sm font-semibold">
@@ -981,7 +955,7 @@ function ProfileScenariosContent() {
                 {tr("Buy Premium")}
               </p>
               <p className="mt-1 text-xs text-app-text-muted">
-                {tr("Paid expansion via Boosty subscription. Core usage stays free.")}
+                {tr("One-time Premium purchase. Core usage stays free.")}
               </p>
               <button
                 type="button"
@@ -994,7 +968,8 @@ function ProfileScenariosContent() {
                   : tr("Start Premium purchase")}
               </button>
               <p className="mt-1 text-[11px] text-app-text-muted">
-                {tr("Intent")}: {purchaseIntentSummaryLabel}. {tr("Step 1: Prepare code")}
+                {tr("Purchase code status")}: {purchaseIntentSummaryLabel}.{" "}
+                {tr("Step 1: Prepare code")}
               </p>
             </div>
             <a
@@ -1025,7 +1000,7 @@ function ProfileScenariosContent() {
               {isLoadingPurchaseIntents ? (
                 <p className="pc-state-inline mt-1">
                   <AppIcon name="refresh" className="h-3.5 w-3.5 pc-spin" />
-                  {tr("Loading purchase intents...")}
+                  {tr("Loading purchase code...")}
                 </p>
               ) : latestPurchaseIntent ? (
                 <>
@@ -1036,7 +1011,7 @@ function ProfileScenariosContent() {
                     </span>
                   </p>
                   <p className="mt-1">
-                    {tr("Intent status")}: {tr(latestPurchaseIntent.status)}.{" "}
+                    {tr("Purchase code status")}: {tr(latestPurchaseIntent.status)}.{" "}
                     {tr("Created at")}:{" "}
                     {formatDateTime(latestPurchaseIntent.createdAt, latestPurchaseIntent.createdAt)}
                   </p>
@@ -1061,7 +1036,7 @@ function ProfileScenariosContent() {
                       className="pc-btn-primary"
                     >
                       <AppIcon name="premium" className="h-3.5 w-3.5" />
-                      {tr("Continue to Boosty")}
+                      {tr("Open payment page")}
                     </a>
                     <button
                       type="button"
@@ -1070,7 +1045,7 @@ function ProfileScenariosContent() {
                       className="pc-btn-quiet disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <AppIcon name="refresh" className="h-3.5 w-3.5" />
-                      {tr("Refresh purchase intent")}
+                      {tr("Refresh purchase code")}
                     </button>
                     <button
                       type="button"
@@ -1083,18 +1058,18 @@ function ProfileScenariosContent() {
                     </button>
                   </div>
                   <p className="mt-1 text-[11px] text-app-text-muted">
-                    {tr("After Boosty payment, open Claim Premium and submit for owner review.")}
+                    {tr("After payment on external page, open Claim Premium and submit for owner review.")}
                   </p>
                   <p className="mt-1 text-[11px] text-app-text-muted">
-                    {tr("Intent status last checked")}:{" "}
+                    {tr("Purchase code status last checked")}:{" "}
                     {intentStatusCheckedAt
                       ? formatDateTime(intentStatusCheckedAt, intentStatusCheckedAt)
-                      : tr("No purchase intent check yet.")}
+                      : tr("No purchase code check yet.")}
                   </p>
                 </>
               ) : (
                 <p className="mt-1 text-xs text-app-text-muted">
-                  {tr("No purchase intent prepared yet.")}
+                  {tr("No purchase code prepared yet.")}
                 </p>
               )}
 
@@ -1131,18 +1106,21 @@ function ProfileScenariosContent() {
               {isClaimPanelOpen && <span className="pc-status-pill">{tr("Opened")}</span>}
             </summary>
             <p className="mt-1">
-              {tr("Use this after external payment to submit claim for owner review.")}
+                  {tr("Use this after external payment to submit claim for owner review.")}
+            </p>
+            <p className="mt-1 text-[11px] text-app-text-muted">
+              {tr("Add at least one payment proof field before claim submission.")}
             </p>
             {latestPurchaseIntent && (
               <div className="mt-2 rounded-xl border border-app-border bg-white px-3 py-2 text-xs">
-                <p className="font-semibold text-app-text">{tr("Latest purchase intent")}</p>
+                <p className="font-semibold text-app-text">{tr("Latest purchase code")}</p>
                 <p className="mt-1 text-app-text-muted">
                   {tr("Code")}:{" "}
                   <span className="font-mono font-semibold text-app-text">
                     {latestPurchaseIntent.correlationCode}
                   </span>
                   {" · "}
-                  {tr("Intent status")}: {tr(latestPurchaseIntent.status)}
+                  {tr("Purchase code status")}: {tr(latestPurchaseIntent.status)}
                 </p>
                 <p className="mt-1 text-app-text-muted">
                   {tr("Claim form is ready. Purchase code is already linked.")}
@@ -1191,15 +1169,6 @@ function ProfileScenariosContent() {
                   ? tr("Submitting claim...")
                   : tr("Submit premium claim")}
               </button>
-              <button
-                type="button"
-                onClick={() => void refreshMyPurchaseClaims()}
-                disabled={!initData || isLoadingPurchaseClaims}
-                className="pc-btn-quiet disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <AppIcon name="refresh" className="h-3.5 w-3.5" />
-                {tr("Refresh claim status")}
-              </button>
             </div>
             {latestPurchaseClaim && (
               <p className="mt-1.5 text-xs">
@@ -1229,6 +1198,52 @@ function ProfileScenariosContent() {
               </p>
             )}
           </details>
+
+          <div className="mt-2 rounded-xl border border-app-border/70 bg-white px-3 py-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+              {tr("Claim status")}
+            </p>
+            {isLoadingPurchaseClaims ? (
+              <p className="pc-state-inline mt-1">
+                <AppIcon name="refresh" className="h-3.5 w-3.5 pc-spin" />
+                {tr("Loading claim status...")}
+              </p>
+            ) : (
+              <>
+                <p className={`pc-status-pill mt-1 ${claimLifecycleToneClass}`}>
+                  <AppIcon
+                    name={
+                      claimLifecycle.tone === "success"
+                        ? "check"
+                        : claimLifecycle.tone === "warning"
+                          ? "alert"
+                          : "clock"
+                    }
+                    className="h-3 w-3"
+                  />
+                  {claimLifecycle.label}
+                </p>
+                <p className="mt-1 text-xs text-app-text-muted">{claimLifecycle.hint}</p>
+              </>
+            )}
+            <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-app-text-muted">
+              <span>
+                {tr("Claim status last checked")}:{" "}
+                {claimStatusCheckedAt
+                  ? formatDateTime(claimStatusCheckedAt, claimStatusCheckedAt)
+                  : tr("No claim status check yet.")}
+              </span>
+              <button
+                type="button"
+                onClick={() => void refreshMyPurchaseClaims()}
+                disabled={!initData || isLoadingPurchaseClaims}
+                className="pc-btn-quiet disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <AppIcon name="refresh" className="h-3.5 w-3.5" />
+                {tr("Refresh claim status")}
+              </button>
+            </div>
+          </div>
         </div>
       <details className="pc-detail-surface bg-app-surface">
         <summary className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">

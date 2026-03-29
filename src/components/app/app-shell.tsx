@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocalization } from "@/lib/i18n/localization";
 import { AppIcon } from "@/components/app/app-icon";
 
@@ -171,6 +172,22 @@ export function AppShell({ screens }: AppShellProps) {
     };
   }, [isOnboardingVisible, onboardingStepIndex]);
 
+  useEffect(() => {
+    if (!isOnboardingVisible) {
+      return;
+    }
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, [isOnboardingVisible]);
+
   const closeOnboarding = () => {
     setIsOnboardingVisible(false);
     try {
@@ -185,72 +202,19 @@ export function AppShell({ screens }: AppShellProps) {
   const activeOnboardingTabItem = activeOnboardingStep
     ? tabItems.find((item) => item.key === activeOnboardingStep.tab) ?? null
     : null;
-
-  return (
-    <div className="relative mx-auto flex min-h-dvh w-full max-w-[420px] flex-col px-1.5 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] pt-1.5 sm:px-2.5">
-      <div className="relative flex min-h-[calc(100dvh-0.75rem)] flex-1 flex-col rounded-[30px] border border-app-border/80 bg-gradient-to-b from-app-surface via-app-surface/94 to-app-surface-soft/55 p-2 shadow-[0_20px_48px_var(--app-frame-shadow)] backdrop-blur">
-        <div className="mb-1.5 flex items-center justify-between rounded-2xl border border-app-border/80 bg-app-surface px-2 py-1 shadow-sm">
-          <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              {tr("Payment Control")}
-            </p>
-            <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-app-text">
-              <AppIcon name={activeTabItem.icon} className="h-3.5 w-3.5" />
-              {tr(activeTabItem.label)}
-            </p>
-          </div>
-          <span className="inline-flex items-center gap-1 rounded-full border border-app-border bg-app-surface-soft px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.11em] text-app-text-muted">
-            <AppIcon name="clock" className="h-3 w-3" />
-            {tr("Today snapshot")}
-          </span>
-        </div>
-
-        <main className="relative z-0 flex-1 overflow-x-clip pb-2 pt-0.5">
-          <div key={activeTab} className="app-screen-enter space-y-2">
-            {screens[activeTab]}
-          </div>
-        </main>
-
-        <footer className="sticky bottom-1 z-40 mt-2 rounded-[24px] border border-app-border/80 bg-app-surface/95 p-1.25 shadow-[0_12px_30px_var(--app-frame-shadow)] backdrop-blur supports-[backdrop-filter]:bg-app-surface/90 [padding-bottom:calc(env(safe-area-inset-bottom)+0.3rem)]">
-          <div className="grid grid-cols-4 gap-1">
-            {tabItems.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => handleTabClick(tab.key)}
-                aria-current={activeTab === tab.key ? "page" : undefined}
-                className={`group flex min-h-[52px] touch-manipulation flex-col items-center justify-center rounded-2xl border px-1.5 py-1 text-center transition ${
-                  activeTab === tab.key
-                    ? "border-app-accent bg-app-accent text-white shadow-[0_8px_16px_rgba(31,122,67,0.28)]"
-                    : "border-transparent bg-app-surface-soft/30 text-app-text-muted"
-                }`}
-              >
-                <span
-                  className={`transition ${
-                    activeTab === tab.key
-                      ? "text-white"
-                      : "text-app-text-muted group-hover:text-app-text"
-                  }`}
-                >
-                  <AppIcon name={tab.icon} className="h-[18px] w-[18px]" />
-                </span>
-                <span
-                  className={`mt-0.5 w-full whitespace-nowrap text-[11px] font-semibold leading-4 ${
-                    activeTab === tab.key
-                      ? "text-white"
-                      : "text-app-text-muted group-hover:text-app-text"
-                  }`}
-                >
-                  {tr(tab.label)}
-                </span>
-              </button>
-            ))}
-          </div>
-        </footer>
-
-        {isOnboardingVisible && activeOnboardingStep && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-4">
-            <div className="pc-surface w-full max-w-md rounded-3xl p-3.5">
+  const onboardingOverlay =
+    typeof document !== "undefined" && isOnboardingVisible && activeOnboardingStep
+      ? createPortal(
+          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 px-3 [padding-top:max(0.75rem,env(safe-area-inset-top))] [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]">
+            <div
+              className="pc-surface w-full max-w-md rounded-3xl p-3.5"
+              style={{
+                maxHeight:
+                  "calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1.5rem)",
+                overflowY: "auto",
+                overscrollBehavior: "contain",
+              }}
+            >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-app-text-muted">
@@ -325,9 +289,76 @@ export function AppShell({ screens }: AppShellProps) {
                 </div>
               </div>
             </div>
+          </div>,
+          document.body,
+        )
+      : null;
+
+  return (
+    <>
+      <div className="relative mx-auto flex min-h-dvh w-full max-w-[420px] flex-col px-1.5 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] pt-1.5 sm:px-2.5">
+        <div className="relative flex min-h-[calc(100dvh-0.75rem)] flex-1 flex-col rounded-[30px] border border-app-border/80 bg-gradient-to-b from-app-surface via-app-surface/94 to-app-surface-soft/55 p-2 shadow-[0_20px_48px_var(--app-frame-shadow)] backdrop-blur">
+          <div className="mb-1.5 flex items-center justify-between rounded-2xl border border-app-border/80 bg-app-surface px-2 py-1 shadow-sm">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                {tr("Payment Control")}
+              </p>
+              <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-app-text">
+                <AppIcon name={activeTabItem.icon} className="h-3.5 w-3.5" />
+                {tr(activeTabItem.label)}
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1 rounded-full border border-app-border bg-app-surface-soft px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.11em] text-app-text-muted">
+              <AppIcon name="clock" className="h-3 w-3" />
+              {tr("Today snapshot")}
+            </span>
           </div>
-        )}
+
+          <main className="relative z-0 flex-1 overflow-x-clip pb-2 pt-0.5">
+            <div key={activeTab} className="app-screen-enter space-y-2">
+              {screens[activeTab]}
+            </div>
+          </main>
+
+          <footer className="sticky bottom-1 z-40 mt-2 rounded-[24px] border border-app-border/80 bg-app-surface/95 p-1.25 shadow-[0_12px_30px_var(--app-frame-shadow)] backdrop-blur supports-[backdrop-filter]:bg-app-surface/90 [padding-bottom:calc(env(safe-area-inset-bottom)+0.3rem)]">
+            <div className="grid grid-cols-4 gap-1">
+              {tabItems.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => handleTabClick(tab.key)}
+                  aria-current={activeTab === tab.key ? "page" : undefined}
+                  className={`group flex min-h-[52px] touch-manipulation flex-col items-center justify-center rounded-2xl border px-1.5 py-1 text-center transition ${
+                    activeTab === tab.key
+                      ? "border-app-accent bg-app-accent text-white shadow-[0_8px_16px_rgba(31,122,67,0.28)]"
+                      : "border-transparent bg-app-surface-soft/30 text-app-text-muted"
+                  }`}
+                >
+                  <span
+                    className={`transition ${
+                      activeTab === tab.key
+                        ? "text-white"
+                        : "text-app-text-muted group-hover:text-app-text"
+                    }`}
+                  >
+                    <AppIcon name={tab.icon} className="h-[18px] w-[18px]" />
+                  </span>
+                  <span
+                    className={`mt-0.5 w-full whitespace-nowrap text-[11px] font-semibold leading-4 ${
+                      activeTab === tab.key
+                        ? "text-white"
+                        : "text-app-text-muted group-hover:text-app-text"
+                    }`}
+                  >
+                    {tr(tab.label)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </footer>
+        </div>
       </div>
-    </div>
+      {onboardingOverlay}
+    </>
   );
 }

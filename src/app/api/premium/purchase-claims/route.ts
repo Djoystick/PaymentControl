@@ -8,6 +8,11 @@ import type {
 import { isSupabaseServerConfigured, serverEnv } from "@/lib/config/server-env";
 import { sendTelegramMessageWithPreflight } from "@/lib/payments/telegram-delivery";
 import { createPremiumPurchaseClaim } from "@/lib/premium/purchase-claim-repository";
+import {
+  DEFAULT_PREMIUM_EXPECTED_TIER,
+  DEFAULT_PREMIUM_PURCHASE_RAIL,
+  isSupportedPremiumPurchaseRail,
+} from "@/lib/premium/purchase-semantics";
 
 type PremiumPurchaseClaimBody = {
   initData?: string;
@@ -77,10 +82,23 @@ const normalizeSingleLineForTelegram = (value: string | null, maxLength: number)
   return normalized.slice(0, maxLength);
 };
 
+const formatClaimRailForOwner = (claimRail: PremiumPurchaseClaimRail): string => {
+  if (claimRail === "one_time_premium") {
+    return "one_time_premium (текущий one-time путь)";
+  }
+
+  if (claimRail === "boosty_premium") {
+    return "boosty_premium (legacy/исторический формат)";
+  }
+
+  return claimRail;
+};
+
 const sendOwnerClaimNotification = async (params: {
   claimId: string;
   submittedAt: string;
   telegramUserId: string;
+  claimRail: PremiumPurchaseClaimRail;
   expectedTier: string;
   purchaseCode: string | null;
   proofReference: string | null;
@@ -91,20 +109,21 @@ const sendOwnerClaimNotification = async (params: {
   }
 
   const message = [
-    "Payment Control - Premium claim submitted",
+    "Payment Control - новая заявка на подтверждение покупки Premium",
     "",
-    "This is a user claim submission event and requires owner review.",
-    "Payment is NOT auto-confirmed in this flow.",
+    "Событие: пользователь отправил заявку после внешней оплаты.",
+    "Важно: в этом потоке нет авто-подтверждения оплаты, нужна ручная проверка owner.",
     "",
-    `Claim ID: ${params.claimId}`,
-    `Submitted at (UTC): ${params.submittedAt}`,
+    `ID заявки: ${params.claimId}`,
+    `Отправлено (UTC): ${params.submittedAt}`,
     `Telegram user id: ${params.telegramUserId}`,
-    `Expected tier: ${normalizeSingleLineForTelegram(params.expectedTier, 64)}`,
-    `Purchase code: ${normalizeSingleLineForTelegram(params.purchaseCode, 32)}`,
-    `Proof reference: ${normalizeSingleLineForTelegram(params.proofReference, 140)}`,
-    `Workspace: ${normalizeSingleLineForTelegram(params.workspaceTitle, 80)}`,
+    `Рельс заявки: ${formatClaimRailForOwner(params.claimRail)}`,
+    `Ожидаемый пакет: ${normalizeSingleLineForTelegram(params.expectedTier, 64)}`,
+    `Код покупки: ${normalizeSingleLineForTelegram(params.purchaseCode, 32)}`,
+    `Референс подтверждения: ${normalizeSingleLineForTelegram(params.proofReference, 140)}`,
+    `Пространство: ${normalizeSingleLineForTelegram(params.workspaceTitle, 80)}`,
     "",
-    "Review path: Profile -> Owner premium admin -> Purchase claims queue",
+    "Путь проверки: Profile -> Owner premium admin -> Purchase claims queue",
   ].join("\n");
 
   const deliveryResult = await sendTelegramMessageWithPreflight({
@@ -143,8 +162,8 @@ export async function POST(request: Request) {
     body = {};
   }
 
-  const claimRail = (body.claimRail?.trim() || "boosty_premium") as PremiumPurchaseClaimRail;
-  if (claimRail !== "boosty_premium") {
+  const normalizedClaimRail = body.claimRail?.trim() || DEFAULT_PREMIUM_PURCHASE_RAIL;
+  if (!isSupportedPremiumPurchaseRail(normalizedClaimRail)) {
     return NextResponse.json<PremiumPurchaseClaimCreateResponse>(
       {
         ok: false,
@@ -156,8 +175,9 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  const claimRail = normalizedClaimRail as PremiumPurchaseClaimRail;
 
-  const expectedTier = body.expectedTier?.trim() || "premium";
+  const expectedTier = body.expectedTier?.trim() || DEFAULT_PREMIUM_EXPECTED_TIER;
   if (!expectedTier || expectedTier.length > 64) {
     return NextResponse.json<PremiumPurchaseClaimCreateResponse>(
       {
@@ -314,6 +334,7 @@ export async function POST(request: Request) {
       claimId: createResult.data.id,
       submittedAt: createResult.data.submittedAt,
       telegramUserId: contextResult.profile.telegramUserId,
+      claimRail: createResult.data.claimRail,
       expectedTier: createResult.data.expectedTier,
       purchaseCode: createResult.data.purchaseCorrelationCode,
       proofReference: createResult.data.paymentProofReference,
