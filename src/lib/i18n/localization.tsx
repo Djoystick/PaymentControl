@@ -98,6 +98,7 @@ const ruTranslations: Record<string, string> = {
   "Switch language (RU/EN) and active workspace context.": "Переключайте язык (RU/EN) и активный контекст пространства.",
   "Use one-time family invites: generate, share, then generate again later.": "Используйте одноразовые семейные приглашения: сгенерировать, отправить, затем при необходимости создать новое.",
   "Use Show onboarding again anytime from Profile.": "Кнопка «Показать онбординг снова» всегда доступна в Профиле.",
+  "Use ? help on each screen when details are needed.": "Используйте «?» на экранах, когда нужны детали.",
   "Skip": "Пропустить",
   "Back": "Назад",
   "Next": "Далее",

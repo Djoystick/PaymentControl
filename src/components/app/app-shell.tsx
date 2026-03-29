@@ -34,53 +34,43 @@ export const APP_TAB_NAVIGATE_EVENT = "payment-control-navigate-tab";
 
 const onboardingSteps: OnboardingStep[] = [
   {
-    title: "What this app does",
-    description: "Track recurring payments and close each cycle on time.",
-    tab: "home",
-    bullets: [
-      "Home is a quick status screen only.",
-      "Reminders is the main place for daily actions.",
-      "History stores proof of recent changes.",
-    ],
-  },
-  {
-    title: "Start with one payment",
-    description: "Open Reminders and add one recurring payment first.",
+    title: "Welcome to Payment Control",
+    description: "Keep daily money control simple with one short routine.",
     tab: "reminders",
     bullets: [
-      "Set title, amount, cadence, and due day.",
-      "Use Mark paid when paid, Undo paid if it was accidental.",
-      "Keep reminders enabled unless you have a clear reason to disable them.",
-    ],
-  },
-  {
-    title: "Keep payments and subscriptions separate",
-    description: "Use the list switch to review each type without mixing them.",
-    tab: "reminders",
-    bullets: [
-      "Payments: regular bills and obligations.",
-      "Subscriptions: recurring services that can be paused or resumed.",
+      "First step: open Reminders and add your first payment.",
+      "Use Mark paid / Undo paid directly from payment cards.",
       "Templates are scenario-specific: personal and family are independent.",
     ],
   },
   {
-    title: "Use History to verify actions",
-    description: "Open History after important changes to confirm what happened.",
-    tab: "history",
+    title: "What this app does",
+    description: "Home gives a compact snapshot of what needs attention today.",
+    tab: "home",
     bullets: [
-      "Check timestamps and latest updates quickly.",
-      "In family mode, review Who pays and Paid by after each cycle.",
-      "If History is empty, complete one action in Reminders first.",
+      "Use Home for a calm snapshot, not for deep management.",
+      "Open Reminders for actions and History for proof of changes.",
+      "Start with one recurring payment, then grow from real usage.",
     ],
   },
   {
-    title: "Profile controls context",
-    description: "Manage workspace, language, onboarding replay, and family invite here.",
+    title: "History shows recent updates",
+    description: "Use History to quickly review recent shared and personal payment events.",
+    tab: "history",
+    bullets: [
+      "History is your lightweight activity feed.",
+      "See what changed and when, without extra dashboard noise.",
+      "If empty, do one action in Reminders and check back here.",
+    ],
+  },
+  {
+    title: "Profile controls workspace context",
+    description: "Use Profile to switch workspace, manage family invite and check account context.",
     tab: "profile",
     bullets: [
-      "Switch RU/EN and keep the correct active workspace.",
-      "Family invite is one-time: generate, share, then create a new one later.",
-      "Use Show onboarding again when onboarding needs a quick refresh.",
+      "Use Profile for workspace, language, and family setup.",
+      "Use one-time family invites: generate, share, then generate again later.",
+      "Use ? help on each screen when details are needed.",
     ],
   },
 ];
@@ -192,6 +182,9 @@ export function AppShell({ screens }: AppShellProps) {
 
   const activeOnboardingStep = onboardingSteps[onboardingStepIndex];
   const isLastOnboardingStep = onboardingStepIndex === onboardingSteps.length - 1;
+  const activeOnboardingTabItem = activeOnboardingStep
+    ? tabItems.find((item) => item.key === activeOnboardingStep.tab) ?? null
+    : null;
 
   return (
     <div className="relative mx-auto flex min-h-dvh w-full max-w-[420px] flex-col px-1.5 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] pt-1.5 sm:px-2.5">
@@ -257,59 +250,79 @@ export function AppShell({ screens }: AppShellProps) {
 
         {isOnboardingVisible && activeOnboardingStep && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-4">
-            <div className="w-full max-w-md rounded-3xl border border-app-border bg-app-surface p-4 shadow-lg">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-app-text-muted">
-                {tr("Quick start")}
-              </p>
-              <p className="mt-1 text-base font-semibold text-app-text">
+            <div className="pc-surface w-full max-w-md rounded-3xl p-3.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-app-text-muted">
+                    {tr("Quick start")}
+                  </p>
+                  <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-app-text-muted">
+                    {activeOnboardingTabItem ? (
+                      <>
+                        <AppIcon name={activeOnboardingTabItem.icon} className="h-3.5 w-3.5" />
+                        {tr(activeOnboardingTabItem.label)}
+                      </>
+                    ) : (
+                      tr("Payment Control")
+                    )}
+                  </p>
+                </div>
+                <span className="pc-status-pill">
+                  {tr("Step {current} of {total}", {
+                    current: onboardingStepIndex + 1,
+                    total: onboardingSteps.length,
+                  })}
+                </span>
+              </div>
+              <p className="mt-2 text-[15px] font-semibold leading-tight text-app-text">
                 {tr(activeOnboardingStep.title)}
               </p>
-              <p className="mt-1 text-sm text-app-text-muted">
+              <p className="mt-1 text-sm leading-relaxed text-app-text-muted">
                 {tr(activeOnboardingStep.description)}
               </p>
-              <ul className="mt-2 space-y-1">
+              <ul className="mt-2.5 space-y-1.5">
                 {activeOnboardingStep.bullets.map((bullet) => (
-                  <li key={bullet} className="text-xs text-app-text-muted">
-                    - {tr(bullet)}
+                  <li
+                    key={bullet}
+                    className="pc-state-card flex items-start gap-1.5 text-xs leading-relaxed text-app-text-muted"
+                  >
+                    <AppIcon name="check" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>{tr(bullet)}</span>
                   </li>
                 ))}
               </ul>
-              <p className="mt-2 text-[11px] text-app-text-muted">
-                {tr("Step {current} of {total}", {
-                  current: onboardingStepIndex + 1,
-                  total: onboardingSteps.length,
-                })}
-              </p>
-              <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="mt-3 flex items-center justify-between gap-2">
                 <button
                   type="button"
                   onClick={closeOnboarding}
-                  className="rounded-xl border border-app-border px-3 py-2 text-xs font-semibold text-app-text"
+                  className="pc-btn-quiet"
                 >
                   {tr("Skip")}
                 </button>
-                {onboardingStepIndex > 0 && (
+                <div className="flex items-center gap-1.5">
+                  {onboardingStepIndex > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setOnboardingStepIndex((current) => current - 1)}
+                      className="pc-btn-secondary"
+                    >
+                      {tr("Back")}
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => setOnboardingStepIndex((current) => current - 1)}
-                    className="rounded-xl border border-app-border px-3 py-2 text-xs font-semibold text-app-text"
+                    onClick={() => {
+                      if (isLastOnboardingStep) {
+                        closeOnboarding();
+                        return;
+                      }
+                      setOnboardingStepIndex((current) => current + 1);
+                    }}
+                    className="pc-btn-primary min-w-[96px]"
                   >
-                    {tr("Back")}
+                    {isLastOnboardingStep ? tr("Finish") : tr("Next")}
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isLastOnboardingStep) {
-                      closeOnboarding();
-                      return;
-                    }
-                    setOnboardingStepIndex((current) => current + 1);
-                  }}
-                  className="rounded-xl bg-app-accent px-3 py-2 text-xs font-semibold text-white"
-                >
-                  {isLastOnboardingStep ? tr("Finish") : tr("Next")}
-                </button>
+                </div>
               </div>
             </div>
           </div>
