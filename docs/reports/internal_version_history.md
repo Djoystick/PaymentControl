@@ -4,6 +4,8 @@
 
 | Date | Phase | Status | Summary | Report |
 |---|---|---|---|---|
+| 2026-03-29 | Phase 21B.1 | implemented (audit/report), pending manual verification | True first-run onboarding verification readiness audit: confirmed first-run gate model, replay separation, and deterministic manual verification procedure without code changes | `docs/reports/phase_21B_1_true_first_run_onboarding_verification_readiness_audit.md` |
+| 2026-03-29 | Phase 21A.1 | implemented (code/report), pending manual verification | Onboarding viewport overlay positioning fix: moved onboarding modal to viewport-level portal, added safe max-height/internal scroll and background scroll lock | `docs/reports/phase_21A_1_onboarding_viewport_overlay_positioning_fix.md` |
 | 2026-03-29 | Phase 21A | implemented (code/report), pending manual verification | Onboarding overhaul on stabilized UI system: shorter action-first 4-step flow, updated system-aligned overlay framing, and tighter first-use/replay guidance | `docs/reports/phase_21A_onboarding_overhaul_on_stabilized_ui_system.md` |
 | 2026-03-29 | Phase 20H | implemented (code/report), manual verification completed by user | Secondary surface alignment pass: Profile/Premium/Support/Admin visible blocks aligned to shared system grammar with calmer grouping and compact cohesion | `docs/reports/phase_20H_secondary_surface_alignment_support_admin_premium_cohesion.md` |
 | 2026-03-29 | Phase 20G | implemented (code/report), manual verification completed by user | Honest viewport fit correction: removed forced inner-main scroll and restored natural page scroll for long screens while keeping compact first-screen utility | `docs/reports/phase_20G_honest_viewport_fit_scroll_behavior_correction.md` |
