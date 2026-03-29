@@ -18,6 +18,8 @@ import type {
   PremiumAdminRevokeResponse,
   PremiumAdminSessionResponse,
   PremiumAdminTargetResolveResponse,
+  PremiumPurchaseIntentCreateResponse,
+  PremiumPurchaseIntentReadMineResponse,
   PremiumPurchaseClaimCreateResponse,
   PremiumPurchaseClaimReadMineResponse,
   GiftPremiumClaimResponse,
@@ -159,6 +161,8 @@ export const createPremiumPurchaseClaim = async (params: {
   paymentProofReference?: string;
   paymentProofText?: string;
   claimNote?: string;
+  purchaseIntentId?: string;
+  purchaseCorrelationCode?: string;
 }): Promise<PremiumPurchaseClaimCreateResponse> => {
   return postJson<PremiumPurchaseClaimCreateResponse>(
     "/api/premium/purchase-claims",
@@ -171,6 +175,38 @@ export const createPremiumPurchaseClaim = async (params: {
       paymentProofReference: params.paymentProofReference ?? "",
       paymentProofText: params.paymentProofText ?? "",
       claimNote: params.claimNote ?? "",
+      purchaseIntentId: params.purchaseIntentId ?? "",
+      purchaseCorrelationCode: params.purchaseCorrelationCode ?? "",
+    },
+  );
+};
+
+export const createPremiumPurchaseIntent = async (params: {
+  initData: string;
+  intentRail?: "boosty_premium";
+  expectedTier?: string;
+}): Promise<PremiumPurchaseIntentCreateResponse> => {
+  return postJson<PremiumPurchaseIntentCreateResponse>(
+    "/api/premium/purchase-intents",
+    "POST",
+    {
+      initData: params.initData,
+      intentRail: params.intentRail ?? "boosty_premium",
+      expectedTier: params.expectedTier ?? "premium_monthly",
+    },
+  );
+};
+
+export const readMyPremiumPurchaseIntents = async (params: {
+  initData: string;
+  limit?: number;
+}): Promise<PremiumPurchaseIntentReadMineResponse> => {
+  return postJson<PremiumPurchaseIntentReadMineResponse>(
+    "/api/premium/purchase-intents/mine",
+    "POST",
+    {
+      initData: params.initData,
+      limit: params.limit ?? 10,
     },
   );
 };

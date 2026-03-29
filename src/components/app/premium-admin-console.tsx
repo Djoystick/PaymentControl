@@ -835,6 +835,11 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                   <span className="text-app-text-muted">
                     · {tr("Telegram user id")}: {claim.telegramUserId}
                   </span>
+                  {claim.purchaseCorrelationCode && (
+                    <span className="text-app-text-muted">
+                      {tr("Purchase code")}: {claim.purchaseCorrelationCode}
+                    </span>
+                  )}
                 </span>
                 <span
                   className={`pc-status-pill ${getClaimStatusPillClass(claim.status)}`}
@@ -857,6 +862,16 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                 {tr("Entitlement linked")}:{" "}
                 {claim.entitlementId ? tr("yes") : tr("no")}
               </p>
+              {claim.purchaseCorrelationCode && (
+                <p className="mt-1">
+                  {tr("Purchase code")}: {claim.purchaseCorrelationCode}
+                </p>
+              )}
+              {claim.purchaseIntentId && (
+                <p className="mt-1">
+                  {tr("Purchase intent id")}: {claim.purchaseIntentId}
+                </p>
+              )}
               {claim.paymentProofReference && (
                 <p className="mt-1">
                   {tr("Payment proof reference")}: {claim.paymentProofReference}

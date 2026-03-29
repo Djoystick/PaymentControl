@@ -322,6 +322,36 @@ export type PremiumPurchaseClaimStatus =
   | "expired"
   | "cancelled";
 
+export type PremiumPurchaseIntentRail = "boosty_premium";
+export type PremiumPurchaseIntentStatus =
+  | "created"
+  | "opened_external"
+  | "returned"
+  | "claimed"
+  | "consumed"
+  | "expired"
+  | "cancelled";
+
+export type PremiumPurchaseIntentPayload = {
+  id: string;
+  profileId: string;
+  workspaceId: string | null;
+  telegramUserId: string;
+  intentRail: PremiumPurchaseIntentRail;
+  expectedTier: string;
+  correlationCode: string;
+  status: PremiumPurchaseIntentStatus;
+  claimId: string | null;
+  openedExternalAt: string | null;
+  returnedAt: string | null;
+  claimedAt: string | null;
+  consumedAt: string | null;
+  expiresAt: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type PremiumPurchaseClaimPayload = {
   id: string;
   profileId: string;
@@ -333,6 +363,8 @@ export type PremiumPurchaseClaimPayload = {
   paymentProofReference: string | null;
   paymentProofText: string | null;
   status: PremiumPurchaseClaimStatus;
+  purchaseIntentId: string | null;
+  purchaseCorrelationCode: string | null;
   claimNote: string | null;
   adminNote: string | null;
   entitlementId: string | null;
@@ -365,6 +397,49 @@ export type PremiumPurchaseClaimCreateError = {
 export type PremiumPurchaseClaimCreateResponse =
   | PremiumPurchaseClaimCreateSuccess
   | PremiumPurchaseClaimCreateError;
+
+export type PremiumPurchaseIntentCreateSuccess = {
+  ok: true;
+  intent: PremiumPurchaseIntentPayload;
+};
+
+export type PremiumPurchaseIntentCreateErrorCode =
+  | CurrentAppContextErrorCode
+  | "PREMIUM_PURCHASE_INTENT_INVALID_INPUT"
+  | "PREMIUM_PURCHASE_INTENT_FAILED";
+
+export type PremiumPurchaseIntentCreateError = {
+  ok: false;
+  error: {
+    code: PremiumPurchaseIntentCreateErrorCode;
+    message: string;
+  };
+};
+
+export type PremiumPurchaseIntentCreateResponse =
+  | PremiumPurchaseIntentCreateSuccess
+  | PremiumPurchaseIntentCreateError;
+
+export type PremiumPurchaseIntentReadMineSuccess = {
+  ok: true;
+  intents: PremiumPurchaseIntentPayload[];
+};
+
+export type PremiumPurchaseIntentReadMineErrorCode =
+  | CurrentAppContextErrorCode
+  | "PREMIUM_PURCHASE_INTENT_READ_FAILED";
+
+export type PremiumPurchaseIntentReadMineError = {
+  ok: false;
+  error: {
+    code: PremiumPurchaseIntentReadMineErrorCode;
+    message: string;
+  };
+};
+
+export type PremiumPurchaseIntentReadMineResponse =
+  | PremiumPurchaseIntentReadMineSuccess
+  | PremiumPurchaseIntentReadMineError;
 
 export type PremiumPurchaseClaimReadMineSuccess = {
   ok: true;

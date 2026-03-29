@@ -16,6 +16,8 @@ type PremiumPurchaseClaimBody = {
   paymentProofReference?: string;
   paymentProofText?: string;
   claimNote?: string;
+  purchaseIntentId?: string;
+  purchaseCorrelationCode?: string;
 };
 
 const codeToStatus: Record<PremiumPurchaseClaimCreateErrorCode, number> = {
@@ -166,6 +168,37 @@ export async function POST(request: Request) {
     );
   }
 
+  const purchaseIntentId = normalizeOptionalInput(body.purchaseIntentId, 64);
+  if (!purchaseIntentId.ok) {
+    return NextResponse.json<PremiumPurchaseClaimCreateResponse>(
+      {
+        ok: false,
+        error: {
+          code: "PREMIUM_PURCHASE_CLAIM_INVALID_INPUT",
+          message: purchaseIntentId.message,
+        },
+      },
+      { status: 400 },
+    );
+  }
+
+  const purchaseCorrelationCode = normalizeOptionalInput(
+    body.purchaseCorrelationCode,
+    24,
+  );
+  if (!purchaseCorrelationCode.ok) {
+    return NextResponse.json<PremiumPurchaseClaimCreateResponse>(
+      {
+        ok: false,
+        error: {
+          code: "PREMIUM_PURCHASE_CLAIM_INVALID_INPUT",
+          message: purchaseCorrelationCode.message,
+        },
+      },
+      { status: 400 },
+    );
+  }
+
   const contextResult = await readCurrentAppContext(body.initData);
   if (!contextResult.ok) {
     return NextResponse.json<PremiumPurchaseClaimCreateResponse>(
@@ -190,6 +223,8 @@ export async function POST(request: Request) {
     paymentProofReference: paymentProofReference.value,
     paymentProofText: paymentProofText.value,
     claimNote: claimNote.value,
+    purchaseIntentId: purchaseIntentId.value,
+    purchaseCorrelationCode: purchaseCorrelationCode.value,
   });
 
   if (!createResult.ok) {

@@ -4,6 +4,7 @@
 
 | Date | Phase | Status | Summary | Report |
 |---|---|---|---|---|
+| 2026-03-29 | Phase 22E | implemented (code/report), pending manual verification | Added semi-automatic premium correlation layer: purchase intents with `PC-` correlation codes, Profile buy handoff step, claim linkage continuity, and owner queue correlation visibility without payment auto-activation | `docs/reports/phase_22E_purchase_correlation_code_semi_automatic_claim_activation.md` |
 | 2026-03-29 | Phase 22D | implemented (code/report), pending manual verification | Finalized claim lifecycle UX states in Profile (no claim/pending/approved/rejected guidance), added trusted last-checked status refresh cues, and aligned Boosty rails to current real external URLs with full end-to-end monetization MVP verification pack | `docs/reports/phase_22D_claim_lifecycle_ux_states_and_verification_pack.md` |
 | 2026-03-29 | Phase 22B | implemented (code/report), pending manual verification | Added Profile monetization entry separation with distinct Buy Premium / Support / Claim Premium rails, premium status presentation, and user claim submission/status refresh integrated with existing 22A/22C foundation | `docs/reports/phase_22B_profile_premium_support_entry_separation.md` |
 | 2026-03-29 | Phase 22C | implemented (code/report), pending manual verification | Added owner-only premium purchase claim review queue with claim listing, proof inspection, approve/reject actions, and entitlement linkage on approval | `docs/reports/phase_22C_owner_claim_review_queue.md` |

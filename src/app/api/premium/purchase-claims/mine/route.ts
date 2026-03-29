@@ -19,6 +19,8 @@ type PremiumPurchaseClaimRow = {
   payment_proof_reference: string | null;
   payment_proof_text: string | null;
   claim_status: PremiumPurchaseClaimStatus;
+  purchase_intent_id: string | null;
+  purchase_correlation_code: string | null;
   claim_note: string | null;
   admin_note: string | null;
   entitlement_id: string | null;
@@ -51,7 +53,7 @@ const codeToStatus: Record<PremiumPurchaseClaimReadMineErrorCode, number> = {
 };
 
 const selection =
-  "id, profile_id, workspace_id, telegram_user_id, claim_rail, expected_tier, external_payer_handle, payment_proof_reference, payment_proof_text, claim_status, claim_note, admin_note, entitlement_id, submitted_at, reviewed_at, reviewed_by_admin_telegram_user_id, metadata, created_at, updated_at";
+  "id, profile_id, workspace_id, telegram_user_id, claim_rail, expected_tier, external_payer_handle, payment_proof_reference, payment_proof_text, claim_status, purchase_intent_id, purchase_correlation_code, claim_note, admin_note, entitlement_id, submitted_at, reviewed_at, reviewed_by_admin_telegram_user_id, metadata, created_at, updated_at";
 
 const toPayload = (row: PremiumPurchaseClaimRow): PremiumPurchaseClaimPayload => {
   return {
@@ -65,6 +67,8 @@ const toPayload = (row: PremiumPurchaseClaimRow): PremiumPurchaseClaimPayload =>
     paymentProofReference: row.payment_proof_reference,
     paymentProofText: row.payment_proof_text,
     status: row.claim_status,
+    purchaseIntentId: row.purchase_intent_id,
+    purchaseCorrelationCode: row.purchase_correlation_code,
     claimNote: row.claim_note,
     adminNote: row.admin_note,
     entitlementId: row.entitlement_id,
