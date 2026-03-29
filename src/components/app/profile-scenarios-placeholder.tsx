@@ -112,6 +112,7 @@ function ProfileScenariosContent() {
   const [purchaseClaimNote, setPurchaseClaimNote] = useState("");
   const [latestPurchaseClaim, setLatestPurchaseClaim] =
     useState<PremiumPurchaseClaimPayload | null>(null);
+  const [claimStatusCheckedAt, setClaimStatusCheckedAt] = useState<string | null>(null);
   const [bugReportTitle, setBugReportTitle] = useState("");
   const [bugReportDescription, setBugReportDescription] = useState("");
   const [bugReportSteps, setBugReportSteps] = useState("");
@@ -199,9 +200,6 @@ function ProfileScenariosContent() {
   const isGiftClaimGranted = giftPremiumClaimResult?.status === "granted";
   const buyPremiumUrl = clientEnv.premiumBuyUrl;
   const supportProjectUrl = clientEnv.supportProjectUrl;
-  const isClaimPending =
-    latestPurchaseClaim?.status === "submitted" ||
-    latestPurchaseClaim?.status === "pending_review";
   const isClaimRejected = latestPurchaseClaim?.status === "rejected";
   const purchaseClaimStatusLabel = (() => {
     if (!latestPurchaseClaim) {
@@ -234,11 +232,68 @@ function ProfileScenariosContent() {
 
     return tr("Claim draft");
   })();
+  const claimLifecycle = (() => {
+    if (premiumEntitlement?.isPremium) {
+      return {
+        label: tr("Premium active"),
+        hint: tr("Premium is active. Buy and support rails stay separate."),
+        tone: "success" as const,
+      };
+    }
+
+    if (!latestPurchaseClaim) {
+      return {
+        label: tr("No claim submitted yet"),
+        hint: tr("After external payment, open Claim Premium and submit proof."),
+        tone: "neutral" as const,
+      };
+    }
+
+    if (
+      latestPurchaseClaim.status === "submitted" ||
+      latestPurchaseClaim.status === "pending_review"
+    ) {
+      return {
+        label: purchaseClaimStatusLabel ?? tr("Claim pending review"),
+        hint: tr("Claim is waiting for owner review. Core features continue to work."),
+        tone: "warning" as const,
+      };
+    }
+
+    if (latestPurchaseClaim.status === "approved") {
+      return {
+        label: purchaseClaimStatusLabel ?? tr("Claim approved"),
+        hint: tr("Claim approved. Premium status should become active after refresh."),
+        tone: "success" as const,
+      };
+    }
+
+    if (latestPurchaseClaim.status === "rejected") {
+      return {
+        label: purchaseClaimStatusLabel ?? tr("Claim rejected"),
+        hint: tr("Claim was rejected. Update proof fields and submit a new claim when ready."),
+        tone: "warning" as const,
+      };
+    }
+
+    return {
+      label: purchaseClaimStatusLabel ?? tr("Claim draft"),
+      hint: tr("Claim is closed. Submit a new claim only after a new payment."),
+      tone: "neutral" as const,
+    };
+  })();
+  const claimLifecycleToneClass =
+    claimLifecycle.tone === "success"
+      ? "pc-status-pill-success"
+      : claimLifecycle.tone === "warning"
+        ? "pc-status-pill-warning"
+        : "";
 
   const refreshMyPurchaseClaims = useCallback(
     async ({ silent = false }: { silent?: boolean } = {}) => {
       if (!initData || !profile) {
         setLatestPurchaseClaim(null);
+        setClaimStatusCheckedAt(null);
         setIsLoadingPurchaseClaims(false);
         return;
       }
@@ -255,6 +310,7 @@ function ProfileScenariosContent() {
 
         if (!response.ok) {
           setLatestPurchaseClaim(null);
+          setClaimStatusCheckedAt(new Date().toISOString());
           if (!silent) {
             setPurchaseClaimFeedback({
               kind: "error",
@@ -265,8 +321,13 @@ function ProfileScenariosContent() {
         }
 
         setLatestPurchaseClaim(response.claims[0] ?? null);
+        setClaimStatusCheckedAt(new Date().toISOString());
+        if (!silent) {
+          await refreshContext();
+        }
       } catch {
         setLatestPurchaseClaim(null);
+        setClaimStatusCheckedAt(new Date().toISOString());
         if (!silent) {
           setPurchaseClaimFeedback({
             kind: "error",
@@ -277,12 +338,13 @@ function ProfileScenariosContent() {
         setIsLoadingPurchaseClaims(false);
       }
     },
-    [initData, profile, tr],
+    [initData, profile, refreshContext, tr],
   );
 
   useEffect(() => {
     if (!initData || !profile) {
       setLatestPurchaseClaim(null);
+      setClaimStatusCheckedAt(null);
       setIsLoadingPurchaseClaims(false);
       return;
     }
@@ -328,6 +390,11 @@ function ProfileScenariosContent() {
       }
 
       setLatestPurchaseClaim(response.claim);
+      setClaimStatusCheckedAt(new Date().toISOString());
+      setPurchaseClaimExternalHandle("");
+      setPurchaseClaimProofReference("");
+      setPurchaseClaimProofText("");
+      setPurchaseClaimNote("");
       setPurchaseClaimFeedback({
         kind: "success",
         message: tr("Claim submitted. Owner review is now pending."),
@@ -681,34 +748,37 @@ function ProfileScenariosContent() {
             </>
           )}
 
-          {isLoadingPurchaseClaims ? (
-            <p className="pc-state-inline mt-1.5">
-              <AppIcon name="refresh" className="h-3.5 w-3.5 pc-spin" />
-              {tr("Loading claim status...")}
+          <div className="mt-1.5 rounded-xl border border-app-border/70 bg-white px-3 py-2">
+            {isLoadingPurchaseClaims ? (
+              <p className="pc-state-inline">
+                <AppIcon name="refresh" className="h-3.5 w-3.5 pc-spin" />
+                {tr("Loading claim status...")}
+              </p>
+            ) : (
+              <>
+                <p className={`pc-status-pill ${claimLifecycleToneClass}`}>
+                  <AppIcon
+                    name={
+                      claimLifecycle.tone === "success"
+                        ? "check"
+                        : claimLifecycle.tone === "warning"
+                          ? "alert"
+                          : "clock"
+                    }
+                    className="h-3 w-3"
+                  />
+                  {claimLifecycle.label}
+                </p>
+                <p className="mt-1 text-xs text-app-text-muted">{claimLifecycle.hint}</p>
+              </>
+            )}
+            <p className="mt-1 text-[11px] text-app-text-muted">
+              {tr("Claim status last checked")}:{" "}
+              {claimStatusCheckedAt
+                ? formatDateTime(claimStatusCheckedAt, claimStatusCheckedAt)
+                : tr("No claim status check yet.")}
             </p>
-          ) : purchaseClaimStatusLabel && !premiumEntitlement?.isPremium ? (
-            <p
-              className={`pc-status-pill mt-1.5 ${
-                latestPurchaseClaim?.status === "approved"
-                  ? "pc-status-pill-success"
-                  : isClaimPending || isClaimRejected
-                    ? "pc-status-pill-warning"
-                    : ""
-              }`}
-            >
-              <AppIcon
-                name={
-                  latestPurchaseClaim?.status === "approved"
-                    ? "check"
-                    : isClaimRejected
-                      ? "alert"
-                      : "clock"
-                }
-                className="h-3 w-3"
-              />
-              {purchaseClaimStatusLabel}
-            </p>
-          ) : null}
+          </div>
 
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <a

@@ -33,10 +33,11 @@ export const clientEnv = {
     readEnvValue(process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME),
   ),
   premiumBuyUrl:
-    readEnvValue(process.env.NEXT_PUBLIC_PREMIUM_BUY_URL) || "https://boosty.to",
+    readEnvValue(process.env.NEXT_PUBLIC_PREMIUM_BUY_URL) ||
+    "https://boosty.to/tvoy_kosmonavt/purchase/3867384?ssource=DIRECT&share=subscription_link",
   supportProjectUrl:
     readEnvValue(process.env.NEXT_PUBLIC_SUPPORT_PROJECT_URL) ||
-    "https://boosty.to",
+    "https://boosty.to/tvoy_kosmonavt/posts/cf4114af-41b0-4a6e-b944-be6ded323c21",
   supabaseUrl: readEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL),
   supabaseAnonKey: readEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
 } as const;
