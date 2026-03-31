@@ -1,6 +1,7 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import type {
   WorkspaceSummaryPayload,
 } from "@/lib/auth/types";
@@ -81,6 +82,13 @@ const createDefaultForm = (): PaymentFormState => {
     remindOnOverdue: true,
     notes: "",
   };
+};
+
+const areFormStatesEqual = (
+  left: PaymentFormState,
+  right: PaymentFormState,
+): boolean => {
+  return JSON.stringify(left) === JSON.stringify(right);
 };
 
 const formFromTemplate = (
@@ -281,13 +289,14 @@ export function RecurringPaymentsSection({
   const [isComposerExpanded, setIsComposerExpanded] = useState(false);
   const [isAdvancedFormExpanded, setIsAdvancedFormExpanded] = useState(false);
   const [isTemplateSuggestionsOpen, setIsTemplateSuggestionsOpen] = useState(true);
+  const [formBaseline, setFormBaseline] = useState<PaymentFormState>(createDefaultForm);
+  const [baselineEditingPaymentId, setBaselineEditingPaymentId] = useState<string | null>(null);
   const [customTemplatesByScenario, setCustomTemplatesByScenario] =
     useState<CustomTemplateStorageShape>(() => ({ personal: [], family: [] }));
   const [responsiblePayerOptions, setResponsiblePayerOptions] = useState<
     WorkspaceResponsiblePayerOptionPayload[]
   >([]);
   const [form, setForm] = useState<PaymentFormState>(createDefaultForm);
-  const composerRef = useRef<HTMLDetailsElement | null>(null);
 
   const subscriptionSummary = useMemo(() => {
     const activeSubscriptions = payments.filter(
@@ -535,12 +544,6 @@ export function RecurringPaymentsSection({
   }, [loadPayments]);
 
   useEffect(() => {
-    if (activePayments.length === 0) {
-      setIsComposerExpanded(true);
-    }
-  }, [activePayments.length]);
-
-  useEffect(() => {
     setCustomTemplatesByScenario(readCustomTemplatesFromStorage());
   }, []);
 
@@ -563,26 +566,24 @@ export function RecurringPaymentsSection({
     setShowPausedSubscriptionsOnly(false);
   }, [paymentListView]);
 
-  const resetFormDraft = () => {
-    setForm(createDefaultForm());
+  const resetFormDraft = useCallback(() => {
+    const defaultForm = createDefaultForm();
+    setForm(defaultForm);
+    setFormBaseline(defaultForm);
     setEditingPaymentId(null);
+    setBaselineEditingPaymentId(null);
     setIsAdvancedFormExpanded(false);
     setIsTemplateSuggestionsOpen(true);
-  };
+  }, []);
 
-  const closeComposer = () => {
+  const closeComposerImmediately = useCallback(() => {
     resetFormDraft();
     setPendingDeletePaymentId(null);
     setIsComposerExpanded(false);
-  };
+  }, [resetFormDraft]);
 
   const startEdit = (payment: RecurringPaymentPayload) => {
-    setPendingDeletePaymentId(null);
-    setEditingPaymentId(payment.id);
-    setIsComposerExpanded(true);
-    setIsAdvancedFormExpanded(true);
-    setIsTemplateSuggestionsOpen(false);
-    setForm({
+    const editForm: PaymentFormState = {
       responsibleProfileId: payment.responsibleProfileId ?? "",
       title: payment.title,
       amount: String(payment.amount),
@@ -597,7 +598,15 @@ export function RecurringPaymentsSection({
       remindOnDueDay: payment.remindOnDueDay,
       remindOnOverdue: payment.remindOnOverdue,
       notes: payment.notes ?? "",
-    });
+    };
+    setPendingDeletePaymentId(null);
+    setEditingPaymentId(payment.id);
+    setBaselineEditingPaymentId(payment.id);
+    setIsComposerExpanded(true);
+    setIsAdvancedFormExpanded(true);
+    setIsTemplateSuggestionsOpen(false);
+    setForm(editForm);
+    setFormBaseline(editForm);
     clearFeedback();
   };
 
@@ -748,7 +757,7 @@ export function RecurringPaymentsSection({
         "success",
       );
       emitPaymentsChanged();
-      closeComposer();
+      closeComposerImmediately();
     } catch {
       showFeedback(tr("Failed to save recurring payment."), "error");
     } finally {
@@ -773,7 +782,7 @@ export function RecurringPaymentsSection({
 
       replacePaymentInStateAndCache(result.payment);
       if (editingPaymentId === paymentId) {
-        closeComposer();
+        closeComposerImmediately();
       }
       setPendingDeletePaymentId(null);
       showFeedback(tr("Payment removed from active list."), "success");
@@ -876,19 +885,448 @@ export function RecurringPaymentsSection({
   };
 
   const openComposer = () => {
-    if (editingPaymentId === null) {
-      resetFormDraft();
-    }
+    const defaultForm = createDefaultForm();
+    setForm(defaultForm);
+    setFormBaseline(defaultForm);
+    setEditingPaymentId(null);
+    setBaselineEditingPaymentId(null);
+    setIsAdvancedFormExpanded(false);
     setPendingDeletePaymentId(null);
     setIsComposerExpanded(true);
     setIsTemplateSuggestionsOpen(true);
-    window.requestAnimationFrame(() => {
-      composerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+    clearFeedback();
   };
 
+  const hasUnsavedComposerChanges = useMemo(() => {
+    if (!isComposerExpanded) {
+      return false;
+    }
+
+    if (editingPaymentId !== baselineEditingPaymentId) {
+      return true;
+    }
+
+    return !areFormStatesEqual(form, formBaseline);
+  }, [baselineEditingPaymentId, editingPaymentId, form, formBaseline, isComposerExpanded]);
+
+  const requestCloseComposer = useCallback(() => {
+    if (isSaving) {
+      return;
+    }
+
+    if (hasUnsavedComposerChanges && typeof window !== "undefined") {
+      const shouldDiscard = window.confirm(
+        tr("Discard unsaved payment form changes?"),
+      );
+      if (!shouldDiscard) {
+        return;
+      }
+    }
+
+    closeComposerImmediately();
+  }, [closeComposerImmediately, hasUnsavedComposerChanges, isSaving, tr]);
+
+  useEffect(() => {
+    if (!isComposerExpanded) {
+      return;
+    }
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, [isComposerExpanded]);
+
+  useEffect(() => {
+    if (!isComposerExpanded) {
+      return;
+    }
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      event.preventDefault();
+      requestCloseComposer();
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [isComposerExpanded, requestCloseComposer]);
+
+  const composerModal =
+    typeof document !== "undefined" && isComposerExpanded
+      ? createPortal(
+          <div
+            className="fixed inset-0 z-[85] flex items-center justify-center bg-black/45 px-3 [padding-top:max(0.75rem,env(safe-area-inset-top))] [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]"
+            onClick={() => requestCloseComposer()}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={editingPaymentId ? tr("Edit payment") : tr("Add payment")}
+              className="pc-surface w-full max-w-lg rounded-3xl p-3"
+              style={{
+                maxHeight:
+                  "calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1.5rem)",
+                overflowY: "auto",
+                overscrollBehavior: "contain",
+              }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="pc-kicker">
+                    <AppIcon name="payments" className="h-3.5 w-3.5" />
+                    {tr("Payment form")}
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-app-text">
+                    {editingPaymentId ? tr("Edit payment") : tr("Add payment")}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={requestCloseComposer}
+                  disabled={isSaving}
+                  aria-label={tr("Close form")}
+                  className="pc-icon-btn disabled:opacity-60"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-3.5 w-3.5"
+                    aria-hidden
+                  >
+                    <path d="M6 6l12 12" />
+                    <path d="M18 6l-12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="mt-1 flex items-center gap-2 text-xs text-app-text-muted">
+                <HelpPopover
+                  buttonLabel={tr("Open payment form help")}
+                  title={tr("Payment form help")}
+                >
+                  <p>{tr("Core fields first. Open advanced options only when needed.")}</p>
+                </HelpPopover>
+                <span>{tr("Core fields first")}</span>
+              </div>
+              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="relative sm:col-span-2">
+                  <input
+                    value={form.title}
+                    onChange={(event) => {
+                      setForm((prev) => ({ ...prev, title: event.target.value }));
+                      setIsTemplateSuggestionsOpen(true);
+                    }}
+                    placeholder={tr("Payment title")}
+                    className="pc-input"
+                  />
+                  {editingPaymentId === null &&
+                    form.title.trim().length > 0 &&
+                    isTemplateSuggestionsOpen && (
+                      <div className="absolute inset-x-0 top-full z-30 mt-1 rounded-xl border border-app-border bg-white p-2 shadow-lg">
+                        <div className="flex items-center justify-between gap-2 text-[11px] text-app-text-muted">
+                          <span className="font-semibold uppercase tracking-[0.12em]">
+                            {tr("Template suggestions")}
+                          </span>
+                          <span>
+                            {activeTemplateScenario === "family"
+                              ? tr("Family templates")
+                              : tr("Personal templates")}
+                          </span>
+                        </div>
+                        {templateSuggestions.length === 0 ? (
+                          <p className="mt-1 text-xs text-app-text-muted">
+                            {tr("No matching templates. Continue typing to create manually.")}
+                          </p>
+                        ) : (
+                          <div className="mt-1 max-h-56 space-y-1 overflow-y-auto">
+                            {templateSuggestions.map((template) => {
+                              const localizedTemplate = localizeSystemTemplate(template);
+
+                              return (
+                                <button
+                                  key={template.id}
+                                  type="button"
+                                  onClick={() => applyTemplate(template)}
+                                  disabled={isSaving}
+                                  className="pc-action-card flex min-h-11 w-full touch-manipulation items-center justify-between gap-2 px-3 py-2 text-left disabled:opacity-60"
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-xs font-semibold text-app-text">
+                                      {resolveTemplateLabel(template)}
+                                    </p>
+                                    <p className="truncate text-[11px] text-app-text-muted">
+                                      {localizedTemplate.title}
+                                    </p>
+                                  </div>
+                                  <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
+                                    {template.isSubscription
+                                      ? tr("Subscription")
+                                      : tr("Payment")}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                </div>
+                <input
+                  value={form.amount}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, amount: event.target.value }))
+                  }
+                  placeholder={tr("Amount")}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="pc-input"
+                />
+                {isFamilyWorkspace && (
+                  <label className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text">
+                    <span className="block text-xs font-semibold text-app-text-muted">
+                      {tr("Who pays (responsible payer)")}
+                    </span>
+                    <select
+                      value={form.responsibleProfileId}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          responsibleProfileId: event.target.value,
+                        }))
+                      }
+                      className="pc-select mt-1"
+                    >
+                      <option value="">{tr("Not assigned yet")}</option>
+                      {responsiblePayerOptions.map((option) => (
+                        <option key={option.profileId} value={option.profileId}>
+                          {option.displayName}
+                          {option.memberRole === "owner" ? ` (${tr("owner")})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <select
+                  value={form.cadence}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      cadence: event.target.value as "weekly" | "monthly",
+                      dueDay: event.target.value === "weekly" ? "1" : prev.dueDay,
+                    }))
+                  }
+                  className="pc-select"
+                >
+                  <option value="monthly">{tr("Monthly")}</option>
+                  <option value="weekly">{tr("Weekly")}</option>
+                </select>
+                <input
+                  value={form.dueDay}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, dueDay: event.target.value }))
+                  }
+                  placeholder={
+                    form.cadence === "weekly"
+                      ? tr("Due weekday (1-7)")
+                      : tr("Due day (1-31)")
+                  }
+                  type="number"
+                  min="1"
+                  max={form.cadence === "weekly" ? "7" : "31"}
+                  className="pc-input"
+                />
+              </div>
+              <details
+                className="pc-detail-surface mt-2"
+                open={isAdvancedFormExpanded}
+                onToggle={(event) => setIsAdvancedFormExpanded(event.currentTarget.open)}
+              >
+                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                  {tr("Advanced options")}
+                </summary>
+                <p className="mt-1 text-xs text-app-text-muted">
+                  {tr("Reminder timing, category, currency, and notes")}
+                </p>
+                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <input
+                    value={form.currency}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, currency: event.target.value }))
+                    }
+                    placeholder={tr("Currency (RUB)")}
+                    className="pc-input"
+                  />
+                  <input
+                    value={form.category}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, category: event.target.value }))
+                    }
+                    placeholder={tr("Category")}
+                    className="pc-input"
+                  />
+                  <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text">
+                    <input
+                      type="checkbox"
+                      checked={form.isRequired}
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, isRequired: event.target.checked }))
+                      }
+                    />
+                    {tr("Required payment")}
+                  </label>
+                  <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text">
+                    <input
+                      type="checkbox"
+                      checked={form.isSubscription}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          isSubscription: event.target.checked,
+                        }))
+                      }
+                    />
+                    {tr("Mark as subscription")}
+                  </label>
+                  <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text sm:col-span-2">
+                    <input
+                      type="checkbox"
+                      checked={form.remindersEnabled}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          remindersEnabled: event.target.checked,
+                        }))
+                      }
+                    />
+                    {tr("Reminders enabled")}
+                  </label>
+                </div>
+                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <select
+                    value={form.remindDaysBefore}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        remindDaysBefore: event.target.value as "0" | "1" | "3",
+                      }))
+                    }
+                    disabled={!form.remindersEnabled}
+                    className="pc-select disabled:bg-app-surface-soft disabled:text-app-text-muted"
+                  >
+                    <option value="0">{tr("Remind 0 days before")}</option>
+                    <option value="1">{tr("Remind 1 day before")}</option>
+                    <option value="3">{tr("Remind 3 days before")}</option>
+                  </select>
+
+                  <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text">
+                    <input
+                      type="checkbox"
+                      checked={form.remindOnDueDay}
+                      disabled={!form.remindersEnabled}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          remindOnDueDay: event.target.checked,
+                        }))
+                      }
+                    />
+                    {tr("Remind on due day")}
+                  </label>
+
+                  <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text sm:col-span-2">
+                    <input
+                      type="checkbox"
+                      checked={form.remindOnOverdue}
+                      disabled={!form.remindersEnabled}
+                      onChange={(event) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          remindOnOverdue: event.target.checked,
+                        }))
+                      }
+                    />
+                    {tr("Remind if overdue")}
+                  </label>
+                </div>
+
+                <textarea
+                  value={form.notes}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, notes: event.target.value }))
+                  }
+                  placeholder={tr("Notes (optional)")}
+                  className="pc-textarea mt-2 h-20 resize-y"
+                />
+              </details>
+
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={submitForm}
+                  disabled={isSaving}
+                  className="pc-btn-primary"
+                >
+                  {editingPaymentId ? tr("Save changes") : tr("Add payment")}
+                </button>
+                <button
+                  type="button"
+                  onClick={saveCurrentFormAsTemplate}
+                  disabled={isSaving}
+                  className="pc-btn-secondary"
+                >
+                  {tr("Save as template")}
+                </button>
+                {editingPaymentId && (
+                  <button
+                    type="button"
+                    onClick={requestCloseComposer}
+                    className="pc-btn-secondary"
+                  >
+                    {tr("Cancel edit")}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={resetFormDraft}
+                  disabled={isSaving}
+                  className="pc-btn-secondary"
+                >
+                  {tr("Clear form")}
+                </button>
+                <button
+                  type="button"
+                  onClick={requestCloseComposer}
+                  disabled={isSaving}
+                  className="pc-btn-secondary"
+                >
+                  {tr("Close form")}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
-    <section className="pc-surface">
+    <>
+      <section className="pc-surface">
       <div className="mb-2 flex items-center justify-between">
         <h2 className="inline-flex items-center gap-2 text-base font-semibold text-app-text">
           <AppIcon name="reminders" className="h-4 w-4" />
@@ -1073,336 +1511,6 @@ export function RecurringPaymentsSection({
               </div>
           </details>
           )}
-
-          <details
-            ref={composerRef}
-            className="pc-detail-surface mt-2"
-            open={isComposerExpanded}
-            onToggle={(event) => {
-              setIsComposerExpanded(event.currentTarget.open);
-              if (!event.currentTarget.open) {
-                resetFormDraft();
-              }
-            }}
-          >
-            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              {editingPaymentId ? tr("Edit payment") : tr("Add payment")}
-            </summary>
-            <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-app-text-muted">
-              <div className="inline-flex items-center gap-2">
-                <HelpPopover
-                  buttonLabel={tr("Open payment form help")}
-                  title={tr("Payment form help")}
-                >
-                  <p>{tr("Core fields first. Open advanced options only when needed.")}</p>
-                </HelpPopover>
-                <span>{tr("Core fields first")}</span>
-              </div>
-              <button
-                type="button"
-                onClick={closeComposer}
-                className="pc-btn-quiet"
-              >
-                <AppIcon name="undo" className="h-3.5 w-3.5" />
-                {tr("Close form")}
-              </button>
-            </div>
-            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <div className="relative sm:col-span-2">
-              <input
-                value={form.title}
-                onChange={(event) => {
-                  setForm((prev) => ({ ...prev, title: event.target.value }));
-                  setIsTemplateSuggestionsOpen(true);
-                }}
-                placeholder={tr("Payment title")}
-                className="pc-input"
-              />
-              {editingPaymentId === null &&
-                form.title.trim().length > 0 &&
-                isTemplateSuggestionsOpen && (
-                <div className="absolute inset-x-0 top-full z-30 mt-1 rounded-xl border border-app-border bg-white p-2 shadow-lg">
-                  <div className="flex items-center justify-between gap-2 text-[11px] text-app-text-muted">
-                    <span className="font-semibold uppercase tracking-[0.12em]">
-                      {tr("Template suggestions")}
-                    </span>
-                    <span>
-                      {activeTemplateScenario === "family"
-                        ? tr("Family templates")
-                        : tr("Personal templates")}
-                    </span>
-                  </div>
-                  {templateSuggestions.length === 0 ? (
-                    <p className="mt-1 text-xs text-app-text-muted">
-                      {tr("No matching templates. Continue typing to create manually.")}
-                    </p>
-                  ) : (
-                    <div className="mt-1 max-h-56 space-y-1 overflow-y-auto">
-                      {templateSuggestions.map((template) => {
-                        const localizedTemplate = localizeSystemTemplate(template);
-
-                        return (
-                          <button
-                            key={template.id}
-                            type="button"
-                            onClick={() => applyTemplate(template)}
-                            disabled={isSaving}
-                            className="pc-action-card flex min-h-11 w-full touch-manipulation items-center justify-between gap-2 px-3 py-2 text-left disabled:opacity-60"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-semibold text-app-text">
-                                {resolveTemplateLabel(template)}
-                              </p>
-                              <p className="truncate text-[11px] text-app-text-muted">
-                                {localizedTemplate.title}
-                              </p>
-                            </div>
-                            <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
-                              {template.isSubscription
-                                ? tr("Subscription")
-                                : tr("Payment")}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            <input
-              value={form.amount}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, amount: event.target.value }))
-              }
-              placeholder={tr("Amount")}
-              type="number"
-              step="0.01"
-              min="0"
-              className="pc-input"
-            />
-            {isFamilyWorkspace && (
-              <label className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text">
-                <span className="block text-xs font-semibold text-app-text-muted">
-                  {tr("Who pays (responsible payer)")}
-                </span>
-                <select
-                  value={form.responsibleProfileId}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      responsibleProfileId: event.target.value,
-                    }))
-                  }
-                  className="pc-select mt-1"
-                >
-                  <option value="">{tr("Not assigned yet")}</option>
-                  {responsiblePayerOptions.map((option) => (
-                    <option key={option.profileId} value={option.profileId}>
-                      {option.displayName}
-                      {option.memberRole === "owner" ? ` (${tr("owner")})` : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <select
-              value={form.cadence}
-              onChange={(event) =>
-                setForm((prev) => ({
-                  ...prev,
-                  cadence: event.target.value as "weekly" | "monthly",
-                  dueDay: event.target.value === "weekly" ? "1" : prev.dueDay,
-                }))
-              }
-              className="pc-select"
-            >
-              <option value="monthly">{tr("Monthly")}</option>
-              <option value="weekly">{tr("Weekly")}</option>
-            </select>
-            <input
-              value={form.dueDay}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, dueDay: event.target.value }))
-              }
-              placeholder={
-                form.cadence === "weekly"
-                  ? tr("Due weekday (1-7)")
-                  : tr("Due day (1-31)")
-              }
-              type="number"
-              min="1"
-              max={form.cadence === "weekly" ? "7" : "31"}
-              className="pc-input"
-            />
-          </div>
-          <details
-            className="pc-detail-surface mt-2"
-            open={isAdvancedFormExpanded}
-            onToggle={(event) => setIsAdvancedFormExpanded(event.currentTarget.open)}
-          >
-            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              {tr("Advanced options")}
-            </summary>
-            <p className="mt-1 text-xs text-app-text-muted">
-              {tr("Reminder timing, category, currency, and notes")}
-            </p>
-            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <input
-                value={form.currency}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, currency: event.target.value }))
-                }
-                placeholder={tr("Currency (RUB)")}
-                className="pc-input"
-              />
-              <input
-                value={form.category}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, category: event.target.value }))
-                }
-                placeholder={tr("Category")}
-                className="pc-input"
-              />
-              <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text">
-                <input
-                  type="checkbox"
-                  checked={form.isRequired}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, isRequired: event.target.checked }))
-                  }
-                />
-                {tr("Required payment")}
-              </label>
-              <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text">
-                <input
-                  type="checkbox"
-                  checked={form.isSubscription}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      isSubscription: event.target.checked,
-                    }))
-                  }
-                />
-                {tr("Mark as subscription")}
-              </label>
-              <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text sm:col-span-2">
-                <input
-                  type="checkbox"
-                  checked={form.remindersEnabled}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      remindersEnabled: event.target.checked,
-                    }))
-                  }
-                />
-                {tr("Reminders enabled")}
-              </label>
-            </div>
-            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <select
-                value={form.remindDaysBefore}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    remindDaysBefore: event.target.value as "0" | "1" | "3",
-                  }))
-                }
-                disabled={!form.remindersEnabled}
-                className="pc-select disabled:bg-app-surface-soft disabled:text-app-text-muted"
-              >
-                <option value="0">{tr("Remind 0 days before")}</option>
-                <option value="1">{tr("Remind 1 day before")}</option>
-                <option value="3">{tr("Remind 3 days before")}</option>
-              </select>
-
-              <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text">
-                <input
-                  type="checkbox"
-                  checked={form.remindOnDueDay}
-                  disabled={!form.remindersEnabled}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      remindOnDueDay: event.target.checked,
-                    }))
-                  }
-                />
-                {tr("Remind on due day")}
-              </label>
-
-              <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text sm:col-span-2">
-                <input
-                  type="checkbox"
-                  checked={form.remindOnOverdue}
-                  disabled={!form.remindersEnabled}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      remindOnOverdue: event.target.checked,
-                    }))
-                  }
-                />
-                {tr("Remind if overdue")}
-              </label>
-            </div>
-
-            <textarea
-              value={form.notes}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, notes: event.target.value }))
-              }
-              placeholder={tr("Notes (optional)")}
-              className="pc-textarea mt-2 h-20 resize-y"
-            />
-          </details>
-
-          <div className="mt-2 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={submitForm}
-                disabled={isSaving}
-                className="pc-btn-primary"
-              >
-                {editingPaymentId ? tr("Save changes") : tr("Add payment")}
-              </button>
-              <button
-                type="button"
-                onClick={saveCurrentFormAsTemplate}
-                disabled={isSaving}
-                className="pc-btn-secondary"
-              >
-                {tr("Save as template")}
-              </button>
-            {editingPaymentId && (
-              <button
-                type="button"
-                onClick={closeComposer}
-                className="pc-btn-secondary"
-              >
-                {tr("Cancel edit")}
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={resetFormDraft}
-                disabled={isSaving}
-                className="pc-btn-secondary"
-              >
-                {tr("Clear form")}
-              </button>
-              <button
-                type="button"
-                onClick={closeComposer}
-                disabled={isSaving}
-                className="pc-btn-secondary"
-              >
-                {tr("Close form")}
-              </button>
-            </div>
-          </details>
 
           {activePayments.length > 0 && (
             <div className="pc-detail-surface mt-2">
@@ -1773,7 +1881,9 @@ export function RecurringPaymentsSection({
           <span>{feedback}</span>
         </p>
       )}
-    </section>
+      </section>
+      {composerModal}
+    </>
   );
 }
 
