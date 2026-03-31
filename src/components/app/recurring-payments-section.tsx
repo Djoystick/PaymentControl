@@ -289,6 +289,7 @@ export function RecurringPaymentsSection({
   const [isComposerExpanded, setIsComposerExpanded] = useState(false);
   const [isAdvancedFormExpanded, setIsAdvancedFormExpanded] = useState(false);
   const [isTemplateSuggestionsOpen, setIsTemplateSuggestionsOpen] = useState(true);
+  const [isTemplateQuickLaneDismissed, setIsTemplateQuickLaneDismissed] = useState(false);
   const [formBaseline, setFormBaseline] = useState<PaymentFormState>(createDefaultForm);
   const [baselineEditingPaymentId, setBaselineEditingPaymentId] = useState<string | null>(null);
   const [customTemplatesByScenario, setCustomTemplatesByScenario] =
@@ -400,6 +401,37 @@ export function RecurringPaymentsSection({
       })
       .slice(0, 5);
   }, [editingPaymentId, form.title, isTemplateSuggestionsOpen, templatesForScenario, tr]);
+
+  const quickTemplateOptions = useMemo(() => {
+    if (editingPaymentId !== null) {
+      return [];
+    }
+
+    if (isTemplateQuickLaneDismissed) {
+      return [];
+    }
+
+    if (form.title.trim().length > 0) {
+      return [];
+    }
+
+    return templatesForScenario.slice(0, 4).map((template) => {
+      const label = isCustomTemplate(template)
+        ? template.label.trim() || template.title.trim()
+        : tr(template.label).trim();
+
+      return {
+        template,
+        label,
+      };
+    });
+  }, [
+    editingPaymentId,
+    form.title,
+    isTemplateQuickLaneDismissed,
+    templatesForScenario,
+    tr,
+  ]);
 
   const activePayments = useMemo(
     () => payments.filter((payment) => payment.status === "active"),
@@ -576,6 +608,7 @@ export function RecurringPaymentsSection({
     setBaselineEditingPaymentId(null);
     setIsAdvancedFormExpanded(false);
     setIsTemplateSuggestionsOpen(true);
+    setIsTemplateQuickLaneDismissed(false);
   }, []);
 
   const closeComposerImmediately = useCallback(() => {
@@ -608,6 +641,7 @@ export function RecurringPaymentsSection({
     setIsComposerExpanded(true);
     setIsAdvancedFormExpanded(false);
     setIsTemplateSuggestionsOpen(false);
+    setIsTemplateQuickLaneDismissed(true);
     setIsDiscardConfirmOpen(false);
     setForm(editForm);
     setFormBaseline(editForm);
@@ -643,6 +677,7 @@ export function RecurringPaymentsSection({
     setIsComposerExpanded(true);
     setIsAdvancedFormExpanded(false);
     setIsTemplateSuggestionsOpen(false);
+    setIsTemplateQuickLaneDismissed(false);
     setForm(formFromTemplate(localizedTemplate));
     showFeedback(
       tr('Template "{template}" applied. Review and add payment.', {
@@ -897,10 +932,17 @@ export function RecurringPaymentsSection({
     setIsAdvancedFormExpanded(false);
     setPendingDeletePaymentId(null);
     setIsDiscardConfirmOpen(false);
+    setIsTemplateQuickLaneDismissed(false);
     setIsComposerExpanded(true);
     setIsTemplateSuggestionsOpen(true);
     clearFeedback();
   };
+
+  const continueManualEntry = useCallback(() => {
+    setIsTemplateQuickLaneDismissed(true);
+    setIsTemplateSuggestionsOpen(false);
+    titleInputRef.current?.focus();
+  }, []);
 
   const hasUnsavedComposerChanges = useMemo(() => {
     if (!isComposerExpanded) {
@@ -1084,13 +1126,22 @@ export function RecurringPaymentsSection({
                       <div className="absolute inset-x-0 top-full z-30 mt-1 rounded-xl border border-app-border bg-white p-2 shadow-lg">
                         <div className="flex items-center justify-between gap-2 text-[11px] text-app-text-muted">
                           <span className="font-semibold uppercase tracking-[0.12em]">
-                            {tr("Template suggestions")}
+                            {tr("Matching templates")}
                           </span>
-                          <span>
-                            {activeTemplateScenario === "family"
-                              ? tr("Family templates")
-                              : tr("Personal templates")}
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <span>
+                              {activeTemplateScenario === "family"
+                                ? tr("Family templates")
+                                : tr("Personal templates")}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={continueManualEntry}
+                              className="pc-btn-quiet min-h-7 px-2 py-0.5 text-[11px]"
+                            >
+                              {tr("Continue manually")}
+                            </button>
+                          </div>
                         </div>
                         {templateSuggestions.length === 0 ? (
                           <p className="mt-1 text-xs text-app-text-muted">
@@ -1130,6 +1181,42 @@ export function RecurringPaymentsSection({
                       </div>
                     )}
                 </div>
+                {quickTemplateOptions.length > 0 && (
+                  <div className="pc-state-card sm:col-span-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                        {tr("Quick templates")}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={continueManualEntry}
+                        className="pc-btn-quiet min-h-7 px-2 py-0.5 text-[11px]"
+                      >
+                        {tr("Continue manually")}
+                      </button>
+                    </div>
+                    <p className="mt-0.5 text-[11px] text-app-text-muted">
+                      {tr("Choose a template or continue manually.")}
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {quickTemplateOptions.map((option) => (
+                        <button
+                          key={`quick-template-${option.template.id}`}
+                          type="button"
+                          onClick={() => applyTemplate(option.template)}
+                          disabled={isSaving}
+                          className="pc-btn-quiet min-h-8 max-w-full px-2 py-1 text-xs disabled:opacity-60"
+                        >
+                          <AppIcon
+                            name={option.template.isSubscription ? "subscriptions" : "payments"}
+                            className="h-3.5 w-3.5"
+                          />
+                          <span className="max-w-[9.5rem] truncate">{option.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <label className="space-y-1">
                   <span className="block text-[11px] font-semibold text-app-text-muted">
                     {tr("Amount")}
