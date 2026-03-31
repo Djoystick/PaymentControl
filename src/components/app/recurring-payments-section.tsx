@@ -59,7 +59,21 @@ type PaymentFormState = {
 
 type TemplateScenario = "personal" | "family";
 type PaymentListView = "payments" | "subscriptions";
+type ReminderFocusFilter = "all" | "action_now" | "upcoming" | "paid";
 type FeedbackTone = "info" | "success" | "error";
+
+type PreparedVisiblePayment = {
+  payment: RecurringPaymentPayload;
+  responsiblePayerName: string | null;
+  paidByName: string | null;
+  hasEconomicsMismatch: boolean;
+  nextCycleDueDate: string;
+  isPaidCurrentCycle: boolean;
+  isDueTodayNow: boolean;
+  isOverdueNow: boolean;
+  isUpcomingNow: boolean;
+  urgencyRank: number;
+};
 
 type CustomTemplateStorageShape = Record<TemplateScenario, StarterPaymentTemplate[]>;
 
@@ -285,6 +299,8 @@ export function RecurringPaymentsSection({
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [pendingDeletePaymentId, setPendingDeletePaymentId] = useState<string | null>(null);
   const [paymentListView, setPaymentListView] = useState<PaymentListView>("payments");
+  const [reminderFocusFilter, setReminderFocusFilter] =
+    useState<ReminderFocusFilter>("all");
   const [showPausedSubscriptionsOnly, setShowPausedSubscriptionsOnly] = useState(false);
   const [isComposerExpanded, setIsComposerExpanded] = useState(false);
   const [isAdvancedFormExpanded, setIsAdvancedFormExpanded] = useState(false);
@@ -452,6 +468,137 @@ export function RecurringPaymentsSection({
     return activePayments.filter((payment) => !payment.isSubscription);
   }, [activePayments, paymentListView, showPausedSubscriptionsOnly]);
 
+  const todayDateKey = toUtcDateKey(new Date());
+
+  const preparedVisiblePayments = useMemo<PreparedVisiblePayment[]>(() => {
+    return visiblePayments.map((payment) => {
+      const responsiblePayerName =
+        payment.paymentScope === "shared"
+          ? resolveResponsiblePayerDisplayName(
+              payment.responsibleProfileId,
+              responsiblePayerOptions,
+              {
+                notAssigned: tr("Not assigned yet"),
+                missingMember: tr(
+                  "Assigned member is no longer in this family workspace",
+                ),
+              },
+            )
+          : null;
+
+      const paidByName =
+        payment.paymentScope === "shared" && payment.currentCycle.paidByProfileId
+          ? resolveResponsiblePayerDisplayName(
+              payment.currentCycle.paidByProfileId,
+              responsiblePayerOptions,
+              {
+                notAssigned: tr("Not assigned yet"),
+                missingMember: tr(
+                  "Assigned member is no longer in this family workspace",
+                ),
+              },
+            )
+          : null;
+
+      const hasEconomicsMismatch =
+        payment.paymentScope === "shared" &&
+        payment.currentCycle.state === "paid" &&
+        Boolean(payment.responsibleProfileId) &&
+        Boolean(payment.currentCycle.paidByProfileId) &&
+        payment.responsibleProfileId !== payment.currentCycle.paidByProfileId;
+
+      const nextCycleDueDate = resolveNextCycleDueDate(
+        payment.cadence,
+        payment.dueDay,
+        payment.currentCycle.dueDate,
+      );
+
+      const isPaidCurrentCycle = payment.currentCycle.state === "paid";
+      const isDueTodayNow =
+        !isPaidCurrentCycle && payment.currentCycle.dueDate === todayDateKey;
+      const isOverdueNow =
+        !isPaidCurrentCycle && payment.currentCycle.dueDate < todayDateKey;
+      const isUpcomingNow =
+        !isPaidCurrentCycle && payment.currentCycle.dueDate > todayDateKey;
+
+      const urgencyRank = isOverdueNow
+        ? 0
+        : isDueTodayNow
+          ? 1
+          : isUpcomingNow
+            ? 2
+            : 3;
+
+      return {
+        payment,
+        responsiblePayerName,
+        paidByName,
+        hasEconomicsMismatch,
+        nextCycleDueDate,
+        isPaidCurrentCycle,
+        isDueTodayNow,
+        isOverdueNow,
+        isUpcomingNow,
+        urgencyRank,
+      };
+    });
+  }, [responsiblePayerOptions, todayDateKey, tr, visiblePayments]);
+
+  const sortedVisiblePayments = useMemo(() => {
+    const next = [...preparedVisiblePayments];
+    next.sort((left, right) => {
+      if (left.urgencyRank !== right.urgencyRank) {
+        return left.urgencyRank - right.urgencyRank;
+      }
+
+      if (left.payment.currentCycle.dueDate !== right.payment.currentCycle.dueDate) {
+        return left.payment.currentCycle.dueDate.localeCompare(
+          right.payment.currentCycle.dueDate,
+        );
+      }
+
+      return left.payment.title.localeCompare(right.payment.title);
+    });
+    return next;
+  }, [preparedVisiblePayments]);
+
+  const focusFilterCounts = useMemo(() => {
+    const actionNow = sortedVisiblePayments.filter(
+      (entry) => entry.isOverdueNow || entry.isDueTodayNow,
+    ).length;
+    const upcoming = sortedVisiblePayments.filter(
+      (entry) => entry.isUpcomingNow,
+    ).length;
+    const paid = sortedVisiblePayments.filter(
+      (entry) => entry.isPaidCurrentCycle,
+    ).length;
+
+    return {
+      all: sortedVisiblePayments.length,
+      actionNow,
+      upcoming,
+      paid,
+    };
+  }, [sortedVisiblePayments]);
+
+  const focusedVisiblePayments = useMemo(() => {
+    if (reminderFocusFilter === "all") {
+      return sortedVisiblePayments;
+    }
+
+    if (reminderFocusFilter === "action_now") {
+      return sortedVisiblePayments.filter(
+        (entry) => entry.isOverdueNow || entry.isDueTodayNow,
+      );
+    }
+
+    if (reminderFocusFilter === "upcoming") {
+      return sortedVisiblePayments.filter((entry) => entry.isUpcomingNow);
+    }
+
+    return sortedVisiblePayments.filter((entry) => entry.isPaidCurrentCycle);
+  }, [reminderFocusFilter, sortedVisiblePayments]);
+
   const paymentsCount = useMemo(
     () => activePayments.filter((payment) => !payment.isSubscription).length,
     [activePayments],
@@ -461,17 +608,16 @@ export function RecurringPaymentsSection({
     [activePayments],
   );
   const remindersActSummary = useMemo(() => {
-    const todayKey = toUtcDateKey(new Date());
     const actionable = payments.filter((payment) => payment.status === "active");
     const dueTodayCount = actionable.filter(
       (payment) =>
         payment.currentCycle.state === "unpaid" &&
-        payment.currentCycle.dueDate === todayKey,
+        payment.currentCycle.dueDate === todayDateKey,
     ).length;
     const overdueCount = actionable.filter(
       (payment) =>
         payment.currentCycle.state === "unpaid" &&
-        payment.currentCycle.dueDate < todayKey,
+        payment.currentCycle.dueDate < todayDateKey,
     ).length;
 
     return {
@@ -479,7 +625,7 @@ export function RecurringPaymentsSection({
       dueTodayCount,
       overdueCount,
     };
-  }, [payments]);
+  }, [payments, todayDateKey]);
   const actionNowCount =
     remindersActSummary.dueTodayCount + remindersActSummary.overdueCount;
 
@@ -599,6 +745,10 @@ export function RecurringPaymentsSection({
   useEffect(() => {
     setShowPausedSubscriptionsOnly(false);
   }, [paymentListView]);
+
+  useEffect(() => {
+    setReminderFocusFilter("all");
+  }, [paymentListView, showPausedSubscriptionsOnly]);
 
   const resetFormDraft = useCallback(() => {
     const defaultForm = createDefaultForm();
@@ -1732,12 +1882,52 @@ export function RecurringPaymentsSection({
                 </button>
               </div>
               <p className="mt-1 text-[11px] text-app-text-muted">
-                {tr("Visible")}: {visiblePayments.length} / {tr("Total")}: {activePayments.length}
+                {tr("Visible")}: {focusedVisiblePayments.length} / {tr("In list")}:{" "}
+                {visiblePayments.length} / {tr("Total")}: {activePayments.length}
               </p>
+              <div className="mt-1.5">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-app-text-muted">
+                  {tr("Focus")}
+                </p>
+                <div className="pc-segmented mt-1">
+                  <button
+                    type="button"
+                    onClick={() => setReminderFocusFilter("all")}
+                    aria-pressed={reminderFocusFilter === "all"}
+                    className="pc-segment-btn min-h-9"
+                  >
+                    {tr("All")} ({focusFilterCounts.all})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReminderFocusFilter("action_now")}
+                    aria-pressed={reminderFocusFilter === "action_now"}
+                    className="pc-segment-btn min-h-9"
+                  >
+                    {tr("Action now")} ({focusFilterCounts.actionNow})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReminderFocusFilter("upcoming")}
+                    aria-pressed={reminderFocusFilter === "upcoming"}
+                    className="pc-segment-btn min-h-9"
+                  >
+                    {tr("Upcoming")} ({focusFilterCounts.upcoming})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReminderFocusFilter("paid")}
+                    aria-pressed={reminderFocusFilter === "paid"}
+                    className="pc-segment-btn min-h-9"
+                  >
+                    {tr("Paid")} ({focusFilterCounts.paid})
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
-          <div className="mt-2 space-y-1">
+          <div className="mt-2 space-y-2">
             {isLoading && (
               <p className="pc-empty-state text-sm">{tr("Loading payments...")}</p>
             )}
@@ -1755,86 +1945,54 @@ export function RecurringPaymentsSection({
                     : tr("No regular payments found for the current filter.")}
               </p>
             )}
-            {visiblePayments.map((payment) => (
+            {!isLoading && visiblePayments.length > 0 && focusedVisiblePayments.length === 0 && (
+              <p className="pc-empty-state text-sm">
+                {tr("No cards in this focus yet.")}
+              </p>
+            )}
+            {focusedVisiblePayments.map((entry) => (
               (() => {
-                const responsiblePayerName =
-                  payment.paymentScope === "shared"
-                    ? resolveResponsiblePayerDisplayName(
-                        payment.responsibleProfileId,
-                        responsiblePayerOptions,
-                        {
-                          notAssigned: tr("Not assigned yet"),
-                          missingMember: tr(
-                            "Assigned member is no longer in this family workspace",
-                          ),
-                        },
-                      )
-                    : null;
-                const paidByName =
-                  payment.paymentScope === "shared" &&
-                  payment.currentCycle.paidByProfileId
-                    ? resolveResponsiblePayerDisplayName(
-                        payment.currentCycle.paidByProfileId,
-                        responsiblePayerOptions,
-                        {
-                          notAssigned: tr("Not assigned yet"),
-                          missingMember: tr(
-                            "Assigned member is no longer in this family workspace",
-                          ),
-                        },
-                      )
-                    : null;
-                const hasEconomicsMismatch =
-                  payment.paymentScope === "shared" &&
-                  payment.currentCycle.state === "paid" &&
-                  Boolean(payment.responsibleProfileId) &&
-                  Boolean(payment.currentCycle.paidByProfileId) &&
-                  payment.responsibleProfileId !== payment.currentCycle.paidByProfileId;
-                const nextCycleDueDate = resolveNextCycleDueDate(
-                  payment.cadence,
-                  payment.dueDay,
-                  payment.currentCycle.dueDate,
-                );
-                const isPaidCurrentCycle = payment.currentCycle.state === "paid";
-                const todayDateKey = toUtcDateKey(new Date());
-                const isDueTodayNow =
-                  !isPaidCurrentCycle && payment.currentCycle.dueDate === todayDateKey;
-                const isOverdueNow =
-                  !isPaidCurrentCycle && payment.currentCycle.dueDate < todayDateKey;
-                const isActionableNow = isDueTodayNow || isOverdueNow;
+                const {
+                  payment,
+                  responsiblePayerName,
+                  paidByName,
+                  hasEconomicsMismatch,
+                  nextCycleDueDate,
+                  isPaidCurrentCycle,
+                  isDueTodayNow,
+                  isOverdueNow,
+                  isUpcomingNow,
+                } = entry;
 
                 return (
                   <article
                     key={payment.id}
-                    className={`rounded-2xl border p-2 ${
+                    className={`pc-payment-card ${
                       isOverdueNow
-                        ? "border-amber-300 bg-amber-50/55 shadow-[0_10px_20px_rgba(194,120,16,0.14)]"
+                        ? "pc-payment-card-overdue"
                         : isDueTodayNow
-                          ? "border-app-accent/45 bg-app-surface shadow-[0_10px_20px_var(--app-frame-shadow)]"
-                          : "border-app-border bg-app-surface-soft shadow-sm"
+                          ? "pc-payment-card-due-today"
+                          : "pc-payment-card-default"
                     }`}
                   >
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <p className="truncate font-semibold text-app-text">{payment.title}</p>
+                            <p className="truncate text-sm font-semibold text-app-text">{payment.title}</p>
                             <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-app-text-muted">
                               <AppIcon
                                 name={payment.isSubscription ? "subscriptions" : "payments"}
                                 className="h-3.5 w-3.5"
                               />
-                              {payment.isSubscription ? tr("Subscription") : tr("Payment")} •{" "}
-                              {payment.cadence === "weekly"
-                                ? `${tr("Weekly")} • ${tr("weekday")} ${payment.dueDay}`
-                                : `${tr("Monthly")} • ${tr("day")} ${payment.dueDay}`}
+                              {payment.isSubscription ? tr("Subscription") : tr("Payment")}
                             </p>
                           </div>
-                          <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] font-semibold text-app-text">
+                          <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-xs font-bold text-app-text">
                             {formatAmount(payment)}
                           </span>
                         </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-1">
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
                           <span
                             className={`pc-status-pill ${
                               isPaidCurrentCycle
@@ -1848,18 +2006,24 @@ export function RecurringPaymentsSection({
                             />
                             {isPaidCurrentCycle ? tr("Paid") : tr("Unpaid")}
                           </span>
-                          {isActionableNow && (
+                          {isOverdueNow && (
                             <span
-                              className={`pc-status-pill ${
-                                isOverdueNow
-                                  ? "pc-status-pill-error"
-                                  : "pc-status-pill-success"
-                              }`}
+                              className="pc-status-pill pc-status-pill-error"
                             >
                               <AppIcon name="alert" className="h-3 w-3" />
-                              {isOverdueNow
-                                ? tr("Action now: overdue")
-                                : tr("Action now: due today")}
+                              {tr("Overdue (unpaid)")}
+                            </span>
+                          )}
+                          {isDueTodayNow && (
+                            <span className="pc-status-pill pc-status-pill-warning">
+                              <AppIcon name="clock" className="h-3 w-3" />
+                              {tr("Due today (unpaid)")}
+                            </span>
+                          )}
+                          {isUpcomingNow && (
+                            <span className="pc-status-pill">
+                              <AppIcon name="clock" className="h-3 w-3" />
+                              {tr("Upcoming (unpaid)")}
                             </span>
                           )}
                           {payment.isSubscription && payment.isPaused && (
@@ -1869,22 +2033,52 @@ export function RecurringPaymentsSection({
                             </span>
                           )}
                         </div>
+
+                        <div className="mt-1 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                          <div className="pc-state-card bg-white px-2 py-1.5">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-app-text-muted">
+                              {isPaidCurrentCycle ? tr("Next payment date") : tr("Due")}
+                            </p>
+                            <p
+                              className={`mt-0.5 text-xs font-semibold ${
+                                isOverdueNow
+                                  ? "text-amber-700"
+                                  : isDueTodayNow
+                                    ? "text-app-accent-strong"
+                                    : "text-app-text"
+                              }`}
+                            >
+                              {formatDueDate(
+                                isPaidCurrentCycle
+                                  ? nextCycleDueDate
+                                  : payment.currentCycle.dueDate,
+                              )}
+                            </p>
+                          </div>
+                          <div className="pc-state-card bg-white px-2 py-1.5">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-app-text-muted">
+                              {tr("Cadence")}
+                            </p>
+                            <p className="mt-0.5 text-xs font-semibold text-app-text">
+                              {payment.cadence === "weekly"
+                                ? `${tr("Weekly")} • ${tr("weekday")} ${payment.dueDay}`
+                                : `${tr("Monthly")} • ${tr("day")} ${payment.dueDay}`}
+                            </p>
+                          </div>
+                        </div>
+
                         {payment.paymentScope === "shared" ? (
-                          <p className="mt-0.5 text-xs text-app-text-muted">
+                          <p className="mt-1 text-xs text-app-text-muted">
                             {tr("Who pays")}: {responsiblePayerName}
                           </p>
                         ) : null}
-                        <p className="mt-0.5 text-xs text-app-text-muted">
-                          {tr("Current cycle")}: {tr(payment.currentCycle.state)}. {tr("Due")}{" "}
-                          {formatDueDate(payment.currentCycle.dueDate)}
-                          {payment.currentCycle.paidAt ? `. ${tr("Paid this cycle.")}` : "."}
+                        <p className="mt-0.5 text-[11px] text-app-text-muted">
+                          {tr("Current cycle")}: {tr(payment.currentCycle.state)}
+                          {payment.currentCycle.paidAt ? ` • ${tr("Paid this cycle.")}` : ""}
                         </p>
-                        {isPaidCurrentCycle && (
+                        {isPaidCurrentCycle && payment.paymentScope === "shared" && (
                           <p className="mt-0.5 text-xs text-app-text-muted">
-                            {tr("Next payment date")}: {formatDueDate(nextCycleDueDate)}
-                            {payment.paymentScope === "shared"
-                              ? ` • ${tr("Paid by")}: ${paidByName ?? tr("Not captured")}`
-                              : ""}
+                            {tr("Paid by")}: {paidByName ?? tr("Not captured")}
                           </p>
                         )}
                         {payment.paymentScope === "shared" &&
@@ -1907,7 +2101,7 @@ export function RecurringPaymentsSection({
                               {tr("Economics: aligned (responsible payer paid this cycle).")}
                             </p>
                           )}
-                        <details className="pc-state-card mt-1 bg-white px-1.5 py-1 text-xs text-app-text-muted">
+                        <details className="pc-state-card mt-1.5 bg-white px-1.5 py-1 text-xs text-app-text-muted">
                           <summary className="inline-flex cursor-pointer items-center gap-1 font-semibold text-app-text">
                             <AppIcon name="template" className="h-3.5 w-3.5 text-app-text-muted" />
                             {tr("Details and actions")}
@@ -1965,7 +2159,7 @@ export function RecurringPaymentsSection({
                           </div>
                         </details>
                       </div>
-                      <div className="flex flex-wrap gap-1.5 sm:justify-end">
+                      <div className="mt-0.5 flex w-full flex-col gap-1.5 sm:mt-0 sm:w-44 sm:shrink-0">
                         <button
                           type="button"
                           onClick={() =>
@@ -1978,7 +2172,7 @@ export function RecurringPaymentsSection({
                             isFamilyWorkspace,
                             isSaving,
                           )}
-                          className={`inline-flex min-h-11 flex-1 touch-manipulation items-center justify-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold text-white disabled:opacity-60 sm:flex-none ${
+                          className={`inline-flex min-h-11 w-full touch-manipulation items-center justify-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold text-white disabled:opacity-60 ${
                             isOverdueNow
                               ? "bg-amber-600 shadow-[0_8px_18px_rgba(194,120,16,0.3)]"
                               : "bg-app-accent shadow-[0_8px_18px_rgba(31,122,67,0.28)]"
@@ -1992,24 +2186,26 @@ export function RecurringPaymentsSection({
                             ? tr("Undo paid")
                             : tr("Mark paid")}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => startEdit(payment)}
-                          disabled={isSaving || payment.status === "archived"}
-                          className="pc-btn-secondary min-h-9 px-2 py-1 text-xs text-app-text-muted disabled:opacity-60"
-                        >
-                          <AppIcon name="edit" className="h-3.5 w-3.5" />
-                          {tr("Edit")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPendingDeletePaymentId(payment.id)}
-                          disabled={isSaving || payment.status === "archived"}
-                          className="pc-btn-danger min-h-9 px-2 py-1 text-xs disabled:opacity-60"
-                        >
-                          <AppIcon name="archive" className="h-3.5 w-3.5" />
-                          {tr("Delete")}
-                        </button>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => startEdit(payment)}
+                            disabled={isSaving || payment.status === "archived"}
+                            className="pc-btn-secondary min-h-9 px-2 py-1 text-xs text-app-text-muted disabled:opacity-60"
+                          >
+                            <AppIcon name="edit" className="h-3.5 w-3.5" />
+                            {tr("Edit")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPendingDeletePaymentId(payment.id)}
+                            disabled={isSaving || payment.status === "archived"}
+                            className="pc-btn-danger min-h-9 px-2 py-1 text-xs disabled:opacity-60"
+                          >
+                            <AppIcon name="archive" className="h-3.5 w-3.5" />
+                            {tr("Delete")}
+                          </button>
+                        </div>
                       </div>
                       {pendingDeletePaymentId === payment.id && (
                         <div className="mt-1.5 rounded-xl border border-red-200 bg-red-50/70 px-2 py-2 text-xs text-red-900">
