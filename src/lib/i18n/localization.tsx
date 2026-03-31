@@ -1038,8 +1038,11 @@ const ruTranslations: Record<string, string> = {
 
   "Boosty": "Boosty",
   "CloudTips": "CloudTips",
+  "Support is optional and opens on external provider pages.": "Поддержка добровольная и открывается на внешних страницах сервисов.",
+  "Secondary": "Дополнительный",
   "Primary support rail": "Основной канал поддержки",
   "Secondary support rail": "Дополнительный канал поддержки",
+  "CloudTips slot is prepared and will appear after URL setup.": "Слот CloudTips подготовлен и появится после настройки адреса.",
   "Open CloudTips": "Открыть CloudTips",
 
   // Phase 24C owner support-claim operational clarity overrides.

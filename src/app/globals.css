@@ -478,6 +478,15 @@ details.pc-state-card[open] > summary {
   opacity: 0.78;
 }
 
+.pc-action-card[aria-disabled="true"]:hover {
+  border-color: var(--app-border);
+  box-shadow: 0 6px 16px var(--app-frame-shadow);
+}
+
+.pc-action-card[aria-disabled="true"]:active {
+  transform: none;
+}
+
 .pc-input,
 .pc-select,
 .pc-textarea {

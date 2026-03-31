@@ -14,6 +14,9 @@ export type SupportRailConfig = {
   isPrimary: boolean;
 };
 
+const DEFAULT_BOOSTY_SUPPORT_URL =
+  "https://boosty.to/tvoy_kosmonavt/posts/cf4114af-41b0-4a6e-b944-be6ded323c21";
+
 const normalizeExternalUrl = (value: string): string => {
   const raw = value.trim();
   if (!raw) {
@@ -29,6 +32,15 @@ const normalizeExternalUrl = (value: string): string => {
     return parsed.toString();
   } catch {
     return "";
+  }
+};
+
+const isBoostySupportUrl = (url: string): boolean => {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host === "boosty.to" || host.endsWith(".boosty.to");
+  } catch {
+    return false;
   }
 };
 
@@ -68,16 +80,43 @@ const resolveSupportProjectUrl = (): string => {
     return configuredUrl;
   }
 
-  return "https://boosty.to/tvoy_kosmonavt/posts/cf4114af-41b0-4a6e-b944-be6ded323c21";
+  return DEFAULT_BOOSTY_SUPPORT_URL;
 };
 
-const resolveSupportRails = (): SupportRailConfig[] => {
-  const boostyUrl =
-    normalizeExternalUrl(readEnvValue(process.env.NEXT_PUBLIC_SUPPORT_BOOSTY_URL)) ||
-    resolveSupportProjectUrl();
+const resolveBoostySupportRailUrl = (): string => {
+  const configuredBoostyUrl = normalizeExternalUrl(
+    readEnvValue(process.env.NEXT_PUBLIC_SUPPORT_BOOSTY_URL),
+  );
+  if (configuredBoostyUrl) {
+    return configuredBoostyUrl;
+  }
+
+  const legacySupportProjectUrl = resolveSupportProjectUrl();
+  if (legacySupportProjectUrl && isBoostySupportUrl(legacySupportProjectUrl)) {
+    return legacySupportProjectUrl;
+  }
+
+  return DEFAULT_BOOSTY_SUPPORT_URL;
+};
+
+const resolveCloudTipsSupportRailUrl = (primaryRailUrl: string): string => {
   const cloudTipsUrl = normalizeExternalUrl(
     readEnvValue(process.env.NEXT_PUBLIC_SUPPORT_CLOUDTIPS_URL),
   );
+  if (!cloudTipsUrl) {
+    return "";
+  }
+
+  if (cloudTipsUrl === primaryRailUrl) {
+    return "";
+  }
+
+  return cloudTipsUrl;
+};
+
+const resolveSupportRails = (): SupportRailConfig[] => {
+  const boostyUrl = resolveBoostySupportRailUrl();
+  const cloudTipsUrl = resolveCloudTipsSupportRailUrl(boostyUrl);
 
   return [
     {

@@ -961,6 +961,9 @@ function ProfileScenariosContent() {
               <AppIcon name="support" className="h-3.5 w-3.5" />
               {tr("Support rails")}
             </p>
+            <p className="text-xs text-app-text-muted">
+              {tr("Support is optional and opens on external provider pages.")}
+            </p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {supportRails.map((rail) =>
                 rail.isConfigured ? (
@@ -968,15 +971,15 @@ function ProfileScenariosContent() {
                     key={rail.id}
                     href={rail.url}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className="pc-action-card"
                   >
                     <p className="inline-flex items-center gap-1.5 text-sm font-semibold">
                       <AppIcon name="support" className="h-4 w-4" />
                       {tr(rail.title)}
-                      {rail.isPrimary && (
-                        <span className="pc-status-pill">{tr("Primary")}</span>
-                      )}
+                      <span className={`pc-status-pill ${rail.isPrimary ? "pc-status-pill-success" : ""}`}>
+                        {rail.isPrimary ? tr("Primary") : tr("Secondary")}
+                      </span>
                     </p>
                     <p className="mt-1 text-xs text-app-text-muted">{tr(rail.subtitle)}</p>
                     <span className="pc-btn-secondary mt-2 w-full justify-center text-xs">
@@ -988,9 +991,15 @@ function ProfileScenariosContent() {
                     <p className="inline-flex items-center gap-1.5 text-sm font-semibold">
                       <AppIcon name="support" className="h-4 w-4" />
                       {tr(rail.title)}
+                      <span className={`pc-status-pill ${rail.isPrimary ? "pc-status-pill-success" : ""}`}>
+                        {rail.isPrimary ? tr("Primary") : tr("Secondary")}
+                      </span>
                     </p>
+                    <p className="mt-1 text-xs text-app-text-muted">{tr(rail.subtitle)}</p>
                     <p className="mt-1 text-xs text-app-text-muted">
-                      {tr("Support rail slot prepared. URL is not configured yet.")}
+                      {rail.id === "cloudtips"
+                        ? tr("CloudTips slot is prepared and will appear after URL setup.")
+                        : tr("Support rail slot prepared. URL is not configured yet.")}
                     </p>
                     <span className="pc-status-pill pc-status-pill-warning mt-2">
                       <AppIcon name="clock" className="h-3 w-3" />
