@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type {
   WorkspaceSummaryPayload,
@@ -297,6 +297,8 @@ export function RecurringPaymentsSection({
     WorkspaceResponsiblePayerOptionPayload[]
   >([]);
   const [form, setForm] = useState<PaymentFormState>(createDefaultForm);
+  const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
 
   const subscriptionSummary = useMemo(() => {
     const activeSubscriptions = payments.filter(
@@ -579,6 +581,7 @@ export function RecurringPaymentsSection({
   const closeComposerImmediately = useCallback(() => {
     resetFormDraft();
     setPendingDeletePaymentId(null);
+    setIsDiscardConfirmOpen(false);
     setIsComposerExpanded(false);
   }, [resetFormDraft]);
 
@@ -603,8 +606,9 @@ export function RecurringPaymentsSection({
     setEditingPaymentId(payment.id);
     setBaselineEditingPaymentId(payment.id);
     setIsComposerExpanded(true);
-    setIsAdvancedFormExpanded(true);
+    setIsAdvancedFormExpanded(false);
     setIsTemplateSuggestionsOpen(false);
+    setIsDiscardConfirmOpen(false);
     setForm(editForm);
     setFormBaseline(editForm);
     clearFeedback();
@@ -892,6 +896,7 @@ export function RecurringPaymentsSection({
     setBaselineEditingPaymentId(null);
     setIsAdvancedFormExpanded(false);
     setPendingDeletePaymentId(null);
+    setIsDiscardConfirmOpen(false);
     setIsComposerExpanded(true);
     setIsTemplateSuggestionsOpen(true);
     clearFeedback();
@@ -914,17 +919,21 @@ export function RecurringPaymentsSection({
       return;
     }
 
-    if (hasUnsavedComposerChanges && typeof window !== "undefined") {
-      const shouldDiscard = window.confirm(
-        tr("Discard unsaved payment form changes?"),
-      );
-      if (!shouldDiscard) {
-        return;
-      }
+    if (hasUnsavedComposerChanges) {
+      setIsDiscardConfirmOpen(true);
+      return;
     }
 
     closeComposerImmediately();
-  }, [closeComposerImmediately, hasUnsavedComposerChanges, isSaving, tr]);
+  }, [closeComposerImmediately, hasUnsavedComposerChanges, isSaving]);
+
+  const keepComposerEditing = useCallback(() => {
+    setIsDiscardConfirmOpen(false);
+  }, []);
+
+  const discardComposerChanges = useCallback(() => {
+    closeComposerImmediately();
+  }, [closeComposerImmediately]);
 
   useEffect(() => {
     if (!isComposerExpanded) {
@@ -947,12 +956,43 @@ export function RecurringPaymentsSection({
       return;
     }
 
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      const input = titleInputRef.current;
+      if (!input) {
+        return;
+      }
+
+      input.focus();
+      if (editingPaymentId) {
+        const nextCursorPosition = input.value.length;
+        input.setSelectionRange(nextCursorPosition, nextCursorPosition);
+      }
+    });
+
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+    };
+  }, [editingPaymentId, isComposerExpanded]);
+
+  useEffect(() => {
+    if (!isComposerExpanded) {
+      return;
+    }
+
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") {
         return;
       }
 
       event.preventDefault();
+      if (isDiscardConfirmOpen) {
+        setIsDiscardConfirmOpen(false);
+        return;
+      }
       requestCloseComposer();
     };
 
@@ -960,20 +1000,20 @@ export function RecurringPaymentsSection({
     return () => {
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [isComposerExpanded, requestCloseComposer]);
+  }, [isComposerExpanded, isDiscardConfirmOpen, requestCloseComposer]);
 
   const composerModal =
     typeof document !== "undefined" && isComposerExpanded
       ? createPortal(
           <div
-            className="fixed inset-0 z-[85] flex items-center justify-center bg-black/45 px-3 [padding-top:max(0.75rem,env(safe-area-inset-top))] [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]"
+            className="fixed inset-0 z-[85] flex items-end justify-center bg-black/45 px-3 sm:items-center [padding-top:max(0.75rem,env(safe-area-inset-top))] [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]"
             onClick={() => requestCloseComposer()}
           >
             <div
               role="dialog"
               aria-modal="true"
               aria-label={editingPaymentId ? tr("Edit payment") : tr("Add payment")}
-              className="pc-surface w-full max-w-lg rounded-3xl p-3"
+              className="pc-surface w-full max-w-lg rounded-3xl p-3 sm:p-3.5"
               style={{
                 maxHeight:
                   "calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1.5rem)",
@@ -982,56 +1022,60 @@ export function RecurringPaymentsSection({
               }}
               onClick={(event) => event.stopPropagation()}
             >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="pc-kicker">
-                    <AppIcon name="payments" className="h-3.5 w-3.5" />
-                    {tr("Payment form")}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-app-text">
-                    {editingPaymentId ? tr("Edit payment") : tr("Add payment")}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={requestCloseComposer}
-                  disabled={isSaving}
-                  aria-label={tr("Close form")}
-                  className="pc-icon-btn disabled:opacity-60"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-3.5 w-3.5"
-                    aria-hidden
+              <div className="sticky top-0 z-20 -mx-1 rounded-2xl border border-app-border bg-app-surface px-2 py-2 shadow-sm">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="pc-kicker">
+                      <AppIcon name="payments" className="h-3.5 w-3.5" />
+                      {tr("Payment form")}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-app-text">
+                      {editingPaymentId ? tr("Edit payment") : tr("Add payment")}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={requestCloseComposer}
+                    disabled={isSaving}
+                    aria-label={tr("Close form")}
+                    className="pc-icon-btn disabled:opacity-60"
                   >
-                    <path d="M6 6l12 12" />
-                    <path d="M18 6l-12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="mt-1 flex items-center gap-2 text-xs text-app-text-muted">
-                <HelpPopover
-                  buttonLabel={tr("Open payment form help")}
-                  title={tr("Payment form help")}
-                >
-                  <p>{tr("Core fields first. Open advanced options only when needed.")}</p>
-                </HelpPopover>
-                <span>{tr("Core fields first")}</span>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-3.5 w-3.5"
+                      aria-hidden
+                    >
+                      <path d="M6 6l12 12" />
+                      <path d="M18 6l-12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="mt-1 flex items-center gap-2 text-xs text-app-text-muted">
+                  <HelpPopover
+                    buttonLabel={tr("Open payment form help")}
+                    title={tr("Payment form help")}
+                  >
+                    <p>{tr("Core fields first. Open advanced options only when needed.")}</p>
+                  </HelpPopover>
+                  <span className="pc-state-inline">{tr("Core fields first")}</span>
+                </div>
               </div>
               <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div className="relative sm:col-span-2">
                   <input
+                    ref={titleInputRef}
                     value={form.title}
                     onChange={(event) => {
                       setForm((prev) => ({ ...prev, title: event.target.value }));
                       setIsTemplateSuggestionsOpen(true);
                     }}
                     placeholder={tr("Payment title")}
+                    enterKeyHint="next"
                     className="pc-input"
                   />
                   {editingPaymentId === null &&
@@ -1086,17 +1130,24 @@ export function RecurringPaymentsSection({
                       </div>
                     )}
                 </div>
-                <input
-                  value={form.amount}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, amount: event.target.value }))
-                  }
-                  placeholder={tr("Amount")}
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  className="pc-input"
-                />
+                <label className="space-y-1">
+                  <span className="block text-[11px] font-semibold text-app-text-muted">
+                    {tr("Amount")}
+                  </span>
+                  <input
+                    value={form.amount}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, amount: event.target.value }))
+                    }
+                    placeholder={tr("Amount")}
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    enterKeyHint="next"
+                    className="pc-input"
+                  />
+                </label>
                 {isFamilyWorkspace && (
                   <label className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text">
                     <span className="block text-xs font-semibold text-app-text-muted">
@@ -1122,35 +1173,47 @@ export function RecurringPaymentsSection({
                     </select>
                   </label>
                 )}
-                <select
-                  value={form.cadence}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      cadence: event.target.value as "weekly" | "monthly",
-                      dueDay: event.target.value === "weekly" ? "1" : prev.dueDay,
-                    }))
-                  }
-                  className="pc-select"
-                >
-                  <option value="monthly">{tr("Monthly")}</option>
-                  <option value="weekly">{tr("Weekly")}</option>
-                </select>
-                <input
-                  value={form.dueDay}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, dueDay: event.target.value }))
-                  }
-                  placeholder={
-                    form.cadence === "weekly"
-                      ? tr("Due weekday (1-7)")
-                      : tr("Due day (1-31)")
-                  }
-                  type="number"
-                  min="1"
-                  max={form.cadence === "weekly" ? "7" : "31"}
-                  className="pc-input"
-                />
+                <label className="space-y-1">
+                  <span className="block text-[11px] font-semibold text-app-text-muted">
+                    {tr("Cadence")}
+                  </span>
+                  <select
+                    value={form.cadence}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        cadence: event.target.value as "weekly" | "monthly",
+                        dueDay: event.target.value === "weekly" ? "1" : prev.dueDay,
+                      }))
+                    }
+                    className="pc-select"
+                  >
+                    <option value="monthly">{tr("Monthly")}</option>
+                    <option value="weekly">{tr("Weekly")}</option>
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="block text-[11px] font-semibold text-app-text-muted">
+                    {tr("Due day")}
+                  </span>
+                  <input
+                    value={form.dueDay}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, dueDay: event.target.value }))
+                    }
+                    placeholder={
+                      form.cadence === "weekly"
+                        ? tr("Due weekday (1-7)")
+                        : tr("Due day (1-31)")
+                    }
+                    type="number"
+                    inputMode="numeric"
+                    min="1"
+                    max={form.cadence === "weekly" ? "7" : "31"}
+                    enterKeyHint="next"
+                    className="pc-input"
+                  />
+                </label>
               </div>
               <details
                 className="pc-detail-surface mt-2"
@@ -1275,47 +1338,88 @@ export function RecurringPaymentsSection({
                 />
               </details>
 
-              <div className="mt-2 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={submitForm}
-                  disabled={isSaving}
-                  className="pc-btn-primary"
-                >
-                  {editingPaymentId ? tr("Save changes") : tr("Add payment")}
-                </button>
-                <button
-                  type="button"
-                  onClick={saveCurrentFormAsTemplate}
-                  disabled={isSaving}
-                  className="pc-btn-secondary"
-                >
-                  {tr("Save as template")}
-                </button>
-                {editingPaymentId && (
+              <div className="sticky bottom-0 z-20 -mx-1 mt-2 rounded-2xl border border-app-border bg-app-surface px-2 py-2 shadow-[0_-10px_18px_var(--app-frame-shadow)]">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={submitForm}
+                    disabled={isSaving}
+                    className="pc-btn-primary grow"
+                  >
+                    {editingPaymentId ? tr("Save changes") : tr("Add payment")}
+                  </button>
                   <button
                     type="button"
                     onClick={requestCloseComposer}
+                    disabled={isSaving}
                     className="pc-btn-secondary"
                   >
-                    {tr("Cancel edit")}
+                    {editingPaymentId ? tr("Cancel edit") : tr("Close form")}
                   </button>
-                )}
+                  <button
+                    type="button"
+                    onClick={saveCurrentFormAsTemplate}
+                    disabled={isSaving}
+                    className="pc-btn-secondary"
+                  >
+                    {tr("Save as template")}
+                  </button>
+                  {!editingPaymentId && (
+                    <button
+                      type="button"
+                      onClick={resetFormDraft}
+                      disabled={isSaving}
+                      className="pc-btn-secondary"
+                    >
+                      {tr("Clear form")}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
+
+  const discardConfirmModal =
+    typeof document !== "undefined" && isComposerExpanded && isDiscardConfirmOpen
+      ? createPortal(
+          <div
+            className="fixed inset-0 z-[90] flex items-end justify-center bg-black/50 px-3 sm:items-center [padding-top:max(0.75rem,env(safe-area-inset-top))] [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]"
+            onClick={keepComposerEditing}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={tr("Unsaved changes")}
+              className="pc-surface w-full max-w-sm rounded-2xl p-3"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <p className="pc-kicker">
+                <AppIcon name="alert" className="h-3.5 w-3.5" />
+                {tr("Unsaved changes")}
+              </p>
+              <p className="mt-1 text-sm font-semibold text-app-text">
+                {tr("Discard unsaved payment form changes?")}
+              </p>
+              <p className="mt-1 text-xs text-app-text-muted">
+                {tr("Your latest edits in this form are not saved yet.")}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={resetFormDraft}
-                  disabled={isSaving}
+                  onClick={keepComposerEditing}
                   className="pc-btn-secondary"
                 >
-                  {tr("Clear form")}
+                  {tr("Keep editing")}
                 </button>
                 <button
                   type="button"
-                  onClick={requestCloseComposer}
-                  disabled={isSaving}
-                  className="pc-btn-secondary"
+                  onClick={discardComposerChanges}
+                  className="pc-btn-danger"
                 >
-                  {tr("Close form")}
+                  {tr("Discard changes")}
                 </button>
               </div>
             </div>
@@ -1883,6 +1987,7 @@ export function RecurringPaymentsSection({
       )}
       </section>
       {composerModal}
+      {discardConfirmModal}
     </>
   );
 }
