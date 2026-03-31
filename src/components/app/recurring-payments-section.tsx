@@ -58,7 +58,6 @@ type PaymentFormState = {
 
 type TemplateScenario = "personal" | "family";
 type PaymentListView = "payments" | "subscriptions";
-type RemindersScreenMode = "act" | "setup";
 type FeedbackTone = "info" | "success" | "error";
 
 type CustomTemplateStorageShape = Record<TemplateScenario, StarterPaymentTemplate[]>;
@@ -276,8 +275,8 @@ export function RecurringPaymentsSection({
   const [feedback, setFeedback] = useState<string | null>(null);
   const [feedbackTone, setFeedbackTone] = useState<FeedbackTone>("info");
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
+  const [pendingDeletePaymentId, setPendingDeletePaymentId] = useState<string | null>(null);
   const [paymentListView, setPaymentListView] = useState<PaymentListView>("payments");
-  const [screenMode, setScreenMode] = useState<RemindersScreenMode>("act");
   const [showPausedSubscriptionsOnly, setShowPausedSubscriptionsOnly] = useState(false);
   const [isComposerExpanded, setIsComposerExpanded] = useState(false);
   const [isAdvancedFormExpanded, setIsAdvancedFormExpanded] = useState(false);
@@ -391,28 +390,32 @@ export function RecurringPaymentsSection({
       .slice(0, 5);
   }, [editingPaymentId, form.title, isTemplateSuggestionsOpen, templatesForScenario, tr]);
 
+  const activePayments = useMemo(
+    () => payments.filter((payment) => payment.status === "active"),
+    [payments],
+  );
+
   const visiblePayments = useMemo(() => {
     if (paymentListView === "subscriptions" && showPausedSubscriptionsOnly) {
-      return payments.filter(
-        (payment) =>
-          payment.status === "active" && payment.isSubscription && payment.isPaused,
+      return activePayments.filter(
+        (payment) => payment.isSubscription && payment.isPaused,
       );
     }
 
     if (paymentListView === "subscriptions") {
-      return payments.filter((payment) => payment.isSubscription);
+      return activePayments.filter((payment) => payment.isSubscription);
     }
 
-    return payments.filter((payment) => !payment.isSubscription);
-  }, [paymentListView, payments, showPausedSubscriptionsOnly]);
+    return activePayments.filter((payment) => !payment.isSubscription);
+  }, [activePayments, paymentListView, showPausedSubscriptionsOnly]);
 
   const paymentsCount = useMemo(
-    () => payments.filter((payment) => !payment.isSubscription).length,
-    [payments],
+    () => activePayments.filter((payment) => !payment.isSubscription).length,
+    [activePayments],
   );
   const subscriptionsCount = useMemo(
-    () => payments.filter((payment) => payment.isSubscription).length,
-    [payments],
+    () => activePayments.filter((payment) => payment.isSubscription).length,
+    [activePayments],
   );
   const remindersActSummary = useMemo(() => {
     const todayKey = toUtcDateKey(new Date());
@@ -532,10 +535,10 @@ export function RecurringPaymentsSection({
   }, [loadPayments]);
 
   useEffect(() => {
-    if (payments.length === 0) {
+    if (activePayments.length === 0) {
       setIsComposerExpanded(true);
     }
-  }, [payments.length]);
+  }, [activePayments.length]);
 
   useEffect(() => {
     setCustomTemplatesByScenario(readCustomTemplatesFromStorage());
@@ -560,17 +563,21 @@ export function RecurringPaymentsSection({
     setShowPausedSubscriptionsOnly(false);
   }, [paymentListView]);
 
-  const resetForm = () => {
+  const resetFormDraft = () => {
     setForm(createDefaultForm());
     setEditingPaymentId(null);
-    setScreenMode("act");
-    setIsComposerExpanded(payments.length === 0);
     setIsAdvancedFormExpanded(false);
     setIsTemplateSuggestionsOpen(true);
   };
 
+  const closeComposer = () => {
+    resetFormDraft();
+    setPendingDeletePaymentId(null);
+    setIsComposerExpanded(false);
+  };
+
   const startEdit = (payment: RecurringPaymentPayload) => {
-    setScreenMode("setup");
+    setPendingDeletePaymentId(null);
     setEditingPaymentId(payment.id);
     setIsComposerExpanded(true);
     setIsAdvancedFormExpanded(true);
@@ -741,7 +748,7 @@ export function RecurringPaymentsSection({
         "success",
       );
       emitPaymentsChanged();
-      resetForm();
+      closeComposer();
     } catch {
       showFeedback(tr("Failed to save recurring payment."), "error");
     } finally {
@@ -749,7 +756,7 @@ export function RecurringPaymentsSection({
     }
   };
 
-  const handleArchive = async (paymentId: string) => {
+  const handleDeletePayment = async (paymentId: string) => {
     if (workspaceUnavailable) {
       showFeedback(workspaceUnavailable, "error");
       return;
@@ -765,10 +772,14 @@ export function RecurringPaymentsSection({
       }
 
       replacePaymentInStateAndCache(result.payment);
-      showFeedback(tr("Payment archived."), "success");
+      if (editingPaymentId === paymentId) {
+        closeComposer();
+      }
+      setPendingDeletePaymentId(null);
+      showFeedback(tr("Payment removed from active list."), "success");
       emitPaymentsChanged();
     } catch {
-      showFeedback(tr("Failed to archive recurring payment."), "error");
+      showFeedback(tr("Failed to remove recurring payment."), "error");
     } finally {
       setIsSaving(false);
     }
@@ -865,7 +876,10 @@ export function RecurringPaymentsSection({
   };
 
   const openComposer = () => {
-    setScreenMode("setup");
+    if (editingPaymentId === null) {
+      resetFormDraft();
+    }
+    setPendingDeletePaymentId(null);
     setIsComposerExpanded(true);
     setIsTemplateSuggestionsOpen(true);
     window.requestAnimationFrame(() => {
@@ -912,81 +926,68 @@ export function RecurringPaymentsSection({
         </p>
       ) : (
         <>
-          {screenMode === "act" && (
-            <div className="pc-detail-surface mb-1.5">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                    {tr("Quick actions")}
-                  </p>
-                  <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-app-text-muted">
-                    <AppIcon name="reminders" className="h-3.5 w-3.5" />
-                    {tr("Mark paid / Undo paid directly on cards.")}
-                  </p>
-                </div>
-                <HelpPopover
-                  buttonLabel={tr("Open quick actions help")}
-                  title={tr("Quick actions help")}
-                >
-                  <p>{tr("Open payment form for new entries.")}</p>
-                </HelpPopover>
+          <div className="pc-detail-surface mb-1.5">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                  {tr("Main action")}
+                </p>
+                <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-app-text-muted">
+                  <AppIcon name="reminders" className="h-3.5 w-3.5" />
+                  {tr("Create and manage payments in one place.")}
+                </p>
               </div>
-
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                <article className="pc-state-card px-1.5 py-1.5 shadow-sm">
-                  <p className="inline-flex items-center gap-1 text-[11px] text-app-text-muted">
-                    <AppIcon name="clock" className="h-3.5 w-3.5" />
-                    {tr("Due today")}
-                  </p>
-                  <p className="text-sm font-semibold text-app-text">
-                    {remindersActSummary.dueTodayCount}
-                  </p>
-                </article>
-                <article
-                  className={`pc-state-card px-1.5 py-1.5 shadow-sm ${
-                    remindersActSummary.overdueCount > 0
-                      ? "border-amber-300 bg-amber-50/70"
-                      : ""
-                  }`}
-                >
-                  <p className="inline-flex items-center gap-1 text-[11px] text-app-text-muted">
-                    <AppIcon name="alert" className="h-3.5 w-3.5" />
-                    {tr("Overdue")}
-                  </p>
-                  <p className="text-sm font-semibold text-app-text">
-                    {remindersActSummary.overdueCount}
-                  </p>
-                </article>
-                <article className="pc-state-card px-1.5 py-1.5 shadow-sm">
-                  <p className="inline-flex items-center gap-1 text-[11px] text-app-text-muted">
-                    <AppIcon name="payments" className="h-3.5 w-3.5" />
-                    {tr("Active")}
-                  </p>
-                  <p className="text-sm font-semibold text-app-text">
-                    {remindersActSummary.activeCount}
-                  </p>
-                </article>
-              </div>
-
-              <p className="mt-0.5 text-[11px] text-app-text-muted">
-                {tr("Due today")} + {tr("Overdue")}:{" "}
-                <span className="font-semibold text-app-text">{actionNowCount}</span>
-              </p>
-
-              <div className="mt-2 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={openComposer}
-                  className="pc-btn-primary w-full"
-                >
-                  <AppIcon name="add" className="h-3.5 w-3.5" />
-                  {editingPaymentId ? tr("Continue editing") : tr("Open payment form")}
-                </button>
-              </div>
+              <HelpPopover
+                buttonLabel={tr("Open quick actions help")}
+                title={tr("Quick actions help")}
+              >
+                <p>{tr("Open payment form for new entries.")}</p>
+                <p>{tr("Edit or delete directly from each payment card.")}</p>
+              </HelpPopover>
             </div>
-          )}
 
-          {screenMode === "act" && !isLoading && payments.length === 0 && (
+            <p className="mt-1 text-[11px] text-app-text-muted">
+              {tr("Due today")}:{" "}
+              <span className="font-semibold text-app-text">
+                {remindersActSummary.dueTodayCount}
+              </span>
+              {" • "}
+              {tr("Overdue")}:{" "}
+              <span className="font-semibold text-app-text">
+                {remindersActSummary.overdueCount}
+              </span>
+              {" • "}
+              {tr("Active")}:{" "}
+              <span className="font-semibold text-app-text">
+                {remindersActSummary.activeCount}
+              </span>
+              {" • "}
+              {tr("Action now")}:{" "}
+              <span className="font-semibold text-app-text">{actionNowCount}</span>
+            </p>
+
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={openComposer}
+                className="pc-btn-primary grow"
+              >
+                <AppIcon name="add" className="h-3.5 w-3.5" />
+                {editingPaymentId ? tr("Continue editing") : tr("Add payment")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void loadPayments()}
+                disabled={isLoading || isSaving}
+                className="pc-btn-secondary"
+              >
+                <AppIcon name="refresh" className="h-3.5 w-3.5" />
+                {tr("Refresh section")}
+              </button>
+            </div>
+          </div>
+
+          {!isLoading && activePayments.length === 0 && (
             <div className="pc-empty-state mb-2">
               <p className="text-sm font-semibold text-app-text">
                 {isFamilyWorkspace
@@ -1013,7 +1014,7 @@ export function RecurringPaymentsSection({
             </div>
           )}
 
-          {screenMode === "act" && payments.length > 0 && paymentListView === "subscriptions" && (
+          {activePayments.length > 0 && paymentListView === "subscriptions" && (
             <details className="pc-detail-surface mt-2">
               <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                 {tr("Subscription insights - active {active}, unpaid {unpaid}", {
@@ -1073,31 +1074,38 @@ export function RecurringPaymentsSection({
           </details>
           )}
 
-          {screenMode === "setup" && (
           <details
             ref={composerRef}
             className="pc-detail-surface mt-2"
-            open={isComposerExpanded || editingPaymentId !== null}
+            open={isComposerExpanded}
             onToggle={(event) => {
-              if (editingPaymentId !== null) {
-                return;
-              }
-
               setIsComposerExpanded(event.currentTarget.open);
-              setScreenMode(event.currentTarget.open ? "setup" : "act");
+              if (!event.currentTarget.open) {
+                resetFormDraft();
+              }
             }}
           >
             <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {editingPaymentId ? tr("Edit payment") : tr("Add payment")}
             </summary>
-            <div className="mt-1 flex items-center gap-2 text-xs text-app-text-muted">
-              <HelpPopover
-                buttonLabel={tr("Open payment form help")}
-                title={tr("Payment form help")}
+            <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-app-text-muted">
+              <div className="inline-flex items-center gap-2">
+                <HelpPopover
+                  buttonLabel={tr("Open payment form help")}
+                  title={tr("Payment form help")}
+                >
+                  <p>{tr("Core fields first. Open advanced options only when needed.")}</p>
+                </HelpPopover>
+                <span>{tr("Core fields first")}</span>
+              </div>
+              <button
+                type="button"
+                onClick={closeComposer}
+                className="pc-btn-quiet"
               >
-                <p>{tr("Core fields first. Open advanced options only when needed.")}</p>
-              </HelpPopover>
-              <span>{tr("Core fields first")}</span>
+                <AppIcon name="undo" className="h-3.5 w-3.5" />
+                {tr("Close form")}
+              </button>
             </div>
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div className="relative sm:col-span-2">
@@ -1371,7 +1379,7 @@ export function RecurringPaymentsSection({
             {editingPaymentId && (
               <button
                 type="button"
-                onClick={resetForm}
+                onClick={closeComposer}
                 className="pc-btn-secondary"
               >
                 {tr("Cancel edit")}
@@ -1379,17 +1387,24 @@ export function RecurringPaymentsSection({
               )}
               <button
                 type="button"
-                onClick={resetForm}
+                onClick={resetFormDraft}
                 disabled={isSaving}
                 className="pc-btn-secondary"
               >
                 {tr("Clear form")}
               </button>
+              <button
+                type="button"
+                onClick={closeComposer}
+                disabled={isSaving}
+                className="pc-btn-secondary"
+              >
+                {tr("Close form")}
+              </button>
             </div>
           </details>
-          )}
 
-          {screenMode === "act" && payments.length > 0 && (
+          {activePayments.length > 0 && (
             <div className="pc-detail-surface mt-2">
               <div className="pc-segmented">
                 <button
@@ -1418,22 +1433,21 @@ export function RecurringPaymentsSection({
                 </button>
               </div>
               <p className="mt-1 text-[11px] text-app-text-muted">
-                {tr("Visible")}: {visiblePayments.length} / {tr("Total")}: {payments.length}
+                {tr("Visible")}: {visiblePayments.length} / {tr("Total")}: {activePayments.length}
               </p>
             </div>
           )}
 
-          {screenMode === "act" && (
           <div className="mt-2 space-y-1">
             {isLoading && (
               <p className="pc-empty-state text-sm">{tr("Loading payments...")}</p>
             )}
-            {!isLoading && payments.length === 0 && (
+            {!isLoading && activePayments.length === 0 && (
               <p className="pc-empty-state text-sm">
                 {tr("Payments list is empty for now.")}
               </p>
             )}
-            {!isLoading && payments.length > 0 && visiblePayments.length === 0 && (
+            {!isLoading && activePayments.length > 0 && visiblePayments.length === 0 && (
               <p className="pc-empty-state text-sm">
                 {showPausedSubscriptionsOnly
                   ? tr("No paused subscriptions found for the current filter.")
@@ -1634,17 +1648,6 @@ export function RecurringPaymentsSection({
                               <AppIcon name="template" className="h-3.5 w-3.5" />
                               {tr("Save as template")}
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleArchive(payment.id)}
-                              disabled={
-                                isSaving || payment.status === "archived" || isFamilyWorkspace
-                              }
-                              className="pc-btn-quiet disabled:opacity-60"
-                            >
-                              <AppIcon name="archive" className="h-3.5 w-3.5" />
-                              {tr("Archive")}
-                            </button>
                             {payment.isSubscription && (
                               <button
                                 type="button"
@@ -1699,14 +1702,51 @@ export function RecurringPaymentsSection({
                           <AppIcon name="edit" className="h-3.5 w-3.5" />
                           {tr("Edit")}
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setPendingDeletePaymentId(payment.id)}
+                          disabled={isSaving || payment.status === "archived"}
+                          className="pc-btn-danger min-h-9 px-2 py-1 text-xs disabled:opacity-60"
+                        >
+                          <AppIcon name="archive" className="h-3.5 w-3.5" />
+                          {tr("Delete")}
+                        </button>
                       </div>
+                      {pendingDeletePaymentId === payment.id && (
+                        <div className="mt-1.5 rounded-xl border border-red-200 bg-red-50/70 px-2 py-2 text-xs text-red-900">
+                          <p className="font-semibold">
+                            {tr("Delete this payment from active reminders?")}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-red-800">
+                            {tr("This requires confirmation and can be recreated later if needed.")}
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => void handleDeletePayment(payment.id)}
+                              disabled={isSaving}
+                              className="pc-btn-danger"
+                            >
+                              <AppIcon name="archive" className="h-3.5 w-3.5" />
+                              {tr("Confirm delete")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPendingDeletePaymentId(null)}
+                              disabled={isSaving}
+                              className="pc-btn-secondary"
+                            >
+                              {tr("Cancel delete")}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </article>
                 );
               })()
             ))}
           </div>
-          )}
         </>
       )}
 

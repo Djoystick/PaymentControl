@@ -760,7 +760,7 @@ function ProfileScenariosContent() {
   );
 
   const profileScreen = (
-    <section className="space-y-2">
+    <section className="flex flex-col gap-2">
       <div className="pc-surface">
         <div className="flex items-center justify-between">
           <h2 className="inline-flex items-center gap-2 text-base font-semibold text-app-text">
@@ -887,11 +887,13 @@ function ProfileScenariosContent() {
           </HelpPopover>
         </div>
       </div>
-      <section className="pc-surface pc-surface-soft space-y-2">
-        <p className="pc-kicker">
+      <details className="pc-surface pc-surface-soft order-last">
+        <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="support" className="h-3.5 w-3.5" />
           {tr("Support and Premium")}
-        </p>
+          <span className="pc-status-pill">{tr("Optional")}</span>
+        </summary>
+        <div className="mt-2 space-y-2">
         <p className="text-xs text-app-text-muted">
           {tr(
             "Core app stays fully useful for free. Premium is a calm donor perk after validated support.",
@@ -1434,7 +1436,8 @@ function ProfileScenariosContent() {
             </div>
           )}
         </details>
-      </section>
+        </div>
+      </details>
       <div className="pc-surface pc-surface-soft">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="workspace" className="h-3.5 w-3.5" />
