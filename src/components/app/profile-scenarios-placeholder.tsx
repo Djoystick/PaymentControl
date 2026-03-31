@@ -305,7 +305,6 @@ function ProfileScenariosContent() {
   const supportRails = clientEnv.supportRails;
   const configuredSupportRails = supportRails.filter((rail) => rail.isConfigured);
   const primarySupportRail = supportRails.find((rail) => rail.isPrimary) ?? null;
-  const secondarySupportRail = supportRails.find((rail) => !rail.isPrimary) ?? null;
   const resolveSupportRailById = (railId: string | null): SupportRailConfig | null => {
     if (!railId) {
       return null;
@@ -472,10 +471,6 @@ function ProfileScenariosContent() {
     readIntentMetadataValue(latestPurchaseIntent, "opened_external_support_rail_id") ??
     readIntentMetadataValue(latestPurchaseIntent, "last_client_support_rail_id");
   const latestIntentTrackedRail = resolveSupportRailById(latestIntentTrackedRailId);
-  const latestIntentRailOperationalMode =
-    readIntentMetadataValue(latestPurchaseIntent, "returned_support_rail_mode") ??
-    readIntentMetadataValue(latestPurchaseIntent, "opened_external_support_rail_mode") ??
-    readIntentMetadataValue(latestPurchaseIntent, "last_client_support_rail_mode");
   const linkablePurchaseIntent =
     latestPurchaseIntent &&
     !latestPurchaseIntent.claimId &&
@@ -769,13 +764,9 @@ function ProfileScenariosContent() {
         setPurchaseIntentFeedback({
           kind: intentForContinuity ? "success" : "error",
           message: intentForContinuity
-            ? rail.id === "cloudtips"
-              ? tr(
-                  "CloudTips opened. Return here after support, then submit claim. Owner review remains the active fallback until verified automation exists.",
-                )
-              : tr(
-                  "Boosty opened. Return to the app after support and continue with claim submission.",
-                )
+            ? tr(
+                "Support page opened. Return to the app after support and continue with claim submission.",
+              )
             : tr(
                 "Support page opened, but continuity context is missing. Prepare support reference code before claim.",
               ),
@@ -800,6 +791,33 @@ function ProfileScenariosContent() {
       tr,
     ],
   );
+
+  const openMainSupportPath = useCallback(async () => {
+    if (primarySupportRail?.isConfigured) {
+      await handleOpenSupportRail(primarySupportRail);
+      return;
+    }
+
+    await prepareSupportReferenceIntent();
+  }, [handleOpenSupportRail, prepareSupportReferenceIntent, primarySupportRail]);
+
+  const openFallbackClaimPath = useCallback(async () => {
+    setIsClaimPanelOpen(true);
+    setIsSupportReferenceVisible(true);
+
+    const linkableIntent = resolveLinkableIntent();
+    if (linkableIntent?.correlationCode) {
+      setPurchaseClaimProofReference((current) =>
+        current.trim() ? current : linkableIntent.correlationCode,
+      );
+      return;
+    }
+
+    await prepareSupportReferenceIntent({
+      silent: true,
+      openClaimPanel: true,
+    });
+  }, [prepareSupportReferenceIntent, resolveLinkableIntent]);
 
   useEffect(() => {
     if (!initData || !profile) {
@@ -858,20 +876,12 @@ function ProfileScenariosContent() {
       setIsClaimPanelOpen(true);
       setPurchaseIntentFeedback({
         kind: "success",
-        message:
-          storedContext.railId === "cloudtips"
-            ? tr(
-                "Welcome back from {rail}. Claim path is ready. Owner review still confirms eligibility while CloudTips automation is not yet live.",
-                {
-                  rail: storedContext.railTitle,
-                },
-              )
-            : tr(
-                "Welcome back from {rail}. Review support proof and submit claim when ready.",
-                {
-                  rail: storedContext.railTitle,
-                },
-              ),
+        message: tr(
+          "Welcome back from {rail}. Review support proof and submit claim when ready.",
+          {
+            rail: storedContext.railTitle,
+          },
+        ),
       });
     } catch {
       setPurchaseIntentFeedback({
@@ -1286,43 +1296,60 @@ function ProfileScenariosContent() {
             },
           )}
         </p>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <div className="pc-state-card bg-white px-3 py-2 text-xs text-app-text-muted">
-            <p className="pc-kicker">
+        <div className="pc-state-card bg-white px-3 py-2 text-xs text-app-text-muted">
+          <p className="pc-kicker">
+            <AppIcon name="support" className="h-3.5 w-3.5" />
+            {tr("Main action")}
+          </p>
+          <p className="mt-1">
+            {tr("Support externally, then open claim form and submit at least one proof field.")}
+          </p>
+          <p className="mt-1 text-[11px] text-app-text-muted">
+            {tr("External support page. Premium is reviewed manually after claim.")}
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void openMainSupportPath()}
+              disabled={isOpeningSupportRailId !== null || isPreparingPurchaseIntent}
+              className="pc-btn-primary disabled:cursor-not-allowed disabled:opacity-60"
+            >
               <AppIcon name="support" className="h-3.5 w-3.5" />
-              {tr("Rail snapshot")}
-            </p>
-            <p className="mt-1">
-              {tr("Primary rail")}: {primarySupportRail ? tr(primarySupportRail.title) : tr("Not set")}
-            </p>
-            {primarySupportRail && (
-              <p className="mt-1">
-                {tr("Primary path")}: {tr(primarySupportRail.guidanceLabel)}
-              </p>
-            )}
-            <p className="mt-1">
-              {tr("Secondary rail")}:{" "}
-              {secondarySupportRail?.isConfigured
-                ? tr("Configured")
-                : tr("Pending setup")}
-            </p>
-            {secondarySupportRail?.isConfigured && (
-              <p className="mt-1">
-                {tr("Secondary path")}: {tr(secondarySupportRail.guidanceLabel)}
-              </p>
-            )}
-          </div>
-          <div className="pc-state-card bg-white px-3 py-2 text-xs text-app-text-muted">
-            <p className="pc-kicker">
+              {isOpeningSupportRailId
+                ? tr("Opening support...")
+                : primarySupportRail?.isConfigured
+                  ? tr(primarySupportRail.ctaLabel)
+                  : isPreparingPurchaseIntent
+                    ? tr("Preparing support reference...")
+                    : tr("Prepare support reference code")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void openFallbackClaimPath()}
+              className="pc-btn-secondary"
+            >
               <AppIcon name="wallet" className="h-3.5 w-3.5" />
-              {tr("Support flow")}
-            </p>
-            <p className="mt-1">{tr("1) Choose rail and support externally (optional).")}</p>
-            <p className="mt-1">
-              {tr("2) Boosty: continuity + claim fallback. CloudTips: automation-candidate path, still review-safe.")}
-            </p>
-            <p className="mt-1">{tr("3) Submit claim with proof/reference for owner review.")}</p>
+              {tr("I already supported, submit claim")}
+            </button>
           </div>
+          <p className="mt-1 text-[11px] text-app-text-muted">
+            {tr("Use this after external support to submit claim for owner review.")}
+          </p>
+          {purchaseIntentFeedback && (
+            <p
+              className={`pc-feedback mt-2 ${
+                purchaseIntentFeedback.kind === "success"
+                  ? "pc-feedback-success"
+                  : "pc-feedback-error"
+              }`}
+            >
+              <AppIcon
+                name={purchaseIntentFeedback.kind === "success" ? "check" : "alert"}
+                className="mt-0.5 h-3.5 w-3.5 shrink-0"
+              />
+              <span>{purchaseIntentFeedback.message}</span>
+            </p>
+          )}
         </div>
         <div className="pc-detail-surface bg-app-surface">
           <p className="pc-kicker">
@@ -1373,20 +1400,16 @@ function ProfileScenariosContent() {
             </>
           )}
 
-          <div className="mt-2 space-y-2">
-            <p className="pc-kicker">
+          <details className="pc-detail-surface mt-2 bg-app-surface">
+            <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               <AppIcon name="support" className="h-3.5 w-3.5" />
               {tr("Support rails")}
-            </p>
-            <p className="text-xs text-app-text-muted">
+              <span className="pc-status-pill">{tr("Optional")}</span>
+            </summary>
+            <p className="mt-2 text-xs text-app-text-muted">
               {tr("Support is optional and opens on external provider pages.")}
             </p>
-            <p className="text-[11px] text-app-text-muted">
-              {tr(
-                "Boosty stays continuity/claim-first. CloudTips is the first automation-candidate rail, but owner review remains active until safe verification is proven.",
-              )}
-            </p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {supportRails.map((rail) =>
                 rail.isConfigured ? (
                   <button
@@ -1412,8 +1435,6 @@ function ProfileScenariosContent() {
                       </span>
                     </p>
                     <p className="mt-1 text-xs text-app-text-muted">{tr(rail.subtitle)}</p>
-                    <p className="mt-1 text-[11px] text-app-text-muted">{tr(rail.guidanceLabel)}</p>
-                    <p className="mt-1 text-[11px] text-app-text-muted">{tr(rail.nextStepHint)}</p>
                     <p className="mt-1 text-[11px] text-app-text-muted">
                       {tr("External support page. Premium is reviewed manually after claim.")}
                     </p>
@@ -1442,8 +1463,6 @@ function ProfileScenariosContent() {
                         {rail.isPrimary ? tr("Primary") : tr("Secondary")}
                       </span>
                     </p>
-                    <p className="mt-1 text-xs text-app-text-muted">{tr(rail.subtitle)}</p>
-                    <p className="mt-1 text-[11px] text-app-text-muted">{tr(rail.guidanceLabel)}</p>
                     <p className="mt-1 text-xs text-app-text-muted">
                       {rail.id === "cloudtips" && rail.pendingReason === "duplicates_primary"
                         ? tr("CloudTips URL duplicates primary rail and stays disabled until changed.")
@@ -1460,160 +1479,116 @@ function ProfileScenariosContent() {
               )}
             </div>
             {configuredSupportRails.length === 0 && (
-              <p className="pc-feedback pc-feedback-warning">
+              <p className="pc-feedback pc-feedback-warning mt-2">
                 <AppIcon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <span>{tr("No support rails are configured yet.")}</span>
               </p>
             )}
-          </div>
-
-          <div className="mt-2 rounded-xl border border-app-border/70 bg-white px-3 py-2">
-            <p className="pc-kicker">
-              <AppIcon name="wallet" className="h-3.5 w-3.5" />
-              {tr("Support reference code")}
-              <span className="pc-status-pill">{tr("Optional")}</span>
-            </p>
-            <p className="mt-1 text-xs text-app-text-muted">
-              {tr(
-                "Recommended: prepare this code first and include it in external support note when possible.",
-              )}
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void prepareSupportReferenceIntent()}
-                disabled={isPreparingPurchaseIntent}
-                className="pc-btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <AppIcon name="template" className="h-3.5 w-3.5" />
-                {isPreparingPurchaseIntent
-                  ? tr("Preparing support reference...")
-                  : tr("Prepare support reference code")}
-              </button>
-              {primarySupportRail?.isConfigured && (
+            <div className="mt-2 rounded-xl border border-app-border/70 bg-white px-3 py-2">
+              <p className="pc-kicker">
+                <AppIcon name="wallet" className="h-3.5 w-3.5" />
+                {tr("Support reference code")}
+                <span className="pc-status-pill">{tr("Optional")}</span>
+              </p>
+              <p className="mt-1 text-xs text-app-text-muted">
+                {tr(
+                  "Prepare this code before support and add it to your support note if the external rail allows it.",
+                )}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => void handleOpenSupportRail(primarySupportRail)}
-                  disabled={isOpeningSupportRailId !== null}
-                  className="pc-btn-primary disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => void prepareSupportReferenceIntent()}
+                  disabled={isPreparingPurchaseIntent}
+                  className="pc-btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <AppIcon name="support" className="h-3.5 w-3.5" />
-                  {isOpeningSupportRailId === primarySupportRail.id
-                    ? tr("Opening support...")
-                    : tr("Prepare and open primary rail")}
+                  <AppIcon name="template" className="h-3.5 w-3.5" />
+                  {isPreparingPurchaseIntent
+                    ? tr("Preparing support reference...")
+                    : tr("Prepare support reference code")}
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setIsClaimPanelOpen(true)}
-                aria-pressed={isClaimPanelOpen}
-                className="pc-btn-quiet"
-              >
-                <AppIcon name="wallet" className="h-3.5 w-3.5" />
-                {tr("Open claim form")}
-              </button>
-            </div>
-            <p className="mt-1 text-[11px] text-app-text-muted">
-              {tr("Reference status")}: {purchaseIntentSummaryLabel}.
-            </p>
-          </div>
-
-          {(isSupportReferenceVisible || latestPurchaseIntent || purchaseIntentFeedback) && (
-            <div className="pc-state-card mt-2 bg-white px-3 py-2 text-xs text-app-text-muted">
-              <p className="inline-flex items-center gap-1.5 font-semibold text-app-text">
-                <AppIcon name="wallet" className="h-3.5 w-3.5" />
-                {tr("Latest support reference")}
+                <button
+                  type="button"
+                  onClick={() => void openFallbackClaimPath()}
+                  className="pc-btn-quiet"
+                >
+                  <AppIcon name="wallet" className="h-3.5 w-3.5" />
+                  {tr("Open claim form")}
+                </button>
+              </div>
+              <p className="mt-1 text-[11px] text-app-text-muted">
+                {tr("Reference status")}: {purchaseIntentSummaryLabel}.
               </p>
-              {isLoadingPurchaseIntents ? (
-                <p className="pc-state-inline mt-1">
-                  <AppIcon name="refresh" className="h-3.5 w-3.5 pc-spin" />
-                  {tr("Loading support reference code...")}
+            </div>
+
+            {(isSupportReferenceVisible || latestPurchaseIntent) && (
+              <div className="pc-state-card mt-2 bg-white px-3 py-2 text-xs text-app-text-muted">
+                <p className="inline-flex items-center gap-1.5 font-semibold text-app-text">
+                  <AppIcon name="wallet" className="h-3.5 w-3.5" />
+                  {tr("Latest support reference")}
                 </p>
-              ) : latestPurchaseIntent ? (
-                <>
-                  <p className="mt-1">
-                    {tr("Latest code")}:{" "}
-                    <span className="rounded-md bg-app-surface px-2 py-0.5 font-mono text-app-text">
-                      {latestPurchaseIntent.correlationCode}
-                    </span>
+                {isLoadingPurchaseIntents ? (
+                  <p className="pc-state-inline mt-1">
+                    <AppIcon name="refresh" className="h-3.5 w-3.5 pc-spin" />
+                    {tr("Loading support reference code...")}
                   </p>
-                  <p className="mt-1">
-                    {tr("Reference status")}: {tr(latestPurchaseIntent.status)}.{" "}
-                    {tr("Created at")}:{" "}
-                    {formatDateTime(latestPurchaseIntent.createdAt, latestPurchaseIntent.createdAt)}
-                  </p>
-                  {latestIntentTrackedRail && (
-                    <p className="mt-1 text-[11px] text-app-text-muted">
-                      {tr("Last tracked rail path")}: {tr(latestIntentTrackedRail.title)} (
-                      {tr(latestIntentTrackedRail.guidanceLabel)}).
+                ) : latestPurchaseIntent ? (
+                  <>
+                    <p className="mt-1">
+                      {tr("Latest code")}:{" "}
+                      <span className="rounded-md bg-app-surface px-2 py-0.5 font-mono text-app-text">
+                        {latestPurchaseIntent.correlationCode}
+                      </span>
                     </p>
-                  )}
-                  {latestIntentRailOperationalMode === "automation_candidate" && (
-                    <p className="mt-1 text-[11px] text-app-text-muted">
+                    <p className="mt-1">
+                      {tr("Reference status")}: {tr(latestPurchaseIntent.status)}.{" "}
+                      {tr("Created at")}:{" "}
+                      {formatDateTime(latestPurchaseIntent.createdAt, latestPurchaseIntent.createdAt)}
+                    </p>
+                    {latestIntentTrackedRail && (
+                      <p className="mt-1 text-[11px] text-app-text-muted">
+                        {tr("Last tracked rail path")}: {tr(latestIntentTrackedRail.title)}.
+                      </p>
+                    )}
+                    <p className="mt-1 text-xs text-app-text-muted">
                       {tr(
-                        "Automation-candidate continuity is tracked for this reference. Manual owner review still confirms eligibility.",
+                        "This code helps owner review match your support action. It does not activate Premium automatically.",
                       )}
                     </p>
-                  )}
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void copyLatestPurchaseCorrelationCode()}
+                        className="pc-btn-secondary"
+                      >
+                        <AppIcon name="template" className="h-3.5 w-3.5" />
+                        {tr("Copy support code")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void refreshMyPurchaseIntents()}
+                        disabled={!initData || isLoadingPurchaseIntents}
+                        className="pc-btn-quiet disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <AppIcon name="refresh" className="h-3.5 w-3.5" />
+                        {tr("Refresh support code")}
+                      </button>
+                    </div>
+                    <p className="mt-1 text-[11px] text-app-text-muted">
+                      {tr("Support code status last checked")}:{" "}
+                      {intentStatusCheckedAt
+                        ? formatDateTime(intentStatusCheckedAt, intentStatusCheckedAt)
+                        : tr("No support code check yet.")}
+                    </p>
+                  </>
+                ) : (
                   <p className="mt-1 text-xs text-app-text-muted">
-                    {tr(
-                      "This code helps owner review match your support action. It does not activate Premium automatically.",
-                    )}
+                    {tr("No support code prepared yet.")}
                   </p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void copyLatestPurchaseCorrelationCode()}
-                      className="pc-btn-secondary"
-                    >
-                      <AppIcon name="template" className="h-3.5 w-3.5" />
-                      {tr("Copy support code")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void refreshMyPurchaseIntents()}
-                      disabled={!initData || isLoadingPurchaseIntents}
-                      className="pc-btn-quiet disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <AppIcon name="refresh" className="h-3.5 w-3.5" />
-                      {tr("Refresh support code")}
-                    </button>
-                  </div>
-                  <p className="mt-1 text-[11px] text-app-text-muted">
-                    {tr(
-                      "After support on external rail, open support claim and submit proof for owner review.",
-                    )}
-                  </p>
-                  <p className="mt-1 text-[11px] text-app-text-muted">
-                    {tr("Support code status last checked")}:{" "}
-                    {intentStatusCheckedAt
-                      ? formatDateTime(intentStatusCheckedAt, intentStatusCheckedAt)
-                      : tr("No support code check yet.")}
-                  </p>
-                </>
-              ) : (
-                <p className="mt-1 text-xs text-app-text-muted">
-                  {tr("No support code prepared yet.")}
-                </p>
-              )}
-
-              {purchaseIntentFeedback && (
-                <p
-                  className={`pc-feedback mt-2 ${
-                    purchaseIntentFeedback.kind === "success"
-                      ? "pc-feedback-success"
-                      : "pc-feedback-error"
-                  }`}
-                >
-                  <AppIcon
-                    name={purchaseIntentFeedback.kind === "success" ? "check" : "alert"}
-                    className="mt-0.5 h-3.5 w-3.5 shrink-0"
-                  />
-                  <span>{purchaseIntentFeedback.message}</span>
-                </p>
-              )}
-            </div>
-          )}
+                )}
+              </div>
+            )}
+          </details>
 
           {(recentSupportReturnContext || isMarkingSupportReturn) && (
             <div className="pc-state-card mt-2 bg-white px-3 py-2 text-xs text-app-text-muted">
@@ -1640,19 +1615,12 @@ function ProfileScenariosContent() {
                   <p className="mt-1 text-[11px] text-app-text-muted">
                     {tr("Return tracked. Continue with claim submission if support is completed.")}
                   </p>
-                  {recentSupportReturnContext.railId === "cloudtips" && (
-                    <p className="mt-1 text-[11px] text-app-text-muted">
-                      {tr(
-                        "CloudTips return is tracked as automation-candidate context. Owner review is still the safe entitlement path today.",
-                      )}
-                    </p>
-                  )}
                 </>
               ) : null}
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsClaimPanelOpen(true)}
+                  onClick={() => void openFallbackClaimPath()}
                   className="pc-btn-primary"
                 >
                   <AppIcon name="wallet" className="h-3.5 w-3.5" />
@@ -1822,17 +1790,6 @@ function ProfileScenariosContent() {
                   <span className="font-semibold text-app-text">{tr("Next step")}:</span>{" "}
                   {claimNextStepLabel}
                 </p>
-                {latestIntentTrackedRail && !premiumEntitlement?.isPremium && (
-                  <p className="mt-1 text-[11px] text-app-text-muted">
-                    {latestIntentTrackedRail.id === "cloudtips"
-                      ? tr(
-                          "Current rail context: CloudTips automation-candidate path. Owner review remains required until verified matching is introduced.",
-                        )
-                      : tr(
-                          "Current rail context: Boosty continuity/manual path. Include reference/proof and continue through claim review.",
-                        )}
-                  </p>
-                )}
               </>
             )}
             <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-app-text-muted">
