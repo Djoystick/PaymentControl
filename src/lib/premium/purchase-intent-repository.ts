@@ -6,11 +6,14 @@ import type {
   PremiumPurchaseIntentStatus,
 } from "@/lib/auth/types";
 import {
-  DEFAULT_PREMIUM_PURCHASE_RAIL,
-  LEGACY_PREMIUM_PURCHASE_RAIL,
-  isSupportedPremiumPurchaseRail,
+  DEFAULT_SUPPORT_CLAIM_RAIL,
+  LEGACY_SUPPORT_CLAIM_RAIL,
+  isSupportedSupportClaimRail,
 } from "@/lib/premium/purchase-semantics";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+// Historical compatibility boundary:
+// repository/table names stay `premium_purchase_*` to keep existing DB/API contracts stable.
 
 type PremiumPurchaseIntentRow = {
   id: string;
@@ -135,7 +138,7 @@ export const createPremiumPurchaseIntent = async (
     };
   }
 
-  if (!isSupportedPremiumPurchaseRail(params.intentRail)) {
+  if (!isSupportedSupportClaimRail(params.intentRail)) {
     return {
       ok: false,
       reason: "INVALID_INPUT",
@@ -197,7 +200,7 @@ export const createPremiumPurchaseIntent = async (
         ok: false,
         reason: "FOUNDATION_NOT_READY",
         message:
-          "Premium purchase intent foundation is not ready. Apply Phase 22E migration.",
+          "Support reference foundation is not ready. Apply Phase 22E migration.",
       };
     }
 
@@ -209,7 +212,7 @@ export const createPremiumPurchaseIntent = async (
       return {
         ok: false,
         reason: "ACTION_FAILED",
-        message: "Failed to create premium purchase intent.",
+        message: "Failed to create support reference.",
       };
     }
 
@@ -222,7 +225,7 @@ export const createPremiumPurchaseIntent = async (
   return {
     ok: false,
     reason: "ACTION_FAILED",
-    message: "Failed to generate unique purchase correlation code.",
+    message: "Failed to generate unique support reference code.",
   };
 };
 
@@ -261,8 +264,7 @@ export const readPremiumPurchaseIntentsForProfile = async (
     return {
       ok: false,
       reason: "FOUNDATION_NOT_READY",
-      message:
-        "Premium purchase intent foundation is not ready. Apply Phase 22E migration.",
+      message: "Support reference foundation is not ready. Apply Phase 22E migration.",
     };
   }
 
@@ -270,7 +272,7 @@ export const readPremiumPurchaseIntentsForProfile = async (
     return {
       ok: false,
       reason: "ACTION_FAILED",
-      message: "Failed to read premium purchase intents.",
+      message: "Failed to read support references.",
     };
   }
 
@@ -305,7 +307,7 @@ export const resolvePremiumPurchaseIntentForClaim = async (
     return {
       ok: false,
       reason: "INVALID_INPUT",
-      message: "Purchase intent id is invalid.",
+      message: "Support reference id is invalid.",
     };
   }
 
@@ -313,7 +315,7 @@ export const resolvePremiumPurchaseIntentForClaim = async (
     return {
       ok: false,
       reason: "INVALID_INPUT",
-      message: "Purchase correlation code is invalid.",
+      message: "Support reference code is invalid.",
     };
   }
 
@@ -347,8 +349,8 @@ export const resolvePremiumPurchaseIntentForClaim = async (
   };
 
   const queryRails =
-    params.claimRail === DEFAULT_PREMIUM_PURCHASE_RAIL
-      ? [DEFAULT_PREMIUM_PURCHASE_RAIL, LEGACY_PREMIUM_PURCHASE_RAIL]
+    params.claimRail === DEFAULT_SUPPORT_CLAIM_RAIL
+      ? [DEFAULT_SUPPORT_CLAIM_RAIL, LEGACY_SUPPORT_CLAIM_RAIL]
       : [params.claimRail];
 
   let resolvedRows: PremiumPurchaseIntentRow[] | null = null;
@@ -359,8 +361,7 @@ export const resolvePremiumPurchaseIntentForClaim = async (
       return {
         ok: false,
         reason: "FOUNDATION_NOT_READY",
-        message:
-          "Premium purchase intent foundation is not ready. Apply Phase 22E migration.",
+        message: "Support reference foundation is not ready. Apply Phase 22E migration.",
       };
     }
 
@@ -368,7 +369,7 @@ export const resolvePremiumPurchaseIntentForClaim = async (
       return {
         ok: false,
         reason: "ACTION_FAILED",
-        message: "Failed to resolve purchase intent for claim.",
+        message: "Failed to resolve support reference for claim.",
       };
     }
 
@@ -382,7 +383,7 @@ export const resolvePremiumPurchaseIntentForClaim = async (
     return {
       ok: false,
       reason: "NOT_FOUND",
-      message: "Matching purchase intent was not found for this account.",
+      message: "Matching support reference was not found for this account.",
     };
   }
 
@@ -391,7 +392,7 @@ export const resolvePremiumPurchaseIntentForClaim = async (
     return {
       ok: false,
       reason: "INVALID_INPUT",
-      message: "Purchase intent is already linked to another claim.",
+      message: "Support reference is already linked to another claim.",
     };
   }
 
@@ -403,7 +404,7 @@ export const resolvePremiumPurchaseIntentForClaim = async (
     return {
       ok: false,
       reason: "INVALID_INPUT",
-      message: "Purchase intent status is not claimable.",
+      message: "Support reference status is not claimable.",
     };
   }
 
@@ -451,7 +452,7 @@ export const markPremiumPurchaseIntentClaimed = async (params: {
     return {
       ok: false,
       reason: "ACTION_FAILED",
-      message: "Failed to update purchase intent claim linkage.",
+      message: "Failed to update support reference claim linkage.",
     };
   }
 
@@ -459,7 +460,7 @@ export const markPremiumPurchaseIntentClaimed = async (params: {
     return {
       ok: false,
       reason: "INVALID_INPUT",
-      message: "Purchase intent was already linked to a claim.",
+      message: "Support reference was already linked to a claim.",
     };
   }
 
@@ -468,3 +469,8 @@ export const markPremiumPurchaseIntentClaimed = async (params: {
     data: toPayload(data),
   };
 };
+
+export const createSupportReferenceIntent = createPremiumPurchaseIntent;
+export const readSupportReferencesForProfile = readPremiumPurchaseIntentsForProfile;
+export const resolveSupportReferenceForClaim = resolvePremiumPurchaseIntentForClaim;
+export const markSupportReferenceClaimed = markPremiumPurchaseIntentClaimed;

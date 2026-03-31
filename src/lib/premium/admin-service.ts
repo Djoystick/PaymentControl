@@ -1095,6 +1095,9 @@ export const reviewPremiumPurchaseClaim = async (params: {
   };
 };
 
+export const listSupportClaims = listPremiumPurchaseClaims;
+export const reviewSupportClaim = reviewPremiumPurchaseClaim;
+
 export const deactivatePremiumGiftCampaign = async (
   campaignId: string,
 ): Promise<AdminServiceResult<PremiumAdminCampaignPayload>> => {

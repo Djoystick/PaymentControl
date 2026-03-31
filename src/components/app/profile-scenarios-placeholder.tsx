@@ -4,14 +4,14 @@ import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react
 import type {
   FamilyWorkspaceInvitePayload,
   FamilyWorkspaceInviteStatus,
-  PremiumPurchaseClaimPayload,
-  PremiumPurchaseIntentPayload,
+  SupportClaimPayload,
+  SupportReferencePayload,
 } from "@/lib/auth/types";
 import {
-  createPremiumPurchaseIntent,
-  createPremiumPurchaseClaim,
-  readMyPremiumPurchaseIntents,
-  readMyPremiumPurchaseClaims,
+  createSupportClaim,
+  createSupportReferenceIntent,
+  readMySupportReferenceIntents,
+  readMySupportClaims,
   submitBugReport,
 } from "@/lib/auth/client";
 import { useCurrentAppContext } from "@/hooks/use-current-app-context";
@@ -34,8 +34,8 @@ import { HelpPopover } from "@/components/app/help-popover";
 import { AppIcon } from "@/components/app/app-icon";
 import { clientEnv } from "@/lib/config/client-env";
 import {
+  DEFAULT_SUPPORT_CLAIM_RAIL,
   DEFAULT_PREMIUM_EXPECTED_TIER,
-  DEFAULT_PREMIUM_PURCHASE_RAIL,
   SOFT_PREMIUM_ACCESS_DAYS,
   SOFT_SUPPORT_MIN_AMOUNT_RUB,
 } from "@/lib/premium/purchase-semantics";
@@ -120,9 +120,9 @@ function ProfileScenariosContent() {
   const [purchaseClaimProofText, setPurchaseClaimProofText] = useState("");
   const [purchaseClaimNote, setPurchaseClaimNote] = useState("");
   const [latestPurchaseClaim, setLatestPurchaseClaim] =
-    useState<PremiumPurchaseClaimPayload | null>(null);
+    useState<SupportClaimPayload | null>(null);
   const [latestPurchaseIntent, setLatestPurchaseIntent] =
-    useState<PremiumPurchaseIntentPayload | null>(null);
+    useState<SupportReferencePayload | null>(null);
   const [claimStatusCheckedAt, setClaimStatusCheckedAt] = useState<string | null>(null);
   const [intentStatusCheckedAt, setIntentStatusCheckedAt] = useState<string | null>(null);
   const [isLoadingPurchaseIntents, setIsLoadingPurchaseIntents] = useState(false);
@@ -354,7 +354,7 @@ function ProfileScenariosContent() {
         setPurchaseClaimFeedback(null);
       }
       try {
-        const response = await readMyPremiumPurchaseClaims({
+        const response = await readMySupportClaims({
           initData,
           limit: 5,
         });
@@ -406,7 +406,7 @@ function ProfileScenariosContent() {
         setPurchaseIntentFeedback(null);
       }
       try {
-        const response = await readMyPremiumPurchaseIntents({
+        const response = await readMySupportReferenceIntents({
           initData,
           limit: 5,
         });
@@ -456,7 +456,7 @@ function ProfileScenariosContent() {
     [initData, profile, tr],
   );
 
-  const preparePremiumPurchaseIntent = async () => {
+  const prepareSupportReferenceIntent = async () => {
     if (!initData || !profile || isPreparingPurchaseIntent) {
       return;
     }
@@ -464,9 +464,9 @@ function ProfileScenariosContent() {
     setIsPreparingPurchaseIntent(true);
     setPurchaseIntentFeedback(null);
     try {
-      const response = await createPremiumPurchaseIntent({
+      const response = await createSupportReferenceIntent({
         initData,
-        intentRail: DEFAULT_PREMIUM_PURCHASE_RAIL,
+        intentRail: DEFAULT_SUPPORT_CLAIM_RAIL,
         expectedTier: DEFAULT_PREMIUM_EXPECTED_TIER,
       });
 
@@ -543,9 +543,9 @@ function ProfileScenariosContent() {
     setIsSubmittingPremiumClaim(true);
     setPurchaseClaimFeedback(null);
     try {
-      const response = await createPremiumPurchaseClaim({
+      const response = await createSupportClaim({
         initData,
-        claimRail: linkablePurchaseIntent?.intentRail ?? DEFAULT_PREMIUM_PURCHASE_RAIL,
+        claimRail: linkablePurchaseIntent?.intentRail ?? DEFAULT_SUPPORT_CLAIM_RAIL,
         expectedTier: linkablePurchaseIntent?.expectedTier ?? DEFAULT_PREMIUM_EXPECTED_TIER,
         externalPayerHandle: purchaseClaimExternalHandle.trim(),
         paymentProofReference: purchaseClaimProofReference.trim(),
@@ -1030,7 +1030,7 @@ function ProfileScenariosContent() {
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => void preparePremiumPurchaseIntent()}
+                onClick={() => void prepareSupportReferenceIntent()}
                 disabled={isPreparingPurchaseIntent}
                 className="pc-btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
               >

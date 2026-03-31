@@ -19,3 +19,16 @@ export const isSupportedPremiumPurchaseRail = (
 ): rail is PremiumPurchaseClaimRail => {
   return SUPPORTED_PREMIUM_PURCHASE_RAILS.includes(rail as PremiumPurchaseClaimRail);
 };
+
+// Current runtime truth aliases (donor-support-first).
+// Keep `PremiumPurchase*` exports above for backward compatibility.
+export const LEGACY_SUPPORT_CLAIM_RAIL = LEGACY_PREMIUM_PURCHASE_RAIL;
+export const CURRENT_SUPPORT_CLAIM_RAIL = ONE_TIME_PREMIUM_PURCHASE_RAIL;
+export const SUPPORTED_SUPPORT_CLAIM_RAILS = SUPPORTED_PREMIUM_PURCHASE_RAILS;
+export const DEFAULT_SUPPORT_CLAIM_RAIL = DEFAULT_PREMIUM_PURCHASE_RAIL;
+
+export const isSupportedSupportClaimRail = (
+  rail: string,
+): rail is PremiumPurchaseClaimRail => {
+  return isSupportedPremiumPurchaseRail(rail);
+};

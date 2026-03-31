@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { readCurrentAppContext } from "@/lib/app-context/service";
 import type {
-  PremiumPurchaseClaimPayload,
-  PremiumPurchaseClaimReadMineErrorCode,
-  PremiumPurchaseClaimReadMineResponse,
-  PremiumPurchaseClaimStatus,
+  SupportClaimPayload,
+  SupportClaimReadMineErrorCode,
+  SupportClaimReadMineResponse,
+  SupportClaimStatus,
 } from "@/lib/auth/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -13,12 +13,12 @@ type PremiumPurchaseClaimRow = {
   profile_id: string;
   workspace_id: string | null;
   telegram_user_id: string;
-  claim_rail: PremiumPurchaseClaimPayload["claimRail"];
+  claim_rail: SupportClaimPayload["claimRail"];
   expected_tier: string;
   external_payer_handle: string | null;
   payment_proof_reference: string | null;
   payment_proof_text: string | null;
-  claim_status: PremiumPurchaseClaimStatus;
+  claim_status: SupportClaimStatus;
   purchase_intent_id: string | null;
   purchase_correlation_code: string | null;
   claim_note: string | null;
@@ -37,7 +37,9 @@ type PremiumPurchaseClaimsMineBody = {
   limit?: number;
 };
 
-const codeToStatus: Record<PremiumPurchaseClaimReadMineErrorCode, number> = {
+type PremiumPurchaseClaimReadMineResponse = SupportClaimReadMineResponse;
+
+const codeToStatus: Record<SupportClaimReadMineErrorCode, number> = {
   TELEGRAM_INIT_DATA_MISSING: 400,
   TELEGRAM_INIT_DATA_INVALID: 401,
   TELEGRAM_INIT_DATA_EXPIRED: 401,
@@ -55,7 +57,7 @@ const codeToStatus: Record<PremiumPurchaseClaimReadMineErrorCode, number> = {
 const selection =
   "id, profile_id, workspace_id, telegram_user_id, claim_rail, expected_tier, external_payer_handle, payment_proof_reference, payment_proof_text, claim_status, purchase_intent_id, purchase_correlation_code, claim_note, admin_note, entitlement_id, submitted_at, reviewed_at, reviewed_by_admin_telegram_user_id, metadata, created_at, updated_at";
 
-const toPayload = (row: PremiumPurchaseClaimRow): PremiumPurchaseClaimPayload => {
+const toPayload = (row: PremiumPurchaseClaimRow): SupportClaimPayload => {
   return {
     id: row.id,
     profileId: row.profile_id,
@@ -137,8 +139,7 @@ export async function POST(request: Request) {
         ok: false,
         error: {
           code: "PREMIUM_PURCHASE_CLAIM_READ_FAILED",
-          message:
-            "Premium purchase claim foundation is not ready. Apply Phase 22A migration.",
+          message: "Support claim foundation is not ready. Apply Phase 22A migration.",
         },
       },
       { status: 409 },
@@ -151,7 +152,7 @@ export async function POST(request: Request) {
         ok: false,
         error: {
           code: "PREMIUM_PURCHASE_CLAIM_READ_FAILED",
-          message: "Failed to read premium purchase claims.",
+          message: "Failed to read support claims.",
         },
       },
       { status: 500 },

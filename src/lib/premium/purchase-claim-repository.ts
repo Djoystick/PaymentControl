@@ -5,11 +5,14 @@ import type {
   PremiumPurchaseClaimStatus,
 } from "@/lib/auth/types";
 import {
-  markPremiumPurchaseIntentClaimed,
-  resolvePremiumPurchaseIntentForClaim,
+  markSupportReferenceClaimed,
+  resolveSupportReferenceForClaim,
 } from "@/lib/premium/purchase-intent-repository";
-import { isSupportedPremiumPurchaseRail } from "@/lib/premium/purchase-semantics";
+import { isSupportedSupportClaimRail } from "@/lib/premium/purchase-semantics";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+// Historical compatibility boundary:
+// repository/table names stay `premium_purchase_*` to keep existing DB/API contracts stable.
 
 type PremiumPurchaseClaimRow = {
   id: string;
@@ -123,7 +126,7 @@ export const createPremiumPurchaseClaim = async (
     };
   }
 
-  if (!isSupportedPremiumPurchaseRail(params.claimRail)) {
+  if (!isSupportedSupportClaimRail(params.claimRail)) {
     return {
       ok: false,
       reason: "INVALID_INPUT",
@@ -147,7 +150,7 @@ export const createPremiumPurchaseClaim = async (
     return {
       ok: false,
       reason: "INVALID_INPUT",
-      message: "Purchase intent id is invalid.",
+      message: "Support reference id is invalid.",
     };
   }
   const normalizedPurchaseIntentId = rawPurchaseIntentId || null;
@@ -168,7 +171,7 @@ export const createPremiumPurchaseClaim = async (
     return {
       ok: false,
       reason: "INVALID_INPUT",
-      message: "Purchase correlation code is invalid.",
+      message: "Support reference code is invalid.",
     };
   }
   const submittedAt = new Date().toISOString();
@@ -182,7 +185,7 @@ export const createPremiumPurchaseClaim = async (
     };
   }
 
-  const intentResolutionResult = await resolvePremiumPurchaseIntentForClaim({
+  const intentResolutionResult = await resolveSupportReferenceForClaim({
     profileId: params.profileId,
     telegramUserId: normalizedTelegramUserId,
     intentId: normalizedPurchaseIntentId,
@@ -237,8 +240,7 @@ export const createPremiumPurchaseClaim = async (
     return {
       ok: false,
       reason: "FOUNDATION_NOT_READY",
-      message:
-        "Premium purchase claim foundation is not ready. Apply Phase 22A migration.",
+      message: "Support claim foundation is not ready. Apply Phase 22A migration.",
     };
   }
 
@@ -246,12 +248,12 @@ export const createPremiumPurchaseClaim = async (
     return {
       ok: false,
       reason: "ACTION_FAILED",
-      message: "Failed to create premium purchase claim.",
+      message: "Failed to create support claim.",
     };
   }
 
   if (linkedIntent) {
-    await markPremiumPurchaseIntentClaimed({
+    await markSupportReferenceClaimed({
       intent: linkedIntent,
       claimId: data.id,
       claimedAtIso: submittedAt,
@@ -268,3 +270,5 @@ export const createPremiumPurchaseClaim = async (
     data: toPayload(data),
   };
 };
+
+export const createSupportClaim = createPremiumPurchaseClaim;

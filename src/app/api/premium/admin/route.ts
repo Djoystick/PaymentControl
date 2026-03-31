@@ -9,6 +9,7 @@ import type {
   PremiumAdminPurchaseClaimListResponse,
   PremiumAdminPurchaseClaimReviewDecision,
   PremiumAdminPurchaseClaimReviewResponse,
+  PremiumAdminSupportClaimReviewDecision,
   PremiumAdminRevokeResponse,
   PremiumAdminSessionResponse,
   PremiumAdminTargetResolveResponse,
@@ -20,8 +21,8 @@ import {
   deactivatePremiumGiftCampaign,
   grantManualPremiumByTelegramUserId,
   listPremiumGiftCampaignsWithUsage,
-  listPremiumPurchaseClaims,
-  reviewPremiumPurchaseClaim,
+  listSupportClaims,
+  reviewSupportClaim,
   resolvePremiumAdminTarget,
   revokePremiumByTelegramUserId,
 } from "@/lib/premium/admin-service";
@@ -35,7 +36,9 @@ type PremiumAdminAction =
   | "list_campaigns"
   | "deactivate_campaign"
   | "list_purchase_claims"
-  | "review_purchase_claim";
+  | "review_purchase_claim"
+  | "list_support_claims"
+  | "review_support_claim";
 
 type PremiumAdminBody = {
   initData?: string;
@@ -51,8 +54,14 @@ type PremiumAdminBody = {
   startsAt?: string;
   endsAt?: string;
   claimId?: string;
-  decision?: PremiumAdminPurchaseClaimReviewDecision;
+  decision?:
+    | PremiumAdminPurchaseClaimReviewDecision
+    | PremiumAdminSupportClaimReviewDecision;
 };
+
+// Historical compatibility boundary:
+// admin action ids keep `*_purchase_claim*` variants for older clients.
+// `*_support_claim*` aliases are accepted for donor-support-first semantics.
 
 const codeToStatus: Record<PremiumAdminErrorCode, number> = {
   TELEGRAM_INIT_DATA_MISSING: 400,
@@ -406,8 +415,8 @@ export async function POST(request: Request) {
     });
   }
 
-  if (action === "list_purchase_claims") {
-    const listResult = await listPremiumPurchaseClaims();
+  if (action === "list_purchase_claims" || action === "list_support_claims") {
+    const listResult = await listSupportClaims();
     if (!listResult.ok) {
       const mapped = mapServiceError(listResult.reason, listResult.message);
       return NextResponse.json<PremiumAdminPurchaseClaimListResponse>(
@@ -428,8 +437,8 @@ export async function POST(request: Request) {
     });
   }
 
-  if (action === "review_purchase_claim") {
-    const reviewResult = await reviewPremiumPurchaseClaim({
+  if (action === "review_purchase_claim" || action === "review_support_claim") {
+    const reviewResult = await reviewSupportClaim({
       claimId: body.claimId?.trim() ?? "",
       decision: (body.decision ?? "reject") as PremiumAdminPurchaseClaimReviewDecision,
       adminTelegramUserId,

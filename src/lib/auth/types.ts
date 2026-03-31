@@ -316,6 +316,9 @@ export type PremiumEntitlementReadResponse =
 
 export type GiftPremiumCampaignStatus = "draft" | "active" | "paused" | "ended";
 
+// Historical compatibility note:
+// `PremiumPurchase*` naming remains because DB/API foundations still use `premium_purchase_*`.
+// `Support*` aliases below are the current runtime semantics.
 export type PremiumPurchaseClaimRail = "one_time_premium" | "boosty_premium";
 export type PremiumPurchaseClaimStatus =
   | "draft"
@@ -465,6 +468,21 @@ export type PremiumPurchaseClaimReadMineError = {
 export type PremiumPurchaseClaimReadMineResponse =
   | PremiumPurchaseClaimReadMineSuccess
   | PremiumPurchaseClaimReadMineError;
+
+export type SupportClaimRail = PremiumPurchaseClaimRail;
+export type SupportClaimStatus = PremiumPurchaseClaimStatus;
+export type SupportReferenceRail = PremiumPurchaseIntentRail;
+export type SupportReferenceStatus = PremiumPurchaseIntentStatus;
+export type SupportReferencePayload = PremiumPurchaseIntentPayload;
+export type SupportClaimPayload = PremiumPurchaseClaimPayload;
+export type SupportClaimCreateErrorCode = PremiumPurchaseClaimCreateErrorCode;
+export type SupportClaimCreateResponse = PremiumPurchaseClaimCreateResponse;
+export type SupportReferenceCreateErrorCode = PremiumPurchaseIntentCreateErrorCode;
+export type SupportReferenceCreateResponse = PremiumPurchaseIntentCreateResponse;
+export type SupportReferenceReadMineErrorCode = PremiumPurchaseIntentReadMineErrorCode;
+export type SupportReferenceReadMineResponse = PremiumPurchaseIntentReadMineResponse;
+export type SupportClaimReadMineErrorCode = PremiumPurchaseClaimReadMineErrorCode;
+export type SupportClaimReadMineResponse = PremiumPurchaseClaimReadMineResponse;
 
 export type GiftPremiumClaimStatus =
   | "granted"
@@ -664,3 +682,12 @@ export type PremiumAdminPurchaseClaimListResponse =
 export type PremiumAdminPurchaseClaimReviewResponse =
   | PremiumAdminPurchaseClaimReviewSuccess
   | PremiumAdminError;
+
+export type PremiumAdminSupportClaimListSuccess = PremiumAdminPurchaseClaimListSuccess;
+export type PremiumAdminSupportClaimReviewDecision =
+  PremiumAdminPurchaseClaimReviewDecision;
+export type PremiumAdminSupportClaimReviewSuccess =
+  PremiumAdminPurchaseClaimReviewSuccess;
+export type PremiumAdminSupportClaimListResponse = PremiumAdminPurchaseClaimListResponse;
+export type PremiumAdminSupportClaimReviewResponse =
+  PremiumAdminPurchaseClaimReviewResponse;

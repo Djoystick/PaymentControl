@@ -15,6 +15,9 @@ import type {
   PremiumAdminPurchaseClaimListResponse,
   PremiumAdminPurchaseClaimReviewDecision,
   PremiumAdminPurchaseClaimReviewResponse,
+  PremiumAdminSupportClaimListResponse,
+  PremiumAdminSupportClaimReviewDecision,
+  PremiumAdminSupportClaimReviewResponse,
   PremiumAdminRevokeResponse,
   PremiumAdminSessionResponse,
   PremiumAdminTargetResolveResponse,
@@ -26,13 +29,19 @@ import type {
   GiftPremiumClaimResponse,
   PremiumEntitlementReadResponse,
   PremiumPurchaseIntentRail,
+  SupportClaimCreateResponse,
+  SupportClaimRail,
+  SupportClaimReadMineResponse,
+  SupportReferenceCreateResponse,
+  SupportReferenceRail,
+  SupportReferenceReadMineResponse,
   ScenarioUpdateResponse,
   SelectedScenario,
   WorkspaceSwitchResponse,
 } from "@/lib/auth/types";
 import {
   DEFAULT_PREMIUM_EXPECTED_TIER,
-  DEFAULT_PREMIUM_PURCHASE_RAIL,
+  DEFAULT_SUPPORT_CLAIM_RAIL,
 } from "@/lib/premium/purchase-semantics";
 
 type RequestBody = Record<string, unknown>;
@@ -159,6 +168,8 @@ export const claimGiftPremiumCampaign = async (
   });
 };
 
+// Historical compatibility helper name.
+// Prefer support-first aliases (`createSupportClaim`, `readMySupportClaims`, etc.) in new code.
 export const createPremiumPurchaseClaim = async (params: {
   initData: string;
   claimRail?: PremiumPurchaseClaimRail;
@@ -175,7 +186,7 @@ export const createPremiumPurchaseClaim = async (params: {
     "POST",
     {
       initData: params.initData,
-      claimRail: params.claimRail ?? DEFAULT_PREMIUM_PURCHASE_RAIL,
+      claimRail: params.claimRail ?? DEFAULT_SUPPORT_CLAIM_RAIL,
       expectedTier: params.expectedTier ?? DEFAULT_PREMIUM_EXPECTED_TIER,
       externalPayerHandle: params.externalPayerHandle ?? "",
       paymentProofReference: params.paymentProofReference ?? "",
@@ -197,7 +208,7 @@ export const createPremiumPurchaseIntent = async (params: {
     "POST",
     {
       initData: params.initData,
-      intentRail: params.intentRail ?? DEFAULT_PREMIUM_PURCHASE_RAIL,
+      intentRail: params.intentRail ?? DEFAULT_SUPPORT_CLAIM_RAIL,
       expectedTier: params.expectedTier ?? DEFAULT_PREMIUM_EXPECTED_TIER,
     },
   );
@@ -338,6 +349,66 @@ export const reviewPremiumPurchaseClaimByAdmin = async (params: {
   return postJson<PremiumAdminPurchaseClaimReviewResponse>("/api/premium/admin", "POST", {
     initData: params.initData,
     action: "review_purchase_claim",
+    claimId: params.claimId,
+    decision: params.decision,
+    note: params.adminNote ?? "",
+  });
+};
+
+export const createSupportClaim = async (params: {
+  initData: string;
+  claimRail?: SupportClaimRail;
+  expectedTier?: string;
+  externalPayerHandle?: string;
+  paymentProofReference?: string;
+  paymentProofText?: string;
+  claimNote?: string;
+  purchaseIntentId?: string;
+  purchaseCorrelationCode?: string;
+}): Promise<SupportClaimCreateResponse> => {
+  return createPremiumPurchaseClaim(params);
+};
+
+export const createSupportReferenceIntent = async (params: {
+  initData: string;
+  intentRail?: SupportReferenceRail;
+  expectedTier?: string;
+}): Promise<SupportReferenceCreateResponse> => {
+  return createPremiumPurchaseIntent(params);
+};
+
+export const readMySupportReferenceIntents = async (params: {
+  initData: string;
+  limit?: number;
+}): Promise<SupportReferenceReadMineResponse> => {
+  return readMyPremiumPurchaseIntents(params);
+};
+
+export const readMySupportClaims = async (params: {
+  initData: string;
+  limit?: number;
+}): Promise<SupportClaimReadMineResponse> => {
+  return readMyPremiumPurchaseClaims(params);
+};
+
+export const listSupportClaimsByAdmin = async (
+  initData: string,
+): Promise<PremiumAdminSupportClaimListResponse> => {
+  return postJson<PremiumAdminSupportClaimListResponse>("/api/premium/admin", "POST", {
+    initData,
+    action: "list_support_claims",
+  });
+};
+
+export const reviewSupportClaimByAdmin = async (params: {
+  initData: string;
+  claimId: string;
+  decision: PremiumAdminSupportClaimReviewDecision;
+  adminNote?: string;
+}): Promise<PremiumAdminSupportClaimReviewResponse> => {
+  return postJson<PremiumAdminSupportClaimReviewResponse>("/api/premium/admin", "POST", {
+    initData: params.initData,
+    action: "review_support_claim",
     claimId: params.claimId,
     decision: params.decision,
     note: params.adminNote ?? "",

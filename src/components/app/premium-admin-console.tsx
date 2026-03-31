@@ -2,27 +2,27 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  createPremiumPurchaseClaim,
+  createSupportClaim,
   createPremiumGiftCampaignByAdmin,
   deactivatePremiumGiftCampaignByAdmin,
   grantPremiumByAdmin,
   listPremiumGiftCampaignsByAdmin,
-  listPremiumPurchaseClaimsByAdmin,
+  listSupportClaimsByAdmin,
   readPremiumAdminSession,
-  reviewPremiumPurchaseClaimByAdmin,
+  reviewSupportClaimByAdmin,
   resolvePremiumAdminTarget,
   revokePremiumByAdmin,
 } from "@/lib/auth/client";
 import type {
   PremiumAdminCampaignPayload,
-  PremiumAdminPurchaseClaimReviewDecision,
+  PremiumAdminSupportClaimReviewDecision,
   PremiumAdminTargetPayload,
-  PremiumPurchaseClaimPayload,
+  SupportClaimPayload,
 } from "@/lib/auth/types";
 import { useLocalization } from "@/lib/i18n/localization";
 import {
   DEFAULT_PREMIUM_EXPECTED_TIER,
-  DEFAULT_PREMIUM_PURCHASE_RAIL,
+  DEFAULT_SUPPORT_CLAIM_RAIL,
 } from "@/lib/premium/purchase-semantics";
 import { AppIcon } from "@/components/app/app-icon";
 
@@ -51,7 +51,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
   const [targetTelegramUserId, setTargetTelegramUserId] = useState("");
   const [target, setTarget] = useState<PremiumAdminTargetPayload | null>(null);
   const [campaigns, setCampaigns] = useState<PremiumAdminCampaignPayload[]>([]);
-  const [purchaseClaims, setPurchaseClaims] = useState<PremiumPurchaseClaimPayload[]>([]);
+  const [purchaseClaims, setPurchaseClaims] = useState<SupportClaimPayload[]>([]);
   const [isResolvingTarget, setIsResolvingTarget] = useState(false);
   const [isSavingPremium, setIsSavingPremium] = useState(false);
   const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(false);
@@ -75,7 +75,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
   const [isCreatingVerificationClaim, setIsCreatingVerificationClaim] =
     useState(false);
   const [verificationClaim, setVerificationClaim] =
-    useState<PremiumPurchaseClaimPayload | null>(null);
+    useState<SupportClaimPayload | null>(null);
   const [adminMessage, setAdminMessage] = useState<string | null>(null);
   const [adminMessageTone, setAdminMessageTone] = useState<AdminMessageTone>("info");
 
@@ -112,7 +112,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
   const loadPurchaseClaims = useCallback(async () => {
     setIsLoadingPurchaseClaims(true);
     try {
-      const response = await listPremiumPurchaseClaimsByAdmin(initData);
+      const response = await listSupportClaimsByAdmin(initData);
       if (!response.ok) {
         showAdminMessage(response.error.message, "error");
         return;
@@ -348,9 +348,9 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     setIsCreatingVerificationClaim(true);
     clearAdminMessage();
     try {
-      const response = await createPremiumPurchaseClaim({
+      const response = await createSupportClaim({
         initData,
-        claimRail: DEFAULT_PREMIUM_PURCHASE_RAIL,
+        claimRail: DEFAULT_SUPPORT_CLAIM_RAIL,
         expectedTier: DEFAULT_PREMIUM_EXPECTED_TIER,
         externalPayerHandle: "test_payment_user",
         paymentProofReference: "PAYMENT-QA-001",
@@ -385,18 +385,18 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     }));
   };
 
-  const isClaimReviewable = (status: PremiumPurchaseClaimPayload["status"]) => {
+  const isClaimReviewable = (status: SupportClaimPayload["status"]) => {
     return status === "submitted" || status === "pending_review";
   };
 
   const reviewPurchaseClaim = async (
     claimId: string,
-    decision: PremiumAdminPurchaseClaimReviewDecision,
+    decision: PremiumAdminSupportClaimReviewDecision,
   ) => {
     setReviewingClaimId(claimId);
     clearAdminMessage();
     try {
-      const response = await reviewPremiumPurchaseClaimByAdmin({
+      const response = await reviewSupportClaimByAdmin({
         initData,
         claimId,
         decision,
@@ -461,7 +461,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     return tr("Gift campaign grant");
   }, [target, tr]);
 
-  const getClaimStatusPillClass = (status: PremiumPurchaseClaimPayload["status"]) => {
+  const getClaimStatusPillClass = (status: SupportClaimPayload["status"]) => {
     if (status === "approved") {
       return "pc-status-pill-success";
     }
@@ -473,7 +473,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     return "";
   };
 
-  const getClaimStatusIcon = (status: PremiumPurchaseClaimPayload["status"]) => {
+  const getClaimStatusIcon = (status: SupportClaimPayload["status"]) => {
     if (status === "approved") {
       return "check" as const;
     }
@@ -489,7 +489,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     return "clock" as const;
   };
 
-  const isLegacyClaimRecord = (claim: PremiumPurchaseClaimPayload) => {
+  const isLegacyClaimRecord = (claim: SupportClaimPayload) => {
     const normalizedTier = claim.expectedTier.trim().toLowerCase();
     return (
       claim.claimRail === "boosty_premium" ||
@@ -499,7 +499,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     );
   };
 
-  const getClaimRailLabel = (claim: PremiumPurchaseClaimPayload) => {
+  const getClaimRailLabel = (claim: SupportClaimPayload) => {
     if (claim.claimRail === "one_time_premium") {
       return tr("Current support rail");
     }
@@ -507,7 +507,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     return tr("Legacy support rail (historical subscription-era)");
   };
 
-  const getClaimTierLabel = (claim: PremiumPurchaseClaimPayload) => {
+  const getClaimTierLabel = (claim: SupportClaimPayload) => {
     const normalizedTier = claim.expectedTier.trim().toLowerCase();
     if (normalizedTier === "premium_one_time" || normalizedTier.includes("one_time")) {
       return tr("Current support perk package");

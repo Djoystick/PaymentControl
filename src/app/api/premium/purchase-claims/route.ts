@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
 import { readCurrentAppContext } from "@/lib/app-context/service";
 import type {
-  PremiumPurchaseClaimCreateErrorCode,
-  PremiumPurchaseClaimCreateResponse,
-  PremiumPurchaseClaimRail,
+  SupportClaimCreateErrorCode,
+  SupportClaimCreateResponse,
+  SupportClaimRail,
 } from "@/lib/auth/types";
 import { isSupabaseServerConfigured, serverEnv } from "@/lib/config/server-env";
 import { sendTelegramMessageWithPreflight } from "@/lib/payments/telegram-delivery";
-import { createPremiumPurchaseClaim } from "@/lib/premium/purchase-claim-repository";
+import { createSupportClaim } from "@/lib/premium/purchase-claim-repository";
 import {
   DEFAULT_PREMIUM_EXPECTED_TIER,
-  DEFAULT_PREMIUM_PURCHASE_RAIL,
-  isSupportedPremiumPurchaseRail,
+  DEFAULT_SUPPORT_CLAIM_RAIL,
+  isSupportedSupportClaimRail,
 } from "@/lib/premium/purchase-semantics";
+
+// Historical compatibility boundary:
+// route path remains `/api/premium/purchase-claims` while runtime meaning is support-claim submission.
 
 type PremiumPurchaseClaimBody = {
   initData?: string;
@@ -26,7 +29,9 @@ type PremiumPurchaseClaimBody = {
   purchaseCorrelationCode?: string;
 };
 
-const codeToStatus: Record<PremiumPurchaseClaimCreateErrorCode, number> = {
+type PremiumPurchaseClaimCreateResponse = SupportClaimCreateResponse;
+
+const codeToStatus: Record<SupportClaimCreateErrorCode, number> = {
   TELEGRAM_INIT_DATA_MISSING: 400,
   TELEGRAM_INIT_DATA_INVALID: 401,
   TELEGRAM_INIT_DATA_EXPIRED: 401,
@@ -82,7 +87,7 @@ const normalizeSingleLineForTelegram = (value: string | null, maxLength: number)
   return normalized.slice(0, maxLength);
 };
 
-const formatClaimRailForOwner = (claimRail: PremiumPurchaseClaimRail): string => {
+const formatClaimRailForOwner = (claimRail: SupportClaimRail): string => {
   if (claimRail === "one_time_premium") {
     return "one_time_premium (current support-claim rail)";
   }
@@ -98,7 +103,7 @@ const sendOwnerClaimNotification = async (params: {
   claimId: string;
   submittedAt: string;
   telegramUserId: string;
-  claimRail: PremiumPurchaseClaimRail;
+  claimRail: SupportClaimRail;
   expectedTier: string;
   purchaseCode: string | null;
   proofReference: string | null;
@@ -133,7 +138,7 @@ const sendOwnerClaimNotification = async (params: {
   });
 
   if (deliveryResult.status !== "sent") {
-    console.error("Premium claim owner notification failed.", {
+    console.error("Support claim owner notification failed.", {
       errorCode: deliveryResult.errorCode,
       errorMessage: deliveryResult.errorMessage,
       diagnosticCode: deliveryResult.diagnosticCode,
@@ -162,8 +167,8 @@ export async function POST(request: Request) {
     body = {};
   }
 
-  const normalizedClaimRail = body.claimRail?.trim() || DEFAULT_PREMIUM_PURCHASE_RAIL;
-  if (!isSupportedPremiumPurchaseRail(normalizedClaimRail)) {
+  const normalizedClaimRail = body.claimRail?.trim() || DEFAULT_SUPPORT_CLAIM_RAIL;
+  if (!isSupportedSupportClaimRail(normalizedClaimRail)) {
     return NextResponse.json<PremiumPurchaseClaimCreateResponse>(
       {
         ok: false,
@@ -175,7 +180,7 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  const claimRail = normalizedClaimRail as PremiumPurchaseClaimRail;
+  const claimRail = normalizedClaimRail as SupportClaimRail;
 
   const expectedTier = body.expectedTier?.trim() || DEFAULT_PREMIUM_EXPECTED_TIER;
   if (!expectedTier || expectedTier.length > 64) {
@@ -292,7 +297,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const createResult = await createPremiumPurchaseClaim({
+  const createResult = await createSupportClaim({
     profileId: contextResult.profile.id,
     workspaceId: contextResult.workspace.id,
     telegramUserId: contextResult.profile.telegramUserId,
@@ -341,7 +346,7 @@ export async function POST(request: Request) {
       workspaceTitle: contextResult.workspace.title,
     });
   } catch (error) {
-    console.error("Unexpected owner notification error for premium claim.", {
+    console.error("Unexpected owner notification error for support claim.", {
       message: error instanceof Error ? error.message : "Unknown error",
     });
   }

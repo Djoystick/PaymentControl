@@ -1,18 +1,20 @@
 import { NextResponse } from "next/server";
 import { readCurrentAppContext } from "@/lib/app-context/service";
 import type {
-  PremiumPurchaseIntentReadMineErrorCode,
-  PremiumPurchaseIntentReadMineResponse,
+  SupportReferenceReadMineErrorCode,
+  SupportReferenceReadMineResponse,
 } from "@/lib/auth/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { readPremiumPurchaseIntentsForProfile } from "@/lib/premium/purchase-intent-repository";
+import { readSupportReferencesForProfile } from "@/lib/premium/purchase-intent-repository";
 
 type PremiumPurchaseIntentsMineBody = {
   initData?: string;
   limit?: number;
 };
 
-const codeToStatus: Record<PremiumPurchaseIntentReadMineErrorCode, number> = {
+type PremiumPurchaseIntentReadMineResponse = SupportReferenceReadMineResponse;
+
+const codeToStatus: Record<SupportReferenceReadMineErrorCode, number> = {
   TELEGRAM_INIT_DATA_MISSING: 400,
   TELEGRAM_INIT_DATA_INVALID: 401,
   TELEGRAM_INIT_DATA_EXPIRED: 401,
@@ -68,7 +70,7 @@ export async function POST(request: Request) {
       ? Math.min(20, Math.max(1, Math.floor(body.limit)))
       : 10;
 
-  const readResult = await readPremiumPurchaseIntentsForProfile({
+  const readResult = await readSupportReferencesForProfile({
     profileId: contextResult.profile.id,
     telegramUserId: contextResult.profile.telegramUserId,
     limit: normalizedLimit,

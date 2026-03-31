@@ -1,17 +1,20 @@
 import { NextResponse } from "next/server";
 import { readCurrentAppContext } from "@/lib/app-context/service";
 import type {
-  PremiumPurchaseIntentCreateErrorCode,
-  PremiumPurchaseIntentCreateResponse,
-  PremiumPurchaseIntentRail,
+  SupportReferenceCreateErrorCode,
+  SupportReferenceCreateResponse,
+  SupportReferenceRail,
 } from "@/lib/auth/types";
 import { isSupabaseServerConfigured } from "@/lib/config/server-env";
-import { createPremiumPurchaseIntent } from "@/lib/premium/purchase-intent-repository";
+import { createSupportReferenceIntent } from "@/lib/premium/purchase-intent-repository";
 import {
   DEFAULT_PREMIUM_EXPECTED_TIER,
-  DEFAULT_PREMIUM_PURCHASE_RAIL,
-  isSupportedPremiumPurchaseRail,
+  DEFAULT_SUPPORT_CLAIM_RAIL,
+  isSupportedSupportClaimRail,
 } from "@/lib/premium/purchase-semantics";
+
+// Historical compatibility boundary:
+// route path remains `/api/premium/purchase-intents` while runtime meaning is support reference intent.
 
 type PremiumPurchaseIntentBody = {
   initData?: string;
@@ -19,7 +22,9 @@ type PremiumPurchaseIntentBody = {
   expectedTier?: string;
 };
 
-const codeToStatus: Record<PremiumPurchaseIntentCreateErrorCode, number> = {
+type PremiumPurchaseIntentCreateResponse = SupportReferenceCreateResponse;
+
+const codeToStatus: Record<SupportReferenceCreateErrorCode, number> = {
   TELEGRAM_INIT_DATA_MISSING: 400,
   TELEGRAM_INIT_DATA_INVALID: 401,
   TELEGRAM_INIT_DATA_EXPIRED: 401,
@@ -56,8 +61,8 @@ export async function POST(request: Request) {
     body = {};
   }
 
-  const normalizedIntentRail = body.intentRail?.trim() || DEFAULT_PREMIUM_PURCHASE_RAIL;
-  if (!isSupportedPremiumPurchaseRail(normalizedIntentRail)) {
+  const normalizedIntentRail = body.intentRail?.trim() || DEFAULT_SUPPORT_CLAIM_RAIL;
+  if (!isSupportedSupportClaimRail(normalizedIntentRail)) {
     return NextResponse.json<PremiumPurchaseIntentCreateResponse>(
       {
         ok: false,
@@ -69,7 +74,7 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  const intentRail = normalizedIntentRail as PremiumPurchaseIntentRail;
+  const intentRail = normalizedIntentRail as SupportReferenceRail;
 
   const expectedTier = body.expectedTier?.trim() || DEFAULT_PREMIUM_EXPECTED_TIER;
   if (!expectedTier || expectedTier.length > 64) {
@@ -99,7 +104,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const createResult = await createPremiumPurchaseIntent({
+  const createResult = await createSupportReferenceIntent({
     profileId: contextResult.profile.id,
     workspaceId: contextResult.workspace.id,
     telegramUserId: contextResult.profile.telegramUserId,
