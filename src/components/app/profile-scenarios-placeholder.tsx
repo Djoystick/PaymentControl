@@ -184,7 +184,7 @@ function ProfileScenariosContent() {
     }
 
     if (premiumEntitlement.effectiveSource === "boosty") {
-      return tr("Validated external support (legacy mapping)");
+      return tr("Validated external support");
     }
 
     return tr("Gift campaign grant");
@@ -577,7 +577,7 @@ function ProfileScenariosContent() {
     } catch {
       setPurchaseClaimFeedback({
         kind: "error",
-        message: tr("Failed to submit premium claim."),
+        message: tr("Failed to submit support claim."),
       });
     } finally {
       setIsSubmittingPremiumClaim(false);
@@ -952,9 +952,7 @@ function ProfileScenariosContent() {
                   {tr("Core features remain free in this phase.")}
                 </p>
               )}
-              <p className="mt-1 text-xs text-app-text-muted">
-                {tr("No core features are locked in this phase.")}
-              </p>
+              <p className="mt-1 text-xs text-app-text-muted">{tr("Core features stay free.")}</p>
             </>
           )}
 
@@ -1017,7 +1015,7 @@ function ProfileScenariosContent() {
             </p>
             <p className="mt-1 text-xs text-app-text-muted">
               {tr(
-                "Prepare this code before support and include it in your payment comment if the external rail allows it.",
+                "Prepare this code before support and add it to your support note if the external rail allows it.",
               )}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -1039,7 +1037,7 @@ function ProfileScenariosContent() {
                 className="pc-btn-quiet"
               >
                 <AppIcon name="wallet" className="h-3.5 w-3.5" />
-                {tr("Open support claim")}
+                {tr("Open claim form")}
               </button>
             </div>
             <p className="mt-1 text-[11px] text-app-text-muted">
@@ -1142,7 +1140,7 @@ function ProfileScenariosContent() {
           >
             <summary className="pc-summary-action inline-flex cursor-pointer items-center gap-1.5 font-semibold text-app-text">
               <AppIcon name="wallet" className="h-3.5 w-3.5" />
-              {tr("I already supported / submit claim")}
+              {tr("I already supported, submit claim")}
               {isClaimPanelOpen && <span className="pc-status-pill">{tr("Opened")}</span>}
             </summary>
             <p className="mt-1">

@@ -796,7 +796,7 @@ const ensureOneTimeEntitlementForApprovedClaim = async (params: {
     return {
       ok: false,
       reason: "ACTION_FAILED",
-      message: "Failed to read active premium purchase entitlements for claim approval.",
+      message: "Failed to read active premium entitlements before support validation.",
     };
   }
 
@@ -852,7 +852,7 @@ const ensureOneTimeEntitlementForApprovedClaim = async (params: {
       return {
         ok: false,
         reason: "ACTION_FAILED",
-        message: "Failed to extend existing premium purchase entitlement.",
+        message: "Failed to extend existing premium entitlement after support validation.",
       };
     }
 
@@ -903,7 +903,7 @@ const ensureOneTimeEntitlementForApprovedClaim = async (params: {
     return {
       ok: false,
       reason: "ACTION_FAILED",
-      message: "Failed to grant premium purchase entitlement from approved claim.",
+      message: "Failed to grant premium entitlement from approved support claim.",
     };
   }
 
@@ -939,7 +939,7 @@ export const listPremiumPurchaseClaims = async (): Promise<
       ok: false,
       reason: "FOUNDATION_NOT_READY",
       message:
-        "Premium purchase claim foundation is not ready. Apply Phase 22A migration.",
+        "Support claim foundation is not ready. Apply Phase 22A migration.",
     };
   }
 
@@ -947,7 +947,7 @@ export const listPremiumPurchaseClaims = async (): Promise<
     return {
       ok: false,
       reason: "ACTION_FAILED",
-      message: "Failed to read premium purchase claims queue.",
+      message: "Failed to read support claims queue.",
     };
   }
 
@@ -1005,7 +1005,7 @@ export const reviewPremiumPurchaseClaim = async (params: {
       ok: false,
       reason: "FOUNDATION_NOT_READY",
       message:
-        "Premium purchase claim foundation is not ready. Apply Phase 22A migration.",
+        "Support claim foundation is not ready. Apply Phase 22A migration.",
     };
   }
 
@@ -1013,7 +1013,7 @@ export const reviewPremiumPurchaseClaim = async (params: {
     return {
       ok: false,
       reason: "ACTION_FAILED",
-      message: "Failed to read purchase claim for review.",
+      message: "Failed to read support claim for review.",
     };
   }
 
@@ -1021,7 +1021,7 @@ export const reviewPremiumPurchaseClaim = async (params: {
     return {
       ok: false,
       reason: "CLAIM_NOT_FOUND",
-      message: "Purchase claim was not found.",
+      message: "Support claim was not found.",
     };
   }
 

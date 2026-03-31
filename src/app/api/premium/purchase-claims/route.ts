@@ -84,11 +84,11 @@ const normalizeSingleLineForTelegram = (value: string | null, maxLength: number)
 
 const formatClaimRailForOwner = (claimRail: PremiumPurchaseClaimRail): string => {
   if (claimRail === "one_time_premium") {
-    return "one_time_premium (текущий one-time путь)";
+    return "one_time_premium (current support-claim rail)";
   }
 
   if (claimRail === "boosty_premium") {
-    return "boosty_premium (legacy/исторический формат)";
+    return "boosty_premium (legacy historical rail)";
   }
 
   return claimRail;
@@ -109,21 +109,21 @@ const sendOwnerClaimNotification = async (params: {
   }
 
   const message = [
-    "Payment Control - новая заявка на подтверждение покупки Premium",
+    "Payment Control - new support claim for owner review",
     "",
-    "Событие: пользователь отправил заявку после внешней оплаты.",
-    "Важно: в этом потоке нет авто-подтверждения оплаты, нужна ручная проверка owner.",
+    "Event: user submitted support proof after external support action.",
+    "Important: no automatic Premium activation in this flow. Owner review is required.",
     "",
-    `ID заявки: ${params.claimId}`,
-    `Отправлено (UTC): ${params.submittedAt}`,
+    `Claim id: ${params.claimId}`,
+    `Submitted at (UTC): ${params.submittedAt}`,
     `Telegram user id: ${params.telegramUserId}`,
-    `Рельс заявки: ${formatClaimRailForOwner(params.claimRail)}`,
-    `Ожидаемый пакет: ${normalizeSingleLineForTelegram(params.expectedTier, 64)}`,
-    `Код покупки: ${normalizeSingleLineForTelegram(params.purchaseCode, 32)}`,
-    `Референс подтверждения: ${normalizeSingleLineForTelegram(params.proofReference, 140)}`,
-    `Пространство: ${normalizeSingleLineForTelegram(params.workspaceTitle, 80)}`,
+    `Claim rail: ${formatClaimRailForOwner(params.claimRail)}`,
+    `Expected perk tier: ${normalizeSingleLineForTelegram(params.expectedTier, 64)}`,
+    `Support reference code: ${normalizeSingleLineForTelegram(params.purchaseCode, 32)}`,
+    `Support proof reference: ${normalizeSingleLineForTelegram(params.proofReference, 140)}`,
+    `Workspace: ${normalizeSingleLineForTelegram(params.workspaceTitle, 80)}`,
     "",
-    "Путь проверки: Profile -> Owner premium admin -> Purchase claims queue",
+    "Review path: Profile -> Owner premium admin -> Support claim validation queue",
   ].join("\n");
 
   const deliveryResult = await sendTelegramMessageWithPreflight({

@@ -113,7 +113,7 @@ const mapServiceError = (
   if (reason === "CLAIM_NOT_FOUND") {
     return {
       code: "PREMIUM_ADMIN_CLAIM_NOT_FOUND",
-      message: "Purchase claim was not found.",
+      message: "Support claim was not found.",
     };
   }
 
@@ -128,12 +128,12 @@ const mapServiceError = (
     const normalizedMessage = (serviceMessage ?? "").toLowerCase();
     if (
       normalizedMessage.includes("purchase claim") ||
+      normalizedMessage.includes("support claim") ||
       normalizedMessage.includes("phase 22a")
     ) {
       return {
         code: "PREMIUM_ADMIN_CLAIM_FOUNDATION_NOT_READY",
-        message:
-          "Premium purchase claim foundation is not ready. Apply Phase 22A migration.",
+        message: "Support claim foundation is not ready. Apply Phase 22A migration.",
       };
     }
 

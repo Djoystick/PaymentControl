@@ -365,7 +365,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
 
       setVerificationClaim(response.claim);
       showAdminMessage(
-        tr("Temporary verification claim created: {claimId}", {
+        tr("Temporary support claim created: {claimId}", {
           claimId: response.claim.id,
         }),
         "success",
@@ -416,10 +416,10 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
       }));
       showAdminMessage(
         decision === "approve"
-          ? tr("Purchase confirmation approved: {claimId}", {
+          ? tr("Support validation approved: {claimId}", {
               claimId: response.claim.id,
             })
-          : tr("Purchase confirmation rejected: {claimId}", {
+          : tr("Support validation rejected: {claimId}", {
               claimId: response.claim.id,
             }),
         "success",
@@ -451,11 +451,11 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     }
 
     if (target.premium.effectiveSource === "one_time_purchase") {
-      return tr("Premium purchase confirmation");
+      return tr("Validated support claim");
     }
 
     if (target.premium.effectiveSource === "boosty") {
-      return tr("Premium purchase confirmation (legacy)");
+      return tr("Validated support claim (legacy)");
     }
 
     return tr("Gift campaign grant");
@@ -501,24 +501,24 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
 
   const getClaimRailLabel = (claim: PremiumPurchaseClaimPayload) => {
     if (claim.claimRail === "one_time_premium") {
-      return tr("One-time Premium purchase rail");
+      return tr("Current support rail");
     }
 
-    return tr("Legacy Premium rail (subscription-era)");
+    return tr("Legacy support rail (historical subscription-era)");
   };
 
   const getClaimTierLabel = (claim: PremiumPurchaseClaimPayload) => {
     const normalizedTier = claim.expectedTier.trim().toLowerCase();
     if (normalizedTier === "premium_one_time" || normalizedTier.includes("one_time")) {
-      return tr("One-time Premium package");
+      return tr("Current support perk package");
     }
 
     if (normalizedTier.includes("monthly")) {
-      return tr("Legacy monthly package code");
+      return tr("Legacy monthly package code (historical)");
     }
 
     if (normalizedTier.includes("year") || normalizedTier.includes("annual")) {
-      return tr("Legacy annual package code");
+      return tr("Legacy annual package code (historical)");
     }
 
     return tr("Custom package code");
@@ -774,7 +774,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
 
       <div className="pc-detail-surface mt-2 bg-app-surface">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-          {tr("Temporary purchase claim verification (22A.1)")}
+          {tr("Temporary support claim verification (22A.1)")}
         </p>
         <p className="mt-1 text-xs text-app-text-muted">
           {tr(
@@ -788,7 +788,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
             disabled={isCreatingVerificationClaim}
             className="pc-btn-secondary disabled:opacity-60"
           >
-            {isCreatingVerificationClaim ? tr("Creating...") : tr("Create test purchase claim")}
+            {isCreatingVerificationClaim ? tr("Creating...") : tr("Create test support claim")}
           </button>
         </div>
         <div className="pc-state-card mt-2 bg-app-surface px-2 py-1.5 text-xs text-app-text-muted">
@@ -805,15 +805,15 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
             <span className="font-semibold text-app-text">test_payment_user</span>
           </p>
           <p className="mt-1">
-            {tr("Payment proof reference")}:{" "}
+            {tr("Support proof reference")}:{" "}
             <span className="font-semibold text-app-text">PAYMENT-QA-001</span>
           </p>
           <p className="mt-1">
-            {tr("Payment proof text")}:{" "}
+            {tr("Support proof text")}:{" "}
             <span className="font-semibold text-app-text">manual test payment proof</span>
           </p>
           <p className="mt-1">
-            {tr("Claim note")}:{" "}
+            {tr("Support note")}:{" "}
             <span className="font-semibold text-app-text">phase 22A manual verification</span>
           </p>
           <p className="mt-1">
@@ -853,11 +853,11 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
 
       <div className="pc-detail-surface mt-2 bg-app-surface">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-          {tr("Premium purchase claim review queue")}
+          {tr("Support claim validation queue")}
         </p>
         <p className="mt-1 text-xs text-app-text-muted">
           {tr(
-            "Owner-only manual reconciliation queue for premium purchase claims.",
+            "Owner-only manual validation queue for support claims and Premium perk eligibility.",
           )}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -888,11 +888,11 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                     |{" "}
                     {isLegacyClaimRecord(claim)
                       ? tr("Legacy format")
-                      : tr("One-time format")}
+                      : tr("Current format")}
                   </span>
                   {claim.purchaseCorrelationCode && (
                     <span className="text-app-text-muted">
-                      | {tr("Purchase code")}: {claim.purchaseCorrelationCode}
+                      | {tr("Support reference code")}: {claim.purchaseCorrelationCode}
                     </span>
                   )}
                 </span>
@@ -923,12 +923,12 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                       className="h-3 w-3"
                     />
                     {isLegacyClaimRecord(claim)
-                      ? tr("Legacy claim data")
-                      : tr("Current one-time claim path")}
+                      ? tr("Legacy claim context")
+                      : tr("Current support validation path")}
                   </span>
                   <span className="pc-status-pill">
                     <AppIcon name="premium" className="h-3 w-3" />
-                    {tr("Expected package")}: {getClaimTierLabel(claim)}
+                    {tr("Expected perk package")}: {getClaimTierLabel(claim)}
                   </span>
                 </div>
                 <p className="mt-1">
@@ -944,12 +944,12 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                 </p>
                 {claim.purchaseCorrelationCode && (
                   <p className="mt-1">
-                    {tr("Purchase code")}: {claim.purchaseCorrelationCode}
+                    {tr("Support reference code")}: {claim.purchaseCorrelationCode}
                   </p>
                 )}
                 {claim.purchaseIntentId && (
                   <p className="mt-1">
-                    {tr("Purchase intent id")}: {claim.purchaseIntentId}
+                    {tr("Support intent id (legacy)")}: {claim.purchaseIntentId}
                   </p>
                 )}
               </div>
@@ -959,16 +959,16 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                 </p>
                 <div className="mt-1 space-y-1 text-xs">
                   <p>
-                    {tr("Payment proof reference")}: {claim.paymentProofReference ?? tr("Not set")}
+                    {tr("Support proof reference")}: {claim.paymentProofReference ?? tr("Not set")}
                   </p>
                   <p>
-                    {tr("External payer handle")}: {claim.externalPayerHandle ?? tr("Not set")}
+                    {tr("External supporter handle")}: {claim.externalPayerHandle ?? tr("Not set")}
                   </p>
                   <p>
-                    {tr("Payment proof text")}: {claim.paymentProofText ?? tr("Not set")}
+                    {tr("Support proof text")}: {claim.paymentProofText ?? tr("Not set")}
                   </p>
                   <p>
-                    {tr("Claim note")}: {claim.claimNote ?? tr("Not set")}
+                    {tr("Support note")}: {claim.claimNote ?? tr("Not set")}
                   </p>
                 </div>
               </div>
@@ -1015,7 +1015,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                   >
                     {reviewingClaimId === claim.id
                       ? tr("Saving...")
-                      : tr("Approve purchase confirmation")}
+                      : tr("Approve support validation")}
                   </button>
                   <button
                     type="button"
@@ -1027,7 +1027,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                   >
                     {reviewingClaimId === claim.id
                       ? tr("Saving...")
-                      : tr("Reject purchase confirmation")}
+                      : tr("Reject support validation")}
                   </button>
                 </div>
               </div>
@@ -1035,7 +1035,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                 <p className="mt-1.5 inline-flex items-center gap-1 text-xs text-app-text-muted">
                   <AppIcon name="help" className="h-3.5 w-3.5" />
                   {tr(
-                    "Approve confirms one-time purchase and applies Premium. Reject keeps free core access unchanged.",
+                    "Approve validates external support and grants Premium perk access. Reject keeps free core access unchanged.",
                   )}
                 </p>
               )}
@@ -1050,7 +1050,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
           {!isLoadingPurchaseClaims && purchaseClaims.length === 0 && (
             <p className="pc-state-inline">
               <AppIcon name="clock" className="h-3.5 w-3.5" />
-              {tr("No premium purchase claims yet.")}
+              {tr("No support claims yet.")}
             </p>
           )}
         </div>
