@@ -71,6 +71,16 @@ type ResolvePremiumPurchaseIntentForClaimParams = {
   claimRail: PremiumPurchaseIntentRail;
 };
 
+type PremiumPurchaseIntentLifecycleTransition = "opened_external" | "returned";
+
+type TransitionPremiumPurchaseIntentStatusParams = {
+  profileId: string;
+  telegramUserId: string;
+  intentId: string;
+  transition: PremiumPurchaseIntentLifecycleTransition;
+  transitionRail: PremiumPurchaseIntentRail | null;
+};
+
 const uuidLikePattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const telegramUserIdPattern = /^[0-9]{5,20}$/;
@@ -470,7 +480,141 @@ export const markPremiumPurchaseIntentClaimed = async (params: {
   };
 };
 
+export const transitionPremiumPurchaseIntentStatus = async (
+  params: TransitionPremiumPurchaseIntentStatusParams,
+): Promise<PurchaseIntentRepositoryResult<PremiumPurchaseIntentPayload>> => {
+  const normalizedTelegramUserId = params.telegramUserId.trim();
+  if (!telegramUserIdPattern.test(normalizedTelegramUserId)) {
+    return {
+      ok: false,
+      reason: "INVALID_INPUT",
+      message: "Telegram user id must be numeric.",
+    };
+  }
+
+  const normalizedIntentId = params.intentId.trim();
+  if (!uuidLikePattern.test(normalizedIntentId)) {
+    return {
+      ok: false,
+      reason: "INVALID_INPUT",
+      message: "Support reference id is invalid.",
+    };
+  }
+
+  if (params.transitionRail && !isSupportedSupportClaimRail(params.transitionRail)) {
+    return {
+      ok: false,
+      reason: "INVALID_INPUT",
+      message: "Intent rail is not supported.",
+    };
+  }
+
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return {
+      ok: false,
+      reason: "ACTION_FAILED",
+      message: "Supabase server configuration is missing.",
+    };
+  }
+
+  const { data: currentIntent, error: currentIntentError } = await supabase
+    .from("premium_purchase_intents")
+    .select(selection)
+    .eq("id", normalizedIntentId)
+    .eq("profile_id", params.profileId)
+    .eq("telegram_user_id", normalizedTelegramUserId)
+    .maybeSingle<PremiumPurchaseIntentRow>();
+
+  if (currentIntentError?.code === "42P01" || currentIntentError?.code === "PGRST205") {
+    return {
+      ok: false,
+      reason: "FOUNDATION_NOT_READY",
+      message: "Support reference foundation is not ready. Apply Phase 22E migration.",
+    };
+  }
+
+  if (currentIntentError) {
+    return {
+      ok: false,
+      reason: "ACTION_FAILED",
+      message: "Failed to read support reference for status update.",
+    };
+  }
+
+  if (!currentIntent) {
+    return {
+      ok: false,
+      reason: "NOT_FOUND",
+      message: "Support reference was not found.",
+    };
+  }
+
+  if (
+    currentIntent.intent_status === "claimed" ||
+    currentIntent.intent_status === "consumed" ||
+    currentIntent.intent_status === "expired" ||
+    currentIntent.intent_status === "cancelled"
+  ) {
+    return {
+      ok: false,
+      reason: "INVALID_INPUT",
+      message: "Support reference status is not claimable.",
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+  const nextStatus: PremiumPurchaseIntentStatus =
+    params.transition === "returned" ? "returned" : "opened_external";
+  const nextMetadata = {
+    ...(currentIntent.metadata ?? {}),
+    last_client_transition: params.transition,
+    last_client_transition_at: nowIso,
+    last_client_transition_rail: params.transitionRail ?? null,
+  };
+
+  const updatePayload: Record<string, unknown> = {
+    intent_status: nextStatus,
+    metadata: nextMetadata,
+    updated_at: nowIso,
+  };
+  if (params.transition === "opened_external") {
+    updatePayload.opened_external_at = currentIntent.opened_external_at ?? nowIso;
+  } else {
+    updatePayload.returned_at = nowIso;
+  }
+
+  const { data: updatedIntent, error: updateIntentError } = await supabase
+    .from("premium_purchase_intents")
+    .update(updatePayload)
+    .eq("id", currentIntent.id)
+    .select(selection)
+    .single<PremiumPurchaseIntentRow>();
+
+  if (updateIntentError) {
+    return {
+      ok: false,
+      reason: "ACTION_FAILED",
+      message: "Failed to update support reference status.",
+    };
+  }
+
+  if (!updatedIntent) {
+    return {
+      ok: false,
+      reason: "ACTION_FAILED",
+      message: "Support reference status update returned empty payload.",
+    };
+  }
+
+  return {
+    ok: true,
+    data: toPayload(updatedIntent),
+  };
+};
+
 export const createSupportReferenceIntent = createPremiumPurchaseIntent;
 export const readSupportReferencesForProfile = readPremiumPurchaseIntentsForProfile;
 export const resolveSupportReferenceForClaim = resolvePremiumPurchaseIntentForClaim;
 export const markSupportReferenceClaimed = markPremiumPurchaseIntentClaimed;
+export const transitionSupportReferenceStatus = transitionPremiumPurchaseIntentStatus;

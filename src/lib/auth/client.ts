@@ -377,6 +377,23 @@ export const createSupportReferenceIntent = async (params: {
   return createPremiumPurchaseIntent(params);
 };
 
+export const updateSupportReferenceIntentStatus = async (params: {
+  initData: string;
+  intentId: string;
+  transition: "opened_external" | "returned";
+  transitionRail?: SupportReferenceRail;
+}): Promise<SupportReferenceCreateResponse> => {
+  return postJson<SupportReferenceCreateResponse>(
+    `/api/premium/purchase-intents/${encodeURIComponent(params.intentId)}/status`,
+    "POST",
+    {
+      initData: params.initData,
+      transition: params.transition,
+      transitionRail: params.transitionRail ?? "",
+    },
+  );
+};
+
 export const readMySupportReferenceIntents = async (params: {
   initData: string;
   limit?: number;

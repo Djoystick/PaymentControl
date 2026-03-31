@@ -532,6 +532,64 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     return tr("Custom package code");
   };
 
+  const readClaimMetadataValue = (
+    claim: SupportClaimPayload,
+    key: string,
+  ): string | null => {
+    const raw = claim.metadata?.[key];
+    if (typeof raw !== "string") {
+      return null;
+    }
+
+    const normalized = raw.trim();
+    return normalized ? normalized : null;
+  };
+
+  const getClaimContinuitySummary = (claim: SupportClaimPayload) => {
+    const continuityStage = readClaimMetadataValue(
+      claim,
+      "linked_purchase_intent_continuity_stage",
+    );
+    const openedAt = readClaimMetadataValue(
+      claim,
+      "linked_purchase_intent_opened_external_at",
+    );
+    const returnedAt = readClaimMetadataValue(
+      claim,
+      "linked_purchase_intent_returned_at",
+    );
+
+    if (continuityStage === "returned_tracked" || returnedAt) {
+      return {
+        label: tr("Return tracked"),
+        toneClass: "pc-status-pill-success",
+        hint: tr("Intent continuity includes external open and app return before claim."),
+      };
+    }
+
+    if (continuityStage === "opened_external_tracked" || openedAt) {
+      return {
+        label: tr("External open tracked"),
+        toneClass: "pc-status-pill-warning",
+        hint: tr("External support open was tracked. Return event was not confirmed."),
+      };
+    }
+
+    if (continuityStage === "prepared_only" || claim.purchaseIntentId) {
+      return {
+        label: tr("Reference linked"),
+        toneClass: "",
+        hint: tr("Claim is linked to support reference code, with manual proof fallback."),
+      };
+    }
+
+    return {
+      label: tr("Manual proof path"),
+      toneClass: "pc-status-pill-warning",
+      hint: tr("No linked support reference continuity. Review relies on proof fields."),
+    };
+  };
+
   const getClaimQueueRank = (status: SupportClaimPayload["status"]): number => {
     if (status === "submitted" || status === "pending_review") {
       return 0;
@@ -1014,11 +1072,19 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
           </div>
         </div>
         <div className="mt-2 space-y-1.5">
-          {visiblePurchaseClaims.map((claim) => (
-            <details
-              key={claim.id}
-              className="pc-state-card bg-app-surface px-2 py-1.5 text-xs text-app-text-muted"
-            >
+          {visiblePurchaseClaims.map((claim) => {
+            const continuitySummary = getClaimContinuitySummary(claim);
+            const proofFieldsCount = [
+              claim.paymentProofReference,
+              claim.externalPayerHandle,
+              claim.paymentProofText,
+            ].filter((value) => Boolean(value?.trim())).length;
+
+            return (
+              <details
+                key={claim.id}
+                className="pc-state-card bg-app-surface px-2 py-1.5 text-xs text-app-text-muted"
+              >
               <summary className="flex cursor-pointer items-start justify-between gap-2">
                 <span className="min-w-0 flex-1">
                   <span className="inline-flex flex-wrap items-center gap-1 font-semibold text-app-text">
@@ -1046,6 +1112,10 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                         {tr("Needs review")}
                       </span>
                     )}
+                    <span className={`pc-status-pill ${continuitySummary.toneClass}`}>
+                      <AppIcon name="wallet" className="h-3 w-3" />
+                      {continuitySummary.label}
+                    </span>
                   </span>
                   <span className="mt-1 inline-flex flex-wrap items-center gap-1 text-[11px] text-app-text-muted">
                     <span className="pc-status-pill">
@@ -1068,13 +1138,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                     </span>
                     <span className="pc-status-pill">
                       <AppIcon name="template" className="h-3 w-3" />
-                      {tr("Proof fields")}:{" "}
-                      {[
-                        claim.paymentProofReference,
-                        claim.externalPayerHandle,
-                        claim.paymentProofText,
-                      ].filter((value) => Boolean(value?.trim())).length}
-                      /3
+                      {tr("Proof fields")}: {proofFieldsCount}/3
                     </span>
                   </span>
                 </span>
@@ -1112,7 +1176,14 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                     <AppIcon name="premium" className="h-3 w-3" />
                     {tr("Expected perk package")}: {getClaimTierLabel(claim)}
                   </span>
+                  <span className={`pc-status-pill ${continuitySummary.toneClass}`}>
+                    <AppIcon name="wallet" className="h-3 w-3" />
+                    {continuitySummary.label}
+                  </span>
                 </div>
+                <p className="mt-1 text-[11px] text-app-text-muted">
+                  {continuitySummary.hint}
+                </p>
                 <p className="mt-1">
                   {tr("Rail")}: {getClaimRailLabel(claim)} ({claim.claimRail})
                 </p>
@@ -1228,7 +1299,8 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                 </p>
               )}
             </details>
-          ))}
+            );
+          })}
           {!isLoadingPurchaseClaims && sortedPurchaseClaims.length === 0 && (
             <p className="pc-state-inline">
               <AppIcon name="clock" className="h-3.5 w-3.5" />

@@ -205,6 +205,13 @@ export const createPremiumPurchaseClaim = async (
     };
   }
   const linkedIntent = intentResolutionResult.data;
+  const linkedIntentContinuityStage = linkedIntent
+    ? linkedIntent.returnedAt
+      ? "returned_tracked"
+      : linkedIntent.openedExternalAt
+        ? "opened_external_tracked"
+        : "prepared_only"
+    : "no_linked_intent";
 
   const { data, error } = await supabase
     .from("premium_purchase_claims")
@@ -227,6 +234,12 @@ export const createPremiumPurchaseClaim = async (
         submission_telegram_user_id: normalizedTelegramUserId,
         linked_purchase_intent_id: linkedIntent?.id ?? null,
         linked_purchase_correlation_code: linkedIntent?.correlationCode ?? null,
+        linked_purchase_intent_status_at_submission: linkedIntent?.status ?? null,
+        linked_purchase_intent_created_at: linkedIntent?.createdAt ?? null,
+        linked_purchase_intent_opened_external_at:
+          linkedIntent?.openedExternalAt ?? null,
+        linked_purchase_intent_returned_at: linkedIntent?.returnedAt ?? null,
+        linked_purchase_intent_continuity_stage: linkedIntentContinuityStage,
       },
       created_at: submittedAt,
       updated_at: submittedAt,

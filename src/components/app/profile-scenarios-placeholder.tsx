@@ -6,6 +6,7 @@ import type {
   FamilyWorkspaceInviteStatus,
   SupportClaimPayload,
   SupportReferencePayload,
+  SupportReferenceRail,
 } from "@/lib/auth/types";
 import {
   createSupportClaim,
@@ -13,6 +14,7 @@ import {
   readMySupportReferenceIntents,
   readMySupportClaims,
   submitBugReport,
+  updateSupportReferenceIntentStatus,
 } from "@/lib/auth/client";
 import { useCurrentAppContext } from "@/hooks/use-current-app-context";
 import {
@@ -32,7 +34,7 @@ import { RecurringPaymentsSection } from "@/components/app/recurring-payments-se
 import { PremiumAdminConsole } from "@/components/app/premium-admin-console";
 import { HelpPopover } from "@/components/app/help-popover";
 import { AppIcon } from "@/components/app/app-icon";
-import { clientEnv } from "@/lib/config/client-env";
+import { clientEnv, type SupportRailConfig } from "@/lib/config/client-env";
 import {
   DEFAULT_SUPPORT_CLAIM_RAIL,
   DEFAULT_PREMIUM_EXPECTED_TIER,
@@ -66,6 +68,77 @@ const formatDateTime = (value: string | null, noExpiryLabel = "No expiry"): stri
   }
 
   return parsed.toLocaleString();
+};
+
+const SUPPORT_RETURN_CONTEXT_STORAGE_KEY = "payment-control-support-return-v1";
+
+type SupportReturnContextPayload = {
+  intentId: string;
+  correlationCode: string;
+  railId: string;
+  railTitle: string;
+  openedAt: string;
+};
+
+const readSupportReturnContext = (): SupportReturnContextPayload | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(SUPPORT_RETURN_CONTEXT_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as Partial<SupportReturnContextPayload>;
+    if (
+      typeof parsed.intentId !== "string" ||
+      typeof parsed.correlationCode !== "string" ||
+      typeof parsed.railId !== "string" ||
+      typeof parsed.railTitle !== "string" ||
+      typeof parsed.openedAt !== "string"
+    ) {
+      return null;
+    }
+
+    return {
+      intentId: parsed.intentId,
+      correlationCode: parsed.correlationCode,
+      railId: parsed.railId,
+      railTitle: parsed.railTitle,
+      openedAt: parsed.openedAt,
+    };
+  } catch {
+    return null;
+  }
+};
+
+const writeSupportReturnContext = (context: SupportReturnContextPayload): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      SUPPORT_RETURN_CONTEXT_STORAGE_KEY,
+      JSON.stringify(context),
+    );
+  } catch {
+    // Ignore storage errors.
+  }
+};
+
+const clearSupportReturnContext = (): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(SUPPORT_RETURN_CONTEXT_STORAGE_KEY);
+  } catch {
+    // Ignore storage errors.
+  }
 };
 
 function ProfileScenariosContent() {
@@ -145,6 +218,12 @@ function ProfileScenariosContent() {
     kind: "success" | "error";
     message: string;
   } | null>(null);
+  const [isOpeningSupportRailId, setIsOpeningSupportRailId] = useState<string | null>(
+    null,
+  );
+  const [isMarkingSupportReturn, setIsMarkingSupportReturn] = useState(false);
+  const [recentSupportReturnContext, setRecentSupportReturnContext] =
+    useState<SupportReturnContextPayload | null>(null);
   const [isOnboardingFlagCompleted, setIsOnboardingFlagCompleted] = useState<
     boolean | null
   >(() => readOnboardingFlagState());
@@ -489,50 +568,198 @@ function ProfileScenariosContent() {
     [initData, profile, tr],
   );
 
-  const prepareSupportReferenceIntent = async () => {
-    if (!initData || !profile || isPreparingPurchaseIntent) {
-      return;
+  const resolveLinkableIntent = useCallback((): SupportReferencePayload | null => {
+    if (
+      latestPurchaseIntent &&
+      !latestPurchaseIntent.claimId &&
+      latestPurchaseIntent.status !== "consumed" &&
+      latestPurchaseIntent.status !== "cancelled" &&
+      latestPurchaseIntent.status !== "expired"
+    ) {
+      return latestPurchaseIntent;
     }
 
-    setIsPreparingPurchaseIntent(true);
-    setPurchaseIntentFeedback(null);
-    try {
-      const response = await createSupportReferenceIntent({
+    return null;
+  }, [latestPurchaseIntent]);
+
+  const prepareSupportReferenceIntent = useCallback(
+    async (options?: {
+      silent?: boolean;
+      openClaimPanel?: boolean;
+    }): Promise<SupportReferencePayload | null> => {
+      if (!initData || !profile || isPreparingPurchaseIntent) {
+        return null;
+      }
+
+      const silent = options?.silent ?? false;
+      const openClaimPanel = options?.openClaimPanel ?? true;
+
+      setIsPreparingPurchaseIntent(true);
+      if (!silent) {
+        setPurchaseIntentFeedback(null);
+      }
+      try {
+        const response = await createSupportReferenceIntent({
+          initData,
+          intentRail: DEFAULT_SUPPORT_CLAIM_RAIL,
+          expectedTier: DEFAULT_PREMIUM_EXPECTED_TIER,
+        });
+
+        if (!response.ok) {
+          if (!silent) {
+            setPurchaseIntentFeedback({
+              kind: "error",
+              message: tr(response.error.message),
+            });
+          }
+          return null;
+        }
+
+        setLatestPurchaseIntent(response.intent);
+        setPurchaseClaimProofReference((current) =>
+          current.trim() ? current : response.intent.correlationCode,
+        );
+        setIntentStatusCheckedAt(new Date().toISOString());
+        setIsSupportReferenceVisible(true);
+        if (openClaimPanel) {
+          setIsClaimPanelOpen(true);
+        }
+        if (!silent) {
+          setPurchaseIntentFeedback({
+            kind: "success",
+            message: tr(
+              "Support reference code is ready. Complete support externally, then submit claim.",
+            ),
+          });
+        }
+
+        return response.intent;
+      } catch {
+        if (!silent) {
+          setPurchaseIntentFeedback({
+            kind: "error",
+            message: tr("Failed to create support reference code. Please retry."),
+          });
+        }
+        return null;
+      } finally {
+        setIsPreparingPurchaseIntent(false);
+      }
+    },
+    [initData, isPreparingPurchaseIntent, profile, tr],
+  );
+
+  const applySupportIntentTransition = useCallback(
+    async (params: {
+      intent: SupportReferencePayload;
+      transition: "opened_external" | "returned";
+      transitionRail?: SupportReferenceRail;
+    }): Promise<SupportReferencePayload | null> => {
+      if (!initData || !profile) {
+        return null;
+      }
+
+      const response = await updateSupportReferenceIntentStatus({
         initData,
-        intentRail: DEFAULT_SUPPORT_CLAIM_RAIL,
-        expectedTier: DEFAULT_PREMIUM_EXPECTED_TIER,
+        intentId: params.intent.id,
+        transition: params.transition,
+        transitionRail: params.transitionRail,
       });
 
       if (!response.ok) {
-        setPurchaseIntentFeedback({
-          kind: "error",
-          message: tr(response.error.message),
-        });
-        return;
+        return null;
       }
 
       setLatestPurchaseIntent(response.intent);
+      setIntentStatusCheckedAt(new Date().toISOString());
       setPurchaseClaimProofReference((current) =>
         current.trim() ? current : response.intent.correlationCode,
       );
-      setIntentStatusCheckedAt(new Date().toISOString());
-      setIsSupportReferenceVisible(true);
-      setIsClaimPanelOpen(true);
-      setPurchaseIntentFeedback({
-        kind: "success",
-        message: tr(
-          "Support reference code is ready. Complete support externally, then submit claim.",
-        ),
-      });
-    } catch {
-      setPurchaseIntentFeedback({
-        kind: "error",
-        message: tr("Failed to create support reference code. Please retry."),
-      });
-    } finally {
-      setIsPreparingPurchaseIntent(false);
-    }
-  };
+      return response.intent;
+    },
+    [initData, profile],
+  );
+
+  const handleOpenSupportRail = useCallback(
+    async (rail: SupportRailConfig) => {
+      if (!rail.isConfigured || !rail.url || isOpeningSupportRailId) {
+        return;
+      }
+
+      const openedWindow =
+        typeof window !== "undefined"
+          ? window.open("", "_blank", "noopener,noreferrer")
+          : null;
+      if (openedWindow) {
+        openedWindow.opener = null;
+      }
+
+      setIsOpeningSupportRailId(rail.id);
+      setPurchaseIntentFeedback(null);
+      setRecentSupportReturnContext(null);
+
+      try {
+        let intentForContinuity = resolveLinkableIntent();
+        if (!intentForContinuity) {
+          intentForContinuity = await prepareSupportReferenceIntent({
+            silent: true,
+            openClaimPanel: false,
+          });
+        }
+
+        if (intentForContinuity) {
+          const transitionedIntent = await applySupportIntentTransition({
+            intent: intentForContinuity,
+            transition: "opened_external",
+            transitionRail: intentForContinuity.intentRail,
+          });
+          const continuityIntent = transitionedIntent ?? intentForContinuity;
+          writeSupportReturnContext({
+            intentId: continuityIntent.id,
+            correlationCode: continuityIntent.correlationCode,
+            railId: rail.id,
+            railTitle: rail.title,
+            openedAt: new Date().toISOString(),
+          });
+        }
+
+        if (openedWindow && !openedWindow.closed) {
+          openedWindow.location.href = rail.url;
+        } else {
+          window.open(rail.url, "_blank", "noopener,noreferrer");
+        }
+
+        setIsSupportReferenceVisible(true);
+        setPurchaseIntentFeedback({
+          kind: intentForContinuity ? "success" : "error",
+          message: intentForContinuity
+            ? tr(
+                "Support page opened. Return to the app after support and continue with claim submission.",
+              )
+            : tr(
+                "Support page opened, but continuity context is missing. Prepare support reference code before claim.",
+              ),
+        });
+      } catch {
+        if (openedWindow && !openedWindow.closed) {
+          openedWindow.location.href = rail.url;
+        }
+        setPurchaseIntentFeedback({
+          kind: "error",
+          message: tr("Could not fully save continuity context before opening support page."),
+        });
+      } finally {
+        setIsOpeningSupportRailId(null);
+      }
+    },
+    [
+      applySupportIntentTransition,
+      isOpeningSupportRailId,
+      prepareSupportReferenceIntent,
+      resolveLinkableIntent,
+      tr,
+    ],
+  );
 
   useEffect(() => {
     if (!initData || !profile) {
@@ -555,6 +782,70 @@ function ProfileScenariosContent() {
 
     void refreshMyPurchaseIntents({ silent: true });
   }, [initData, profile, refreshMyPurchaseIntents]);
+
+  const syncSupportReturnContinuity = useCallback(async () => {
+    if (!initData || !profile) {
+      return;
+    }
+
+    const storedContext = readSupportReturnContext();
+    if (!storedContext) {
+      return;
+    }
+
+    clearSupportReturnContext();
+    setRecentSupportReturnContext(storedContext);
+    setIsMarkingSupportReturn(true);
+    try {
+      const response = await updateSupportReferenceIntentStatus({
+        initData,
+        intentId: storedContext.intentId,
+        transition: "returned",
+      });
+
+      if (response.ok) {
+        setLatestPurchaseIntent(response.intent);
+        setIntentStatusCheckedAt(new Date().toISOString());
+        setPurchaseClaimProofReference((current) =>
+          current.trim() ? current : response.intent.correlationCode,
+        );
+      } else {
+        await refreshMyPurchaseIntents({ silent: true });
+      }
+
+      setIsSupportReferenceVisible(true);
+      setIsClaimPanelOpen(true);
+      setPurchaseIntentFeedback({
+        kind: "success",
+        message: tr("Welcome back from {rail}. Review support proof and submit claim when ready.", {
+          rail: storedContext.railTitle,
+        }),
+      });
+    } catch {
+      setPurchaseIntentFeedback({
+        kind: "error",
+        message: tr("Return continuity check failed. Refresh support code and continue claim manually."),
+      });
+    } finally {
+      setIsMarkingSupportReturn(false);
+    }
+  }, [initData, profile, refreshMyPurchaseIntents, tr]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    void syncSupportReturnContinuity();
+    const handleFocus = () => {
+      void syncSupportReturnContinuity();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [syncSupportReturnContinuity]);
 
   const submitPremiumClaim = async () => {
     if (!initData || !profile || isSubmittingPremiumClaim) {
@@ -601,6 +892,8 @@ function ProfileScenariosContent() {
       setPurchaseClaimProofReference("");
       setPurchaseClaimProofText("");
       setPurchaseClaimNote("");
+      setRecentSupportReturnContext(null);
+      clearSupportReturnContext();
       setPurchaseClaimFeedback({
         kind: "success",
         message: tr("Claim submitted. Owner review is now pending."),
@@ -1027,16 +1320,16 @@ function ProfileScenariosContent() {
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {supportRails.map((rail) =>
                 rail.isConfigured ? (
-                  <a
+                  <button
                     key={rail.id}
-                    href={rail.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    type="button"
+                    onClick={() => void handleOpenSupportRail(rail)}
+                    disabled={isOpeningSupportRailId !== null}
                     className={`pc-action-card ${
                       rail.isPrimary
                         ? "border-app-accent/65 bg-white shadow-[0_10px_22px_var(--app-frame-shadow)]"
                         : "bg-app-surface-soft"
-                    }`}
+                    } disabled:opacity-70`}
                   >
                     <p className="inline-flex items-center gap-1.5 text-sm font-semibold">
                       <AppIcon name="support" className="h-4 w-4" />
@@ -1054,9 +1347,11 @@ function ProfileScenariosContent() {
                       {tr("External support page. Premium is reviewed manually after claim.")}
                     </p>
                     <span className="pc-btn-secondary mt-2 w-full justify-center text-xs">
-                      {tr(rail.ctaLabel)}
+                      {isOpeningSupportRailId === rail.id
+                        ? tr("Opening support...")
+                        : tr(rail.ctaLabel)}
                     </span>
-                  </a>
+                  </button>
                 ) : (
                   <div
                     key={rail.id}
@@ -1123,6 +1418,19 @@ function ProfileScenariosContent() {
                   ? tr("Preparing support reference...")
                   : tr("Prepare support reference code")}
               </button>
+              {primarySupportRail?.isConfigured && (
+                <button
+                  type="button"
+                  onClick={() => void handleOpenSupportRail(primarySupportRail)}
+                  disabled={isOpeningSupportRailId !== null}
+                  className="pc-btn-primary disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <AppIcon name="support" className="h-3.5 w-3.5" />
+                  {isOpeningSupportRailId === primarySupportRail.id
+                    ? tr("Opening support...")
+                    : tr("Prepare and open primary rail")}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setIsClaimPanelOpen(true)}
@@ -1219,6 +1527,55 @@ function ProfileScenariosContent() {
                   <span>{purchaseIntentFeedback.message}</span>
                 </p>
               )}
+            </div>
+          )}
+
+          {(recentSupportReturnContext || isMarkingSupportReturn) && (
+            <div className="pc-state-card mt-2 bg-white px-3 py-2 text-xs text-app-text-muted">
+              <p className="inline-flex items-center gap-1.5 font-semibold text-app-text">
+                <AppIcon name="refresh" className="h-3.5 w-3.5" />
+                {tr("Post-support return")}
+              </p>
+              {isMarkingSupportReturn ? (
+                <p className="pc-state-inline mt-1">
+                  <AppIcon name="refresh" className="h-3.5 w-3.5 pc-spin" />
+                  {tr("Syncing support return context...")}
+                </p>
+              ) : recentSupportReturnContext ? (
+                <>
+                  <p className="mt-1">
+                    {tr("Last external rail")}: {tr(recentSupportReturnContext.railTitle)}.
+                  </p>
+                  <p className="mt-1">
+                    {tr("Support reference code")}:{" "}
+                    <span className="rounded-md bg-app-surface px-2 py-0.5 font-mono text-app-text">
+                      {recentSupportReturnContext.correlationCode}
+                    </span>
+                  </p>
+                  <p className="mt-1 text-[11px] text-app-text-muted">
+                    {tr("Return tracked. Continue with claim submission if support is completed.")}
+                  </p>
+                </>
+              ) : null}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsClaimPanelOpen(true)}
+                  className="pc-btn-primary"
+                >
+                  <AppIcon name="wallet" className="h-3.5 w-3.5" />
+                  {tr("Continue to claim")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void refreshMyPurchaseIntents()}
+                  disabled={isLoadingPurchaseIntents}
+                  className="pc-btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <AppIcon name="refresh" className="h-3.5 w-3.5" />
+                  {tr("Refresh support code")}
+                </button>
+              </div>
             </div>
           )}
 
