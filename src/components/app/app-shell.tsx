@@ -22,11 +22,12 @@ const tabItems: ReadonlyArray<{
   key: AppTab;
   label: string;
   icon: "home" | "reminders" | "history" | "profile";
+  hint: string;
 }> = [
-  { key: "home", label: "Home", icon: "home" },
-  { key: "reminders", label: "Reminders", icon: "reminders" },
-  { key: "history", label: "History", icon: "history" },
-  { key: "profile", label: "Profile", icon: "profile" },
+  { key: "home", label: "Home", icon: "home", hint: "Snapshot and next step" },
+  { key: "reminders", label: "Reminders", icon: "reminders", hint: "Main action lane" },
+  { key: "history", label: "History", icon: "history", hint: "Recent payment updates" },
+  { key: "profile", label: "Profile", icon: "profile", hint: "Workspace and settings" },
 ];
 
 export const ONBOARDING_STORAGE_KEY = "payment_control_onboarding_v10c_done";
@@ -300,17 +301,18 @@ export function AppShell({ screens }: AppShellProps) {
         <div className="relative flex min-h-[calc(100dvh-0.75rem)] flex-1 flex-col rounded-[30px] border border-app-border/80 bg-gradient-to-b from-app-surface via-app-surface/94 to-app-surface-soft/55 p-2 shadow-[0_20px_48px_var(--app-frame-shadow)] backdrop-blur">
           <div className="mb-1.5 flex items-center justify-between rounded-2xl border border-app-border/80 bg-app-surface px-2 py-1 shadow-sm">
             <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+              <p className="pc-kicker">
                 {tr("Payment Control")}
               </p>
               <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-app-text">
                 <AppIcon name={activeTabItem.icon} className="h-3.5 w-3.5" />
                 {tr(activeTabItem.label)}
               </p>
+              <p className="text-[11px] text-app-text-muted">{tr(activeTabItem.hint)}</p>
             </div>
-            <span className="inline-flex items-center gap-1 rounded-full border border-app-border bg-app-surface-soft px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.11em] text-app-text-muted">
+            <span className="pc-status-pill">
               <AppIcon name="clock" className="h-3 w-3" />
-              {tr("Today snapshot")}
+              {tr(activeTabItem.label)}
             </span>
           </div>
 
@@ -328,10 +330,11 @@ export function AppShell({ screens }: AppShellProps) {
                   type="button"
                   onClick={() => handleTabClick(tab.key)}
                   aria-current={activeTab === tab.key ? "page" : undefined}
+                  aria-label={tr(tab.label)}
                   className={`group flex min-h-[52px] touch-manipulation flex-col items-center justify-center rounded-2xl border px-1.5 py-1 text-center transition ${
                     activeTab === tab.key
                       ? "border-app-accent bg-app-accent text-white shadow-[0_8px_16px_rgba(31,122,67,0.28)]"
-                      : "border-transparent bg-app-surface-soft/30 text-app-text-muted"
+                      : "border-app-border/90 bg-app-surface text-app-text-muted shadow-sm hover:border-app-accent/50 hover:bg-app-surface-soft/70"
                   }`}
                 >
                   <span

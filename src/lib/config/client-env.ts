@@ -2,6 +2,105 @@ const readEnvValue = (value: string | undefined): string => {
   return value?.trim() ?? "";
 };
 
+export type SupportRailId = "boosty" | "cloudtips";
+
+export type SupportRailConfig = {
+  id: SupportRailId;
+  title: string;
+  subtitle: string;
+  ctaLabel: string;
+  url: string;
+  isConfigured: boolean;
+  isPrimary: boolean;
+};
+
+const normalizeExternalUrl = (value: string): string => {
+  const raw = value.trim();
+  if (!raw) {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return "";
+    }
+
+    return parsed.toString();
+  } catch {
+    return "";
+  }
+};
+
+const isLegacySubscriptionPremiumBuyUrl = (url: string): boolean => {
+  const normalized = url.toLowerCase();
+  return (
+    normalized.includes("share=subscription_link") ||
+    normalized.includes("ssource=direct&share=subscription_link") ||
+    normalized.includes("subscription_link")
+  );
+};
+
+const resolvePremiumOneTimeBuyUrl = (): string => {
+  const explicitOneTime = normalizeExternalUrl(
+    readEnvValue(process.env.NEXT_PUBLIC_PREMIUM_ONE_TIME_BUY_URL),
+  );
+  if (explicitOneTime && !isLegacySubscriptionPremiumBuyUrl(explicitOneTime)) {
+    return explicitOneTime;
+  }
+
+  // Backward-compatible key for old environments. Legacy subscription URLs are blocked.
+  const legacyEnvKey = normalizeExternalUrl(
+    readEnvValue(process.env.NEXT_PUBLIC_PREMIUM_BUY_URL),
+  );
+  if (legacyEnvKey && !isLegacySubscriptionPremiumBuyUrl(legacyEnvKey)) {
+    return legacyEnvKey;
+  }
+
+  return "";
+};
+
+const resolveSupportProjectUrl = (): string => {
+  const configuredUrl = normalizeExternalUrl(
+    readEnvValue(process.env.NEXT_PUBLIC_SUPPORT_PROJECT_URL),
+  );
+  if (configuredUrl) {
+    return configuredUrl;
+  }
+
+  return "https://boosty.to/tvoy_kosmonavt/posts/cf4114af-41b0-4a6e-b944-be6ded323c21";
+};
+
+const resolveSupportRails = (): SupportRailConfig[] => {
+  const boostyUrl =
+    normalizeExternalUrl(readEnvValue(process.env.NEXT_PUBLIC_SUPPORT_BOOSTY_URL)) ||
+    resolveSupportProjectUrl();
+  const cloudTipsUrl = normalizeExternalUrl(
+    readEnvValue(process.env.NEXT_PUBLIC_SUPPORT_CLOUDTIPS_URL),
+  );
+
+  return [
+    {
+      id: "boosty",
+      title: "Boosty",
+      subtitle: "Primary support rail",
+      ctaLabel: "Open Boosty",
+      url: boostyUrl,
+      isConfigured: Boolean(boostyUrl),
+      isPrimary: true,
+    },
+    {
+      id: "cloudtips",
+      title: "CloudTips",
+      subtitle: "Secondary support rail",
+      ctaLabel: "Open CloudTips",
+      url: cloudTipsUrl,
+      isConfigured: Boolean(cloudTipsUrl),
+      isPrimary: false,
+    },
+  ];
+};
+
 const normalizeTelegramBotUsername = (value: string): string => {
   const raw = value.trim();
   if (!raw) {
@@ -32,12 +131,9 @@ export const clientEnv = {
   telegramBotUsername: normalizeTelegramBotUsername(
     readEnvValue(process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME),
   ),
-  premiumBuyUrl:
-    readEnvValue(process.env.NEXT_PUBLIC_PREMIUM_BUY_URL) ||
-    "https://boosty.to/tvoy_kosmonavt/purchase/3867384?ssource=DIRECT&share=subscription_link",
-  supportProjectUrl:
-    readEnvValue(process.env.NEXT_PUBLIC_SUPPORT_PROJECT_URL) ||
-    "https://boosty.to/tvoy_kosmonavt/posts/cf4114af-41b0-4a6e-b944-be6ded323c21",
+  premiumBuyUrl: resolvePremiumOneTimeBuyUrl(),
+  supportRails: resolveSupportRails(),
+  supportProjectUrl: resolveSupportProjectUrl(),
   supabaseUrl: readEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL),
   supabaseAnonKey: readEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
 } as const;

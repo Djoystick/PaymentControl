@@ -152,7 +152,7 @@ export function HelpPopover({ buttonLabel, title, children }: HelpPopoverProps) 
         aria-label={buttonLabel}
         aria-expanded={isOpen}
         aria-haspopup="dialog"
-        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-app-border bg-app-surface-elevated text-app-text"
+        className="pc-icon-btn h-5 w-5"
       >
         <AppIcon name="help" className="h-3.5 w-3.5" />
       </button>
@@ -177,9 +177,9 @@ export function HelpPopover({ buttonLabel, title, children }: HelpPopoverProps) 
               type="button"
               onClick={closePopover}
               aria-label={buttonLabel}
-              className="rounded-md border border-app-border px-1.5 py-0.5 text-[11px] text-app-text-muted"
+              className="pc-btn-quiet min-h-6 px-1.5 py-0.5 text-[11px]"
             >
-              x
+              {`x`}
             </button>
           </div>
           <div className="mt-1.5 space-y-1 break-words [overflow-wrap:anywhere] text-app-text-muted">

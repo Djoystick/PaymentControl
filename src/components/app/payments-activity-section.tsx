@@ -310,8 +310,8 @@ export function PaymentsActivitySection({
           {tr("History")}
         </h2>
       </div>
-      <p className="mb-1.5 text-xs text-app-text-muted">
-        {tr("History is your lightweight activity feed.")}
+      <p className="text-xs text-app-text-muted">
+        {tr("Recent events from your payment routine.")}
       </p>
 
       {workspaceUnavailable ? (
@@ -320,10 +320,10 @@ export function PaymentsActivitySection({
         </p>
       ) : (
         <>
-          <div className="pc-detail-surface mb-1.5">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          <details className="pc-detail-surface mb-1.5">
+            <summary className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               {tr("History context")}
-            </p>
+            </summary>
             <div className="mt-1.5 grid grid-cols-2 gap-1.5">
               <div className="pc-state-card px-1.5 py-1.5">
                 <p className="text-[11px] text-app-text-muted">{tr("In scope")}</p>
@@ -343,7 +343,7 @@ export function PaymentsActivitySection({
                 </div>
               )}
             </div>
-          </div>
+          </details>
 
           <div className="pc-detail-surface mt-2">
             {scopedPaymentsCount === 0 ? (

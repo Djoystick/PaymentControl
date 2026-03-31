@@ -36,6 +36,8 @@ import { clientEnv } from "@/lib/config/client-env";
 import {
   DEFAULT_PREMIUM_EXPECTED_TIER,
   DEFAULT_PREMIUM_PURCHASE_RAIL,
+  SOFT_PREMIUM_ACCESS_DAYS,
+  SOFT_SUPPORT_MIN_AMOUNT_RUB,
 } from "@/lib/premium/purchase-semantics";
 import { ThemeProvider, useTheme } from "@/lib/theme/theme-context";
 
@@ -125,7 +127,7 @@ function ProfileScenariosContent() {
   const [intentStatusCheckedAt, setIntentStatusCheckedAt] = useState<string | null>(null);
   const [isLoadingPurchaseIntents, setIsLoadingPurchaseIntents] = useState(false);
   const [isPreparingPurchaseIntent, setIsPreparingPurchaseIntent] = useState(false);
-  const [isBuyHandoffVisible, setIsBuyHandoffVisible] = useState(false);
+  const [isSupportReferenceVisible, setIsSupportReferenceVisible] = useState(false);
   const [isClaimPanelOpen, setIsClaimPanelOpen] = useState(false);
   const [bugReportTitle, setBugReportTitle] = useState("");
   const [bugReportDescription, setBugReportDescription] = useState("");
@@ -178,11 +180,11 @@ function ProfileScenariosContent() {
     }
 
     if (premiumEntitlement.effectiveSource === "one_time_purchase") {
-      return tr("Premium purchase confirmation");
+      return tr("Validated support claim");
     }
 
     if (premiumEntitlement.effectiveSource === "boosty") {
-      return tr("Premium purchase confirmation (legacy)");
+      return tr("Validated external support (legacy mapping)");
     }
 
     return tr("Gift campaign grant");
@@ -220,8 +222,8 @@ function ProfileScenariosContent() {
     return tr("Gift claim rejected: already claimed");
   })();
   const isGiftClaimGranted = giftPremiumClaimResult?.status === "granted";
-  const buyPremiumUrl = clientEnv.premiumBuyUrl;
-  const supportProjectUrl = clientEnv.supportProjectUrl;
+  const supportRails = clientEnv.supportRails;
+  const configuredSupportRails = supportRails.filter((rail) => rail.isConfigured);
   const isClaimRejected = latestPurchaseClaim?.status === "rejected";
   const purchaseClaimStatusLabel = (() => {
     if (!latestPurchaseClaim) {
@@ -258,7 +260,7 @@ function ProfileScenariosContent() {
     if (premiumEntitlement?.isPremium) {
       return {
         label: tr("Premium active"),
-        hint: tr("Premium is active. Buy and support rails stay separate."),
+        hint: tr("Premium access is active as a support perk. Core app remains free."),
         tone: "success" as const,
       };
     }
@@ -266,7 +268,7 @@ function ProfileScenariosContent() {
     if (!latestPurchaseClaim) {
       return {
         label: tr("No claim submitted yet"),
-        hint: tr("After external payment, open Claim Premium and submit proof."),
+        hint: tr("After external support, submit claim with proof for owner review."),
         tone: "neutral" as const,
       };
     }
@@ -285,7 +287,7 @@ function ProfileScenariosContent() {
     if (latestPurchaseClaim.status === "approved") {
       return {
         label: purchaseClaimStatusLabel ?? tr("Claim approved"),
-        hint: tr("Claim approved. Premium status should become active after refresh."),
+        hint: tr("Claim approved. Premium access should appear after refresh."),
         tone: "success" as const,
       };
     }
@@ -300,7 +302,7 @@ function ProfileScenariosContent() {
 
     return {
       label: purchaseClaimStatusLabel ?? tr("Claim draft"),
-      hint: tr("Claim is closed. Submit a new claim only after a new payment."),
+      hint: tr("Claim is closed. Submit a new claim only after a new support period."),
       tone: "neutral" as const,
     };
   })();
@@ -312,7 +314,7 @@ function ProfileScenariosContent() {
         : "";
   const purchaseIntentSummaryLabel = (() => {
     if (!latestPurchaseIntent) {
-      return tr("No purchase code yet");
+      return tr("No support reference code yet");
     }
 
     if (
@@ -320,14 +322,14 @@ function ProfileScenariosContent() {
       latestPurchaseIntent.status === "opened_external" ||
       latestPurchaseIntent.status === "returned"
     ) {
-      return tr("Purchase code ready");
+      return tr("Support reference code ready");
     }
 
     if (latestPurchaseIntent.status === "claimed") {
-      return tr("Purchase code linked to claim");
+      return tr("Reference code linked to claim");
     }
 
-    return tr("Purchase code closed");
+    return tr("Reference code closed");
   })();
   const linkablePurchaseIntent =
     latestPurchaseIntent &&
@@ -380,7 +382,7 @@ function ProfileScenariosContent() {
         if (!silent) {
           setPurchaseClaimFeedback({
             kind: "error",
-            message: tr("Failed to read premium purchase claims."),
+            message: tr("Failed to read support claims."),
           });
         }
       } finally {
@@ -444,7 +446,7 @@ function ProfileScenariosContent() {
         if (!silent) {
           setPurchaseIntentFeedback({
             kind: "error",
-            message: tr("Failed to read premium purchase intents."),
+            message: tr("Failed to read support reference codes."),
           });
         }
       } finally {
@@ -481,16 +483,18 @@ function ProfileScenariosContent() {
         current.trim() ? current : response.intent.correlationCode,
       );
       setIntentStatusCheckedAt(new Date().toISOString());
-      setIsBuyHandoffVisible(true);
+      setIsSupportReferenceVisible(true);
       setIsClaimPanelOpen(true);
       setPurchaseIntentFeedback({
         kind: "success",
-        message: tr("Purchase code is ready. Open payment page, then submit claim."),
+        message: tr(
+          "Support reference code is ready. Complete support externally, then submit claim.",
+        ),
       });
     } catch {
       setPurchaseIntentFeedback({
         kind: "error",
-        message: tr("Failed to create purchase code. Please retry."),
+        message: tr("Failed to create support reference code. Please retry."),
       });
     } finally {
       setIsPreparingPurchaseIntent(false);
@@ -531,7 +535,7 @@ function ProfileScenariosContent() {
     ) {
       setPurchaseClaimFeedback({
         kind: "error",
-        message: tr("Add at least one payment proof field before claim submission."),
+        message: tr("Add at least one support proof field before claim submission."),
       });
       return;
     }
@@ -719,12 +723,12 @@ function ProfileScenariosContent() {
       await window.navigator.clipboard.writeText(latestPurchaseIntent.correlationCode);
       setPurchaseIntentFeedback({
         kind: "success",
-        message: tr("Purchase code copied."),
+        message: tr("Support reference code copied."),
       });
     } catch {
       setPurchaseIntentFeedback({
         kind: "error",
-        message: tr("Copy failed. Use code shown on screen."),
+        message: tr("Copy failed. Use reference code shown on screen."),
       });
     }
   };
@@ -884,20 +888,26 @@ function ProfileScenariosContent() {
         </div>
       </div>
       <section className="pc-surface pc-surface-soft space-y-2">
-        <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+        <p className="pc-kicker">
           <AppIcon name="support" className="h-3.5 w-3.5" />
-          {tr("Premium and support")}
+          {tr("Support and Premium")}
         </p>
         <p className="text-xs text-app-text-muted">
           {tr(
-            "Buy Premium, Support, and Claim Premium are separate rails with different meaning.",
+            "Core app stays fully useful for free. Premium is a calm donor perk after validated support.",
           )}
         </p>
         <p className="text-[11px] text-app-text-muted">
-          {tr("One-time flow: Buy Premium -> external payment -> Claim Premium in app.")}
+          {tr(
+            "Current baseline: from {amount} RUB support -> up to {days} days Premium after validation.",
+            {
+              amount: SOFT_SUPPORT_MIN_AMOUNT_RUB,
+              days: SOFT_PREMIUM_ACCESS_DAYS,
+            },
+          )}
         </p>
         <div className="pc-detail-surface bg-app-surface">
-          <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          <p className="pc-kicker">
             <AppIcon name="premium" className="h-3.5 w-3.5" />
             {tr("Premium status")}
           </p>
@@ -948,59 +958,105 @@ function ProfileScenariosContent() {
             </>
           )}
 
-          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <div className="pc-state-card border border-app-accent/70 bg-app-accent/10 px-3 py-2 text-app-text">
-              <p className="inline-flex items-center gap-1.5 text-sm font-semibold">
-                <AppIcon name="premium" className="h-4 w-4" />
-                {tr("Buy Premium")}
+          <div className="mt-2 space-y-2">
+            <p className="pc-kicker">
+              <AppIcon name="support" className="h-3.5 w-3.5" />
+              {tr("Support rails")}
+            </p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {supportRails.map((rail) =>
+                rail.isConfigured ? (
+                  <a
+                    key={rail.id}
+                    href={rail.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="pc-action-card"
+                  >
+                    <p className="inline-flex items-center gap-1.5 text-sm font-semibold">
+                      <AppIcon name="support" className="h-4 w-4" />
+                      {tr(rail.title)}
+                      {rail.isPrimary && (
+                        <span className="pc-status-pill">{tr("Primary")}</span>
+                      )}
+                    </p>
+                    <p className="mt-1 text-xs text-app-text-muted">{tr(rail.subtitle)}</p>
+                    <span className="pc-btn-secondary mt-2 w-full justify-center text-xs">
+                      {tr(rail.ctaLabel)}
+                    </span>
+                  </a>
+                ) : (
+                  <div key={rail.id} aria-disabled className="pc-action-card">
+                    <p className="inline-flex items-center gap-1.5 text-sm font-semibold">
+                      <AppIcon name="support" className="h-4 w-4" />
+                      {tr(rail.title)}
+                    </p>
+                    <p className="mt-1 text-xs text-app-text-muted">
+                      {tr("Support rail slot prepared. URL is not configured yet.")}
+                    </p>
+                    <span className="pc-status-pill pc-status-pill-warning mt-2">
+                      <AppIcon name="clock" className="h-3 w-3" />
+                      {tr("Pending setup")}
+                    </span>
+                  </div>
+                ),
+              )}
+            </div>
+            {configuredSupportRails.length === 0 && (
+              <p className="pc-feedback pc-feedback-warning">
+                <AppIcon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>{tr("No support rails are configured yet.")}</span>
               </p>
-              <p className="mt-1 text-xs text-app-text-muted">
-                {tr("One-time Premium purchase. Core usage stays free.")}
-              </p>
+            )}
+          </div>
+
+          <div className="mt-2 rounded-xl border border-app-border/70 bg-white px-3 py-2">
+            <p className="pc-kicker">
+              <AppIcon name="wallet" className="h-3.5 w-3.5" />
+              {tr("Support reference code")}
+            </p>
+            <p className="mt-1 text-xs text-app-text-muted">
+              {tr(
+                "Prepare this code before support and include it in your payment comment if the external rail allows it.",
+              )}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => void preparePremiumPurchaseIntent()}
                 disabled={isPreparingPurchaseIntent}
-                className="pc-btn-primary mt-2 w-full justify-center text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                className="pc-btn-secondary disabled:cursor-not-allowed disabled:opacity-60"
               >
+                <AppIcon name="template" className="h-3.5 w-3.5" />
                 {isPreparingPurchaseIntent
-                  ? tr("Preparing purchase code...")
-                  : tr("Start Premium purchase")}
+                  ? tr("Preparing support reference...")
+                  : tr("Prepare support reference code")}
               </button>
-              <p className="mt-1 text-[11px] text-app-text-muted">
-                {tr("Purchase code status")}: {purchaseIntentSummaryLabel}.{" "}
-                {tr("Step 1: Prepare code")}
-              </p>
+              <button
+                type="button"
+                onClick={() => setIsClaimPanelOpen(true)}
+                aria-pressed={isClaimPanelOpen}
+                className="pc-btn-quiet"
+              >
+                <AppIcon name="wallet" className="h-3.5 w-3.5" />
+                {tr("Open support claim")}
+              </button>
             </div>
-            <a
-              href={supportProjectUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="pc-state-card border border-app-border bg-app-surface px-3 py-2 text-app-text"
-            >
-              <p className="inline-flex items-center gap-1.5 text-sm font-semibold">
-                <AppIcon name="support" className="h-4 w-4" />
-                {tr("Support the project")}
-              </p>
-              <p className="mt-1 text-xs text-app-text-muted">
-                {tr("Voluntary support rail. It does not grant Premium automatically.")}
-              </p>
-              <span className="pc-btn-secondary mt-2 w-full justify-center text-xs">
-                {tr("Open support page")}
-              </span>
-            </a>
+            <p className="mt-1 text-[11px] text-app-text-muted">
+              {tr("Reference status")}: {purchaseIntentSummaryLabel}.
+            </p>
           </div>
 
-          {(isBuyHandoffVisible || latestPurchaseIntent || purchaseIntentFeedback) && (
+          {(isSupportReferenceVisible || latestPurchaseIntent || purchaseIntentFeedback) && (
             <div className="pc-state-card mt-2 bg-white px-3 py-2 text-xs text-app-text-muted">
               <p className="inline-flex items-center gap-1.5 font-semibold text-app-text">
                 <AppIcon name="wallet" className="h-3.5 w-3.5" />
-                {tr("Purchase handoff code")}
+                {tr("Latest support reference")}
               </p>
               {isLoadingPurchaseIntents ? (
                 <p className="pc-state-inline mt-1">
                   <AppIcon name="refresh" className="h-3.5 w-3.5 pc-spin" />
-                  {tr("Loading purchase code...")}
+                  {tr("Loading support reference code...")}
                 </p>
               ) : latestPurchaseIntent ? (
                 <>
@@ -1011,13 +1067,13 @@ function ProfileScenariosContent() {
                     </span>
                   </p>
                   <p className="mt-1">
-                    {tr("Purchase code status")}: {tr(latestPurchaseIntent.status)}.{" "}
+                    {tr("Reference status")}: {tr(latestPurchaseIntent.status)}.{" "}
                     {tr("Created at")}:{" "}
                     {formatDateTime(latestPurchaseIntent.createdAt, latestPurchaseIntent.createdAt)}
                   </p>
                   <p className="mt-1 text-xs text-app-text-muted">
                     {tr(
-                      "Use this code as purchase reference. It does not activate Premium automatically.",
+                      "This code helps owner review match your support action. It does not activate Premium automatically.",
                     )}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -1027,17 +1083,8 @@ function ProfileScenariosContent() {
                       className="pc-btn-secondary"
                     >
                       <AppIcon name="template" className="h-3.5 w-3.5" />
-                      {tr("Copy purchase code")}
+                      {tr("Copy support code")}
                     </button>
-                    <a
-                      href={buyPremiumUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="pc-btn-primary"
-                    >
-                      <AppIcon name="premium" className="h-3.5 w-3.5" />
-                      {tr("Open payment page")}
-                    </a>
                     <button
                       type="button"
                       onClick={() => void refreshMyPurchaseIntents()}
@@ -1045,31 +1092,24 @@ function ProfileScenariosContent() {
                       className="pc-btn-quiet disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <AppIcon name="refresh" className="h-3.5 w-3.5" />
-                      {tr("Refresh purchase code")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsClaimPanelOpen(true)}
-                      aria-pressed={isClaimPanelOpen}
-                      className="pc-btn-secondary"
-                    >
-                      <AppIcon name="wallet" className="h-3.5 w-3.5" />
-                      {tr("Open Claim Premium")}
+                      {tr("Refresh support code")}
                     </button>
                   </div>
                   <p className="mt-1 text-[11px] text-app-text-muted">
-                    {tr("After payment on external page, open Claim Premium and submit for owner review.")}
+                    {tr(
+                      "After support on external rail, open support claim and submit proof for owner review.",
+                    )}
                   </p>
                   <p className="mt-1 text-[11px] text-app-text-muted">
-                    {tr("Purchase code status last checked")}:{" "}
+                    {tr("Support code status last checked")}:{" "}
                     {intentStatusCheckedAt
                       ? formatDateTime(intentStatusCheckedAt, intentStatusCheckedAt)
-                      : tr("No purchase code check yet.")}
+                      : tr("No support code check yet.")}
                   </p>
                 </>
               ) : (
                 <p className="mt-1 text-xs text-app-text-muted">
-                  {tr("No purchase code prepared yet.")}
+                  {tr("No support code prepared yet.")}
                 </p>
               )}
 
@@ -1100,30 +1140,30 @@ function ProfileScenariosContent() {
               isClaimPanelOpen ? "border-app-accent/70" : ""
             }`}
           >
-            <summary className="inline-flex cursor-pointer items-center gap-1.5 font-semibold text-app-text">
+            <summary className="pc-summary-action inline-flex cursor-pointer items-center gap-1.5 font-semibold text-app-text">
               <AppIcon name="wallet" className="h-3.5 w-3.5" />
-              {tr("I already paid / Claim Premium")}
+              {tr("I already supported / submit claim")}
               {isClaimPanelOpen && <span className="pc-status-pill">{tr("Opened")}</span>}
             </summary>
             <p className="mt-1">
-                  {tr("Use this after external payment to submit claim for owner review.")}
+              {tr("Use this after external support to submit claim for owner review.")}
             </p>
             <p className="mt-1 text-[11px] text-app-text-muted">
-              {tr("Add at least one payment proof field before claim submission.")}
+              {tr("Add at least one support proof field before claim submission.")}
             </p>
             {latestPurchaseIntent && (
               <div className="mt-2 rounded-xl border border-app-border bg-white px-3 py-2 text-xs">
-                <p className="font-semibold text-app-text">{tr("Latest purchase code")}</p>
+                <p className="font-semibold text-app-text">{tr("Latest support code")}</p>
                 <p className="mt-1 text-app-text-muted">
                   {tr("Code")}:{" "}
                   <span className="font-mono font-semibold text-app-text">
                     {latestPurchaseIntent.correlationCode}
                   </span>
                   {" · "}
-                  {tr("Purchase code status")}: {tr(latestPurchaseIntent.status)}
+                  {tr("Reference status")}: {tr(latestPurchaseIntent.status)}
                 </p>
                 <p className="mt-1 text-app-text-muted">
-                  {tr("Claim form is ready. Purchase code is already linked.")}
+                  {tr("Claim form is ready. Support reference code is already linked.")}
                 </p>
               </div>
             )}
@@ -1132,29 +1172,29 @@ function ProfileScenariosContent() {
                 type="text"
                 value={purchaseClaimExternalHandle}
                 onChange={(event) => setPurchaseClaimExternalHandle(event.target.value)}
-                placeholder={tr("External payer handle (optional)")}
-                className="w-full rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
+                placeholder={tr("External supporter handle (optional)")}
+                className="pc-input"
               />
               <input
                 type="text"
                 value={purchaseClaimProofReference}
                 onChange={(event) => setPurchaseClaimProofReference(event.target.value)}
-                placeholder={tr("Payment proof reference (optional)")}
-                className="w-full rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
+                placeholder={tr("Support proof reference (optional)")}
+                className="pc-input"
               />
               <textarea
                 value={purchaseClaimProofText}
                 onChange={(event) => setPurchaseClaimProofText(event.target.value)}
                 rows={3}
-                placeholder={tr("Payment proof text (optional)")}
-                className="w-full resize-y rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
+                placeholder={tr("Support proof note (optional)")}
+                className="pc-textarea resize-y"
               />
               <input
                 type="text"
                 value={purchaseClaimNote}
                 onChange={(event) => setPurchaseClaimNote(event.target.value)}
                 placeholder={tr("Claim note (optional)")}
-                className="w-full rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
+                className="pc-input"
               />
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -1167,7 +1207,7 @@ function ProfileScenariosContent() {
                 <AppIcon name="check" className="h-3.5 w-3.5" />
                 {isSubmittingPremiumClaim
                   ? tr("Submitting claim...")
-                  : tr("Submit premium claim")}
+                  : tr("Submit support claim")}
               </button>
             </div>
             {latestPurchaseClaim && (
@@ -1200,7 +1240,8 @@ function ProfileScenariosContent() {
           </details>
 
           <div className="mt-2 rounded-xl border border-app-border/70 bg-white px-3 py-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+            <p className="pc-kicker">
+              <AppIcon name="clock" className="h-3.5 w-3.5" />
               {tr("Claim status")}
             </p>
             {isLoadingPurchaseClaims ? (
@@ -1245,147 +1286,147 @@ function ProfileScenariosContent() {
             </div>
           </div>
         </div>
-      <details className="pc-detail-surface bg-app-surface">
-        <summary className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-          <AppIcon name="support" className="h-3.5 w-3.5" />
-          {tr("Report a bug")}
-        </summary>
-        <p className="mt-2 text-xs text-app-text-muted">
-          {tr("Help us fix issues quickly.")}
-        </p>
-        <form className="mt-2 space-y-2" onSubmit={submitBugReportFromProfile}>
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-app-text">{tr("Issue title")}</p>
-            <input
-              type="text"
-              value={bugReportTitle}
-              onChange={(event) => {
-                setBugReportTitle(event.target.value);
-                setBugReportFeedback(null);
-              }}
-              maxLength={120}
-              placeholder={tr("Short subject")}
-              className="w-full rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
-            />
-          </div>
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-app-text">{tr("What happened?")}</p>
-            <textarea
-              value={bugReportDescription}
-              onChange={(event) => {
-                setBugReportDescription(event.target.value);
-                setBugReportFeedback(null);
-              }}
-              rows={4}
-              maxLength={1800}
-              placeholder={tr("Describe what you expected and what happened.")}
-              className="w-full resize-y rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
-            />
-          </div>
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-app-text">
-              {tr("Steps to reproduce (optional)")}
-            </p>
-            <textarea
-              value={bugReportSteps}
-              onChange={(event) => {
-                setBugReportSteps(event.target.value);
-                setBugReportFeedback(null);
-              }}
-              rows={3}
-              maxLength={1200}
-              placeholder={tr("Optional steps, device details, or timing notes.")}
-              className="w-full resize-y rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
-            />
-          </div>
-          <p className="text-[11px] text-app-text-muted">
-            {tr(
-              "Context from your profile, workspace, and language is attached automatically.",
-            )}
-          </p>
-          <button
-            type="submit"
-            disabled={isSubmittingBugReport}
-            className="pc-btn-secondary"
-          >
+        <details className="pc-detail-surface bg-app-surface">
+          <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
             <AppIcon name="support" className="h-3.5 w-3.5" />
-            {isSubmittingBugReport ? tr("Sending...") : tr("Send bug report")}
-          </button>
-          {bugReportFeedback && (
-            <p
-              className={`pc-feedback ${
-                bugReportFeedback.kind === "success"
-                  ? "pc-feedback-success"
-                  : "pc-feedback-error"
-              }`}
-            >
-              <AppIcon
-                name={bugReportFeedback.kind === "success" ? "check" : "alert"}
-                className="mt-0.5 h-3.5 w-3.5 shrink-0"
+            {tr("Report a bug")}
+          </summary>
+          <p className="mt-2 text-xs text-app-text-muted">
+            {tr("Help us fix issues quickly.")}
+          </p>
+          <form className="mt-2 space-y-2" onSubmit={submitBugReportFromProfile}>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-app-text">{tr("Issue title")}</p>
+              <input
+                type="text"
+                value={bugReportTitle}
+                onChange={(event) => {
+                  setBugReportTitle(event.target.value);
+                  setBugReportFeedback(null);
+                }}
+                maxLength={120}
+                placeholder={tr("Short subject")}
+                className="pc-input"
               />
-              <span>
-              {bugReportFeedback.message}
-              </span>
-            </p>
-          )}
-        </form>
-      </details>
-      <PremiumAdminConsole initData={initData} />
-      <details className="pc-detail-surface bg-app-surface">
-        <summary className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-          <AppIcon name="premium" className="h-3.5 w-3.5" />
-          {tr("Gift premium claim (verification)")}
-        </summary>
-        <p className="mt-2 text-xs text-app-text-muted">
-          {tr(
-            "This is a compact foundation check surface. It is not a public promo page.",
-          )}
-        </p>
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <input
-            type="text"
-            value={giftCampaignCodeInput}
-            onChange={(event) => setGiftCampaignCodeInput(event.target.value)}
-            placeholder={tr("Gift campaign code")}
-            className="min-w-[180px] flex-1 rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
-          />
-          <button
-            type="button"
-            onClick={() => void claimGiftPremium(giftCampaignCodeInput)}
-            disabled={isClaimingGiftPremium || !giftCampaignCodeInput.trim()}
-            className="pc-btn-secondary"
-          >
-            {isClaimingGiftPremium ? tr("Claiming...") : tr("Claim gift premium")}
-          </button>
-        </div>
-        {giftPremiumClaimResult && (
-          <div className="mt-2 rounded-xl border border-app-border bg-white px-3 py-2 text-xs text-app-text-muted">
-            <p
-              className={`pc-status-pill ${
-                isGiftClaimGranted ? "pc-status-pill-success" : "pc-status-pill-warning"
-              }`}
-            >
-              <AppIcon
-                name={isGiftClaimGranted ? "check" : "alert"}
-                className="h-3 w-3"
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-app-text">{tr("What happened?")}</p>
+              <textarea
+                value={bugReportDescription}
+                onChange={(event) => {
+                  setBugReportDescription(event.target.value);
+                  setBugReportFeedback(null);
+                }}
+                rows={4}
+                maxLength={1800}
+                placeholder={tr("Describe what you expected and what happened.")}
+                className="pc-textarea resize-y"
               />
-              {giftClaimStatusLabel ?? tr("Gift claim status")}
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-app-text">
+                {tr("Steps to reproduce (optional)")}
+              </p>
+              <textarea
+                value={bugReportSteps}
+                onChange={(event) => {
+                  setBugReportSteps(event.target.value);
+                  setBugReportFeedback(null);
+                }}
+                rows={3}
+                maxLength={1200}
+                placeholder={tr("Optional steps, device details, or timing notes.")}
+                className="pc-textarea resize-y"
+              />
+            </div>
+            <p className="text-[11px] text-app-text-muted">
+              {tr(
+                "Context from your profile, workspace, and language is attached automatically.",
+              )}
             </p>
-            <p className="mt-1">
-              {tr("Quota used")}: {giftPremiumClaimResult.quotaUsed} /{" "}
-              {giftPremiumClaimResult.quotaTotal}
-            </p>
-            <p className="mt-1">
-              {tr("Claim id")}: {giftPremiumClaimResult.claimId}
-            </p>
-            {giftPremiumClaimResult.entitlementId && (
-              <p className="mt-1">
-                {tr("Entitlement id")}: {giftPremiumClaimResult.entitlementId}
+            <button
+              type="submit"
+              disabled={isSubmittingBugReport}
+              className="pc-btn-secondary"
+            >
+              <AppIcon name="support" className="h-3.5 w-3.5" />
+              {isSubmittingBugReport ? tr("Sending...") : tr("Send bug report")}
+            </button>
+            {bugReportFeedback && (
+              <p
+                className={`pc-feedback ${
+                  bugReportFeedback.kind === "success"
+                    ? "pc-feedback-success"
+                    : "pc-feedback-error"
+                }`}
+              >
+                <AppIcon
+                  name={bugReportFeedback.kind === "success" ? "check" : "alert"}
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0"
+                />
+                <span>
+                  {bugReportFeedback.message}
+                </span>
               </p>
             )}
+          </form>
+        </details>
+        <PremiumAdminConsole initData={initData} />
+        <details className="pc-detail-surface bg-app-surface">
+          <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+            <AppIcon name="premium" className="h-3.5 w-3.5" />
+            {tr("Gift premium claim (verification)")}
+          </summary>
+          <p className="mt-2 text-xs text-app-text-muted">
+            {tr(
+              "This is a compact foundation check surface. It is not a public promo page.",
+            )}
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              value={giftCampaignCodeInput}
+              onChange={(event) => setGiftCampaignCodeInput(event.target.value)}
+              placeholder={tr("Gift campaign code")}
+              className="pc-input min-w-[180px] flex-1"
+            />
+            <button
+              type="button"
+              onClick={() => void claimGiftPremium(giftCampaignCodeInput)}
+              disabled={isClaimingGiftPremium || !giftCampaignCodeInput.trim()}
+              className="pc-btn-secondary"
+            >
+              {isClaimingGiftPremium ? tr("Claiming...") : tr("Claim gift premium")}
+            </button>
           </div>
-        )}
-      </details>
+          {giftPremiumClaimResult && (
+            <div className="mt-2 rounded-xl border border-app-border bg-white px-3 py-2 text-xs text-app-text-muted">
+              <p
+                className={`pc-status-pill ${
+                  isGiftClaimGranted ? "pc-status-pill-success" : "pc-status-pill-warning"
+                }`}
+              >
+                <AppIcon
+                  name={isGiftClaimGranted ? "check" : "alert"}
+                  className="h-3 w-3"
+                />
+                {giftClaimStatusLabel ?? tr("Gift claim status")}
+              </p>
+              <p className="mt-1">
+                {tr("Quota used")}: {giftPremiumClaimResult.quotaUsed} /{" "}
+                {giftPremiumClaimResult.quotaTotal}
+              </p>
+              <p className="mt-1">
+                {tr("Claim id")}: {giftPremiumClaimResult.claimId}
+              </p>
+              {giftPremiumClaimResult.entitlementId && (
+                <p className="mt-1">
+                  {tr("Entitlement id")}: {giftPremiumClaimResult.entitlementId}
+                </p>
+              )}
+            </div>
+          )}
+        </details>
       </section>
       <div className="pc-surface pc-surface-soft">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
@@ -1550,7 +1591,8 @@ function ProfileScenariosContent() {
           </div>
         ) : (
           <details className="pc-detail-surface mt-2 bg-app-surface">
-            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+            <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+              <AppIcon name="workspace" className="h-3.5 w-3.5" />
               {tr("Family workspace (optional)")}
             </summary>
             <div className="mt-2 space-y-2">
@@ -1569,7 +1611,7 @@ function ProfileScenariosContent() {
                     value={familyWorkspaceTitle}
                     onChange={(event) => setFamilyWorkspaceTitle(event.target.value)}
                     placeholder={tr("Family workspace title")}
-                    className="w-full rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
+                    className="pc-input"
                   />
                   <button
                     type="button"
@@ -1591,7 +1633,7 @@ function ProfileScenariosContent() {
                     clearInviteAcceptDiagnostic();
                   }}
                   placeholder={tr("Paste family invite token")}
-                  className="w-full rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
+                  className="pc-input"
                 />
                 <p className="text-[11px] text-app-text-muted">
                   {tr("Preview")}:{" "}
@@ -1619,7 +1661,8 @@ function ProfileScenariosContent() {
                 </button>
                 {inviteAcceptDiagnostic && (
                   <details className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-xs text-app-text">
-                    <summary className="cursor-pointer font-semibold text-app-text">
+                    <summary className="pc-summary-action inline-flex items-center gap-1.5 font-semibold text-app-text">
+                      <AppIcon name="alert" className="h-3.5 w-3.5" />
                       {tr("Accept invite diagnostic")}
                     </summary>
                     <p

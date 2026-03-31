@@ -1108,7 +1108,7 @@ export function RecurringPaymentsSection({
                   setIsTemplateSuggestionsOpen(true);
                 }}
                 placeholder={tr("Payment title")}
-                className="w-full rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
+                className="pc-input"
               />
               {editingPaymentId === null &&
                 form.title.trim().length > 0 &&
@@ -1139,7 +1139,7 @@ export function RecurringPaymentsSection({
                             type="button"
                             onClick={() => applyTemplate(template)}
                             disabled={isSaving}
-                            className="flex min-h-11 w-full touch-manipulation items-center justify-between gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-left transition hover:bg-app-surface-soft disabled:opacity-60"
+                            className="pc-action-card flex min-h-11 w-full touch-manipulation items-center justify-between gap-2 px-3 py-2 text-left disabled:opacity-60"
                           >
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-xs font-semibold text-app-text">
@@ -1171,10 +1171,10 @@ export function RecurringPaymentsSection({
               type="number"
               step="0.01"
               min="0"
-              className="rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
+              className="pc-input"
             />
             {isFamilyWorkspace && (
-              <label className="rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text">
+              <label className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text">
                 <span className="block text-xs font-semibold text-app-text-muted">
                   {tr("Who pays (responsible payer)")}
                 </span>
@@ -1186,7 +1186,7 @@ export function RecurringPaymentsSection({
                       responsibleProfileId: event.target.value,
                     }))
                   }
-                  className="mt-1 w-full rounded-lg border border-app-border bg-app-surface px-2 py-2 text-sm text-app-text outline-none"
+                  className="pc-select mt-1"
                 >
                   <option value="">{tr("Not assigned yet")}</option>
                   {responsiblePayerOptions.map((option) => (
@@ -1207,7 +1207,7 @@ export function RecurringPaymentsSection({
                   dueDay: event.target.value === "weekly" ? "1" : prev.dueDay,
                 }))
               }
-              className="rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
+              className="pc-select"
             >
               <option value="monthly">{tr("Monthly")}</option>
               <option value="weekly">{tr("Weekly")}</option>
@@ -1225,11 +1225,11 @@ export function RecurringPaymentsSection({
               type="number"
               min="1"
               max={form.cadence === "weekly" ? "7" : "31"}
-              className="rounded-xl border border-app-border bg-white px-3 py-2 text-sm text-app-text outline-none"
+              className="pc-input"
             />
           </div>
           <details
-            className="mt-2 rounded-xl border border-app-border bg-white px-3 py-2"
+            className="pc-detail-surface mt-2"
             open={isAdvancedFormExpanded}
             onToggle={(event) => setIsAdvancedFormExpanded(event.currentTarget.open)}
           >
@@ -1246,7 +1246,7 @@ export function RecurringPaymentsSection({
                   setForm((prev) => ({ ...prev, currency: event.target.value }))
                 }
                 placeholder={tr("Currency (RUB)")}
-                className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
+                className="pc-input"
               />
               <input
                 value={form.category}
@@ -1254,7 +1254,7 @@ export function RecurringPaymentsSection({
                   setForm((prev) => ({ ...prev, category: event.target.value }))
                 }
                 placeholder={tr("Category")}
-                className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
+                className="pc-input"
               />
               <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text">
                 <input
@@ -1303,7 +1303,7 @@ export function RecurringPaymentsSection({
                   }))
                 }
                 disabled={!form.remindersEnabled}
-                className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none disabled:bg-app-surface-soft disabled:text-app-text-muted"
+                className="pc-select disabled:bg-app-surface-soft disabled:text-app-text-muted"
               >
                 <option value="0">{tr("Remind 0 days before")}</option>
                 <option value="1">{tr("Remind 1 day before")}</option>
@@ -1347,7 +1347,7 @@ export function RecurringPaymentsSection({
                 setForm((prev) => ({ ...prev, notes: event.target.value }))
               }
               placeholder={tr("Notes (optional)")}
-              className="mt-2 h-20 w-full rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
+              className="pc-textarea mt-2 h-20 resize-y"
             />
           </details>
 

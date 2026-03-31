@@ -10,7 +10,9 @@ export const SUPPORTED_PREMIUM_PURCHASE_RAILS: PremiumPurchaseClaimRail[] = [
 
 export const DEFAULT_PREMIUM_PURCHASE_RAIL: PremiumPurchaseClaimRail =
   ONE_TIME_PREMIUM_PURCHASE_RAIL;
-export const DEFAULT_PREMIUM_EXPECTED_TIER = "premium_one_time";
+export const DEFAULT_PREMIUM_EXPECTED_TIER = "support_bonus_30d";
+export const SOFT_SUPPORT_MIN_AMOUNT_RUB = 100;
+export const SOFT_PREMIUM_ACCESS_DAYS = 30;
 
 export const isSupportedPremiumPurchaseRail = (
   rail: string,

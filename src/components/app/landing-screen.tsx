@@ -5,6 +5,7 @@ import { APP_TAB_NAVIGATE_EVENT, type AppTab } from "@/components/app/app-shell"
 
 export function LandingScreen() {
   const { tr } = useLocalization();
+
   const openReminders = () => {
     if (typeof window === "undefined") {
       return;
@@ -21,12 +22,15 @@ export function LandingScreen() {
     <section className="pc-surface bg-gradient-to-b from-app-surface to-app-surface-soft/45">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-            {tr("Today snapshot")}
+          <p className="pc-kicker">
+            {tr("Today focus")}
           </p>
           <h1 className="mt-0.5 truncate text-lg font-semibold tracking-tight text-app-text">
             {tr("Payment Control")}
           </h1>
+          <p className="mt-0.5 text-xs text-app-text-muted">
+            {tr("One short routine: Reminders for actions, History for proof.")}
+          </p>
         </div>
         <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-app-border bg-app-surface text-app-accent shadow-[0_6px_14px_var(--app-frame-shadow)]">
           <AppIcon name="home" className="h-[18px] w-[18px]" />
@@ -34,9 +38,6 @@ export function LandingScreen() {
       </div>
 
       <div className="mt-2 grid grid-cols-1 gap-2">
-        <p className="pc-state-card text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-          {tr("Primary next action")}
-        </p>
         <button
           type="button"
           onClick={openReminders}
@@ -45,12 +46,9 @@ export function LandingScreen() {
           <AppIcon name="add" className="h-4 w-4" />
           {tr("Open Reminders and add payment")}
         </button>
-        <p className="text-[11px] text-app-text-muted">
-          {tr("Keep it simple: Reminders for actions, History for updates.")}
-        </p>
       </div>
 
-      <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full border border-app-border bg-app-surface px-2 py-0.5 text-[11px] text-app-text-muted">
+      <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-app-border bg-app-surface px-2 py-0.5 text-[11px] text-app-text-muted">
         <AppIcon name="workspace" className="h-3.5 w-3.5" />
         <span>
           {tr("Runtime stage")}: <span className="font-semibold">{clientEnv.appStage}</span>
