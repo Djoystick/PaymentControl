@@ -26,6 +26,7 @@ import type {
   PremiumPurchaseClaimCreateResponse,
   PremiumPurchaseClaimReadMineResponse,
   PremiumPurchaseClaimRail,
+  SupportRailId,
   GiftPremiumClaimResponse,
   PremiumEntitlementReadResponse,
   PremiumPurchaseIntentRail,
@@ -382,6 +383,7 @@ export const updateSupportReferenceIntentStatus = async (params: {
   intentId: string;
   transition: "opened_external" | "returned";
   transitionRail?: SupportReferenceRail;
+  supportRailId?: SupportRailId;
 }): Promise<SupportReferenceCreateResponse> => {
   return postJson<SupportReferenceCreateResponse>(
     `/api/premium/purchase-intents/${encodeURIComponent(params.intentId)}/status`,
@@ -390,6 +392,7 @@ export const updateSupportReferenceIntentStatus = async (params: {
       initData: params.initData,
       transition: params.transition,
       transitionRail: params.transitionRail ?? "",
+      supportRailId: params.supportRailId ?? "",
     },
   );
 };

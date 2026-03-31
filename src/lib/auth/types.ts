@@ -315,6 +315,7 @@ export type PremiumEntitlementReadResponse =
   | PremiumEntitlementReadError;
 
 export type GiftPremiumCampaignStatus = "draft" | "active" | "paused" | "ended";
+export type SupportRailId = "boosty" | "cloudtips";
 
 // Historical compatibility note:
 // `PremiumPurchase*` naming remains because DB/API foundations still use `premium_purchase_*`.

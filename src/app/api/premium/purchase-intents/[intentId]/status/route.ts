@@ -4,6 +4,7 @@ import type {
   SupportReferenceCreateErrorCode,
   SupportReferenceCreateResponse,
   SupportReferenceRail,
+  SupportRailId,
 } from "@/lib/auth/types";
 import { transitionSupportReferenceStatus } from "@/lib/premium/purchase-intent-repository";
 import { isSupportedSupportClaimRail } from "@/lib/premium/purchase-semantics";
@@ -12,6 +13,7 @@ type SupportReferenceStatusBody = {
   initData?: string;
   transition?: string;
   transitionRail?: string;
+  supportRailId?: string;
 };
 
 type RouteContext = {
@@ -79,6 +81,24 @@ export async function POST(request: Request, context: RouteContext) {
     transitionRail = normalizedTransitionRail as SupportReferenceRail;
   }
 
+  const normalizedSupportRailId = body.supportRailId?.trim() ?? "";
+  let supportRailId: SupportRailId | null = null;
+  if (normalizedSupportRailId) {
+    if (normalizedSupportRailId !== "boosty" && normalizedSupportRailId !== "cloudtips") {
+      return NextResponse.json<SupportReferenceCreateResponse>(
+        {
+          ok: false,
+          error: {
+            code: "PREMIUM_PURCHASE_INTENT_INVALID_INPUT",
+            message: "Support rail id is invalid.",
+          },
+        },
+        { status: 400 },
+      );
+    }
+    supportRailId = normalizedSupportRailId;
+  }
+
   const contextResult = await readCurrentAppContext(body.initData);
   if (!contextResult.ok) {
     return NextResponse.json<SupportReferenceCreateResponse>(
@@ -99,6 +119,7 @@ export async function POST(request: Request, context: RouteContext) {
     intentId,
     transition,
     transitionRail: transitionRail ?? null,
+    supportRailId,
   });
 
   if (!transitionResult.ok) {

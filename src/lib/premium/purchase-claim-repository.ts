@@ -212,6 +212,39 @@ export const createPremiumPurchaseClaim = async (
         ? "opened_external_tracked"
         : "prepared_only"
     : "no_linked_intent";
+  const linkedSupportRailId = (() => {
+    if (!linkedIntent) {
+      return null;
+    }
+
+    const metadataRailId =
+      linkedIntent.metadata?.returned_support_rail_id ??
+      linkedIntent.metadata?.opened_external_support_rail_id ??
+      linkedIntent.metadata?.last_client_support_rail_id;
+    if (metadataRailId === "boosty" || metadataRailId === "cloudtips") {
+      return metadataRailId;
+    }
+
+    return null;
+  })();
+  const linkedSupportRailMode = (() => {
+    if (!linkedIntent) {
+      return null;
+    }
+
+    const metadataMode =
+      linkedIntent.metadata?.returned_support_rail_mode ??
+      linkedIntent.metadata?.opened_external_support_rail_mode ??
+      linkedIntent.metadata?.last_client_support_rail_mode;
+    if (
+      metadataMode === "continuity_claim_manual" ||
+      metadataMode === "automation_candidate"
+    ) {
+      return metadataMode;
+    }
+
+    return null;
+  })();
 
   const { data, error } = await supabase
     .from("premium_purchase_claims")
@@ -240,6 +273,8 @@ export const createPremiumPurchaseClaim = async (
           linkedIntent?.openedExternalAt ?? null,
         linked_purchase_intent_returned_at: linkedIntent?.returnedAt ?? null,
         linked_purchase_intent_continuity_stage: linkedIntentContinuityStage,
+        linked_support_rail_id: linkedSupportRailId,
+        linked_support_rail_mode: linkedSupportRailMode,
       },
       created_at: submittedAt,
       updated_at: submittedAt,

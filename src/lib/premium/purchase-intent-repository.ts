@@ -4,6 +4,7 @@ import type {
   PremiumPurchaseIntentPayload,
   PremiumPurchaseIntentRail,
   PremiumPurchaseIntentStatus,
+  SupportRailId,
 } from "@/lib/auth/types";
 import {
   DEFAULT_SUPPORT_CLAIM_RAIL,
@@ -79,6 +80,7 @@ type TransitionPremiumPurchaseIntentStatusParams = {
   intentId: string;
   transition: PremiumPurchaseIntentLifecycleTransition;
   transitionRail: PremiumPurchaseIntentRail | null;
+  supportRailId: SupportRailId | null;
 };
 
 const uuidLikePattern =
@@ -134,6 +136,20 @@ const generateCorrelationCode = (): string => {
   }
 
   return `PC-${suffix}`;
+};
+
+const resolveSupportRailOperationalMode = (
+  supportRailId: SupportRailId | null,
+): "continuity_claim_manual" | "automation_candidate" | null => {
+  if (!supportRailId) {
+    return null;
+  }
+
+  if (supportRailId === "cloudtips") {
+    return "automation_candidate";
+  }
+
+  return "continuity_claim_manual";
 };
 
 export const createPremiumPurchaseIntent = async (
@@ -509,6 +525,18 @@ export const transitionPremiumPurchaseIntentStatus = async (
     };
   }
 
+  if (
+    params.supportRailId !== null &&
+    params.supportRailId !== "boosty" &&
+    params.supportRailId !== "cloudtips"
+  ) {
+    return {
+      ok: false,
+      reason: "INVALID_INPUT",
+      message: "Support rail id is invalid.",
+    };
+  }
+
   const supabase = createSupabaseServerClient();
   if (!supabase) {
     return {
@@ -566,11 +594,19 @@ export const transitionPremiumPurchaseIntentStatus = async (
   const nowIso = new Date().toISOString();
   const nextStatus: PremiumPurchaseIntentStatus =
     params.transition === "returned" ? "returned" : "opened_external";
+  const supportRailId =
+    params.supportRailId ??
+    (typeof currentIntent.metadata?.last_client_support_rail_id === "string"
+      ? (currentIntent.metadata.last_client_support_rail_id as SupportRailId)
+      : null);
+  const supportRailMode = resolveSupportRailOperationalMode(supportRailId);
   const nextMetadata = {
     ...(currentIntent.metadata ?? {}),
     last_client_transition: params.transition,
     last_client_transition_at: nowIso,
     last_client_transition_rail: params.transitionRail ?? null,
+    last_client_support_rail_id: supportRailId,
+    last_client_support_rail_mode: supportRailMode,
   };
 
   const updatePayload: Record<string, unknown> = {
@@ -580,8 +616,20 @@ export const transitionPremiumPurchaseIntentStatus = async (
   };
   if (params.transition === "opened_external") {
     updatePayload.opened_external_at = currentIntent.opened_external_at ?? nowIso;
+    updatePayload.metadata = {
+      ...nextMetadata,
+      opened_external_support_rail_id: supportRailId,
+      opened_external_support_rail_mode: supportRailMode,
+      opened_external_tracked_at: nowIso,
+    };
   } else {
     updatePayload.returned_at = nowIso;
+    updatePayload.metadata = {
+      ...nextMetadata,
+      returned_support_rail_id: supportRailId,
+      returned_support_rail_mode: supportRailMode,
+      returned_tracked_at: nowIso,
+    };
   }
 
   const { data: updatedIntent, error: updateIntentError } = await supabase

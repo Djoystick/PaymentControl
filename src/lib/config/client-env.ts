@@ -6,15 +6,21 @@ export type SupportRailId = "boosty" | "cloudtips";
 export type SupportRailPendingReason =
   | "missing_or_invalid_url"
   | "duplicates_primary";
+export type SupportRailOperationalMode =
+  | "continuity_claim_manual"
+  | "automation_candidate";
 
 export type SupportRailConfig = {
   id: SupportRailId;
   title: string;
   subtitle: string;
+  guidanceLabel: string;
+  nextStepHint: string;
   ctaLabel: string;
   url: string;
   isConfigured: boolean;
   isPrimary: boolean;
+  operationalMode: SupportRailOperationalMode;
   pendingReason: SupportRailPendingReason | null;
 };
 
@@ -138,20 +144,28 @@ const resolveSupportRails = (): SupportRailConfig[] => {
       id: "boosty",
       title: "Boosty",
       subtitle: "Primary support rail",
+      guidanceLabel: "Claim-first continuity rail",
+      nextStepHint:
+        "Use support reference code, return to app, then submit claim for owner review.",
       ctaLabel: "Open Boosty",
       url: boostyUrl,
       isConfigured: Boolean(boostyUrl),
       isPrimary: true,
+      operationalMode: "continuity_claim_manual",
       pendingReason: null,
     },
     {
       id: "cloudtips",
       title: "CloudTips",
       subtitle: "Secondary support rail",
+      guidanceLabel: "Automation-candidate rail",
+      nextStepHint:
+        "Closer candidate for future direct matching, but owner review is still the active path.",
       ctaLabel: "Open CloudTips",
       url: cloudTipsRail.url,
       isConfigured: Boolean(cloudTipsRail.url),
       isPrimary: false,
+      operationalMode: "automation_candidate",
       pendingReason: cloudTipsRail.pendingReason,
     },
   ];

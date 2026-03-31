@@ -532,6 +532,49 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     return tr("Custom package code");
   };
 
+  const getClaimOperationalRailSummary = (claim: SupportClaimPayload) => {
+    const supportRailId = readClaimMetadataValue(claim, "linked_support_rail_id");
+    const supportRailMode = readClaimMetadataValue(claim, "linked_support_rail_mode");
+
+    if (supportRailId === "cloudtips" || supportRailMode === "automation_candidate") {
+      return {
+        label: tr("CloudTips candidate path"),
+        toneClass: "pc-status-pill-success",
+        hint: tr(
+          "Claim continuity is linked to CloudTips candidate rail. Owner review remains required until verified automation exists.",
+        ),
+      };
+    }
+
+    if (supportRailId === "boosty" || supportRailMode === "continuity_claim_manual") {
+      return {
+        label: tr("Boosty continuity path"),
+        toneClass: "",
+        hint: tr(
+          "Claim continuity is linked to Boosty support/reference path with manual review fallback.",
+        ),
+      };
+    }
+
+    if (claim.claimRail === "boosty_premium") {
+      return {
+        label: tr("Legacy Boosty rail"),
+        toneClass: "pc-status-pill-warning",
+        hint: tr(
+          "Historical rail format. Keep review strict and rely on submitted proof context.",
+        ),
+      };
+    }
+
+    return {
+      label: tr("Rail context not tracked"),
+      toneClass: "pc-status-pill-warning",
+      hint: tr(
+        "No explicit rail path metadata in this claim. Review by proof and continuity hints.",
+      ),
+    };
+  };
+
   const readClaimMetadataValue = (
     claim: SupportClaimPayload,
     key: string,
@@ -1074,6 +1117,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
         <div className="mt-2 space-y-1.5">
           {visiblePurchaseClaims.map((claim) => {
             const continuitySummary = getClaimContinuitySummary(claim);
+            const operationalRailSummary = getClaimOperationalRailSummary(claim);
             const proofFieldsCount = [
               claim.paymentProofReference,
               claim.externalPayerHandle,
@@ -1115,6 +1159,10 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                     <span className={`pc-status-pill ${continuitySummary.toneClass}`}>
                       <AppIcon name="wallet" className="h-3 w-3" />
                       {continuitySummary.label}
+                    </span>
+                    <span className={`pc-status-pill ${operationalRailSummary.toneClass}`}>
+                      <AppIcon name="support" className="h-3 w-3" />
+                      {operationalRailSummary.label}
                     </span>
                   </span>
                   <span className="mt-1 inline-flex flex-wrap items-center gap-1 text-[11px] text-app-text-muted">
@@ -1180,12 +1228,22 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                     <AppIcon name="wallet" className="h-3 w-3" />
                     {continuitySummary.label}
                   </span>
+                  <span className={`pc-status-pill ${operationalRailSummary.toneClass}`}>
+                    <AppIcon name="support" className="h-3 w-3" />
+                    {operationalRailSummary.label}
+                  </span>
                 </div>
                 <p className="mt-1 text-[11px] text-app-text-muted">
                   {continuitySummary.hint}
                 </p>
+                <p className="mt-1 text-[11px] text-app-text-muted">
+                  {operationalRailSummary.hint}
+                </p>
                 <p className="mt-1">
                   {tr("Rail")}: {getClaimRailLabel(claim)} ({claim.claimRail})
+                </p>
+                <p className="mt-1">
+                  {tr("Support rail context")}: {operationalRailSummary.label}
                 </p>
                 <p className="mt-1">
                   {tr("Expected tier")}: {claim.expectedTier}

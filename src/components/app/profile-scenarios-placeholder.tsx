@@ -7,6 +7,7 @@ import type {
   SupportClaimPayload,
   SupportReferencePayload,
   SupportReferenceRail,
+  SupportRailId,
 } from "@/lib/auth/types";
 import {
   createSupportClaim,
@@ -75,7 +76,7 @@ const SUPPORT_RETURN_CONTEXT_STORAGE_KEY = "payment-control-support-return-v1";
 type SupportReturnContextPayload = {
   intentId: string;
   correlationCode: string;
-  railId: string;
+  railId: SupportRailId;
   railTitle: string;
   openedAt: string;
 };
@@ -95,7 +96,7 @@ const readSupportReturnContext = (): SupportReturnContextPayload | null => {
     if (
       typeof parsed.intentId !== "string" ||
       typeof parsed.correlationCode !== "string" ||
-      typeof parsed.railId !== "string" ||
+      (parsed.railId !== "boosty" && parsed.railId !== "cloudtips") ||
       typeof parsed.railTitle !== "string" ||
       typeof parsed.openedAt !== "string"
     ) {
@@ -305,6 +306,29 @@ function ProfileScenariosContent() {
   const configuredSupportRails = supportRails.filter((rail) => rail.isConfigured);
   const primarySupportRail = supportRails.find((rail) => rail.isPrimary) ?? null;
   const secondarySupportRail = supportRails.find((rail) => !rail.isPrimary) ?? null;
+  const resolveSupportRailById = (railId: string | null): SupportRailConfig | null => {
+    if (!railId) {
+      return null;
+    }
+
+    return supportRails.find((rail) => rail.id === railId) ?? null;
+  };
+  const readIntentMetadataValue = (
+    intent: SupportReferencePayload | null,
+    key: string,
+  ): string | null => {
+    if (!intent) {
+      return null;
+    }
+
+    const raw = intent.metadata?.[key];
+    if (typeof raw !== "string") {
+      return null;
+    }
+
+    const normalized = raw.trim();
+    return normalized || null;
+  };
   const isClaimRejected = latestPurchaseClaim?.status === "rejected";
   const hasAnySupportProofField = Boolean(
     purchaseClaimExternalHandle.trim() ||
@@ -443,6 +467,15 @@ function ProfileScenariosContent() {
 
     return tr("Reference code closed");
   })();
+  const latestIntentTrackedRailId =
+    readIntentMetadataValue(latestPurchaseIntent, "returned_support_rail_id") ??
+    readIntentMetadataValue(latestPurchaseIntent, "opened_external_support_rail_id") ??
+    readIntentMetadataValue(latestPurchaseIntent, "last_client_support_rail_id");
+  const latestIntentTrackedRail = resolveSupportRailById(latestIntentTrackedRailId);
+  const latestIntentRailOperationalMode =
+    readIntentMetadataValue(latestPurchaseIntent, "returned_support_rail_mode") ??
+    readIntentMetadataValue(latestPurchaseIntent, "opened_external_support_rail_mode") ??
+    readIntentMetadataValue(latestPurchaseIntent, "last_client_support_rail_mode");
   const linkablePurchaseIntent =
     latestPurchaseIntent &&
     !latestPurchaseIntent.claimId &&
@@ -654,6 +687,7 @@ function ProfileScenariosContent() {
       intent: SupportReferencePayload;
       transition: "opened_external" | "returned";
       transitionRail?: SupportReferenceRail;
+      supportRailId?: SupportRailId;
     }): Promise<SupportReferencePayload | null> => {
       if (!initData || !profile) {
         return null;
@@ -664,6 +698,7 @@ function ProfileScenariosContent() {
         intentId: params.intent.id,
         transition: params.transition,
         transitionRail: params.transitionRail,
+        supportRailId: params.supportRailId,
       });
 
       if (!response.ok) {
@@ -712,6 +747,7 @@ function ProfileScenariosContent() {
             intent: intentForContinuity,
             transition: "opened_external",
             transitionRail: intentForContinuity.intentRail,
+            supportRailId: rail.id,
           });
           const continuityIntent = transitionedIntent ?? intentForContinuity;
           writeSupportReturnContext({
@@ -733,9 +769,13 @@ function ProfileScenariosContent() {
         setPurchaseIntentFeedback({
           kind: intentForContinuity ? "success" : "error",
           message: intentForContinuity
-            ? tr(
-                "Support page opened. Return to the app after support and continue with claim submission.",
-              )
+            ? rail.id === "cloudtips"
+              ? tr(
+                  "CloudTips opened. Return here after support, then submit claim. Owner review remains the active fallback until verified automation exists.",
+                )
+              : tr(
+                  "Boosty opened. Return to the app after support and continue with claim submission.",
+                )
             : tr(
                 "Support page opened, but continuity context is missing. Prepare support reference code before claim.",
               ),
@@ -801,6 +841,7 @@ function ProfileScenariosContent() {
         initData,
         intentId: storedContext.intentId,
         transition: "returned",
+        supportRailId: storedContext.railId,
       });
 
       if (response.ok) {
@@ -817,9 +858,20 @@ function ProfileScenariosContent() {
       setIsClaimPanelOpen(true);
       setPurchaseIntentFeedback({
         kind: "success",
-        message: tr("Welcome back from {rail}. Review support proof and submit claim when ready.", {
-          rail: storedContext.railTitle,
-        }),
+        message:
+          storedContext.railId === "cloudtips"
+            ? tr(
+                "Welcome back from {rail}. Claim path is ready. Owner review still confirms eligibility while CloudTips automation is not yet live.",
+                {
+                  rail: storedContext.railTitle,
+                },
+              )
+            : tr(
+                "Welcome back from {rail}. Review support proof and submit claim when ready.",
+                {
+                  rail: storedContext.railTitle,
+                },
+              ),
       });
     } catch {
       setPurchaseIntentFeedback({
@@ -1243,21 +1295,33 @@ function ProfileScenariosContent() {
             <p className="mt-1">
               {tr("Primary rail")}: {primarySupportRail ? tr(primarySupportRail.title) : tr("Not set")}
             </p>
+            {primarySupportRail && (
+              <p className="mt-1">
+                {tr("Primary path")}: {tr(primarySupportRail.guidanceLabel)}
+              </p>
+            )}
             <p className="mt-1">
               {tr("Secondary rail")}:{" "}
               {secondarySupportRail?.isConfigured
                 ? tr("Configured")
                 : tr("Pending setup")}
             </p>
+            {secondarySupportRail?.isConfigured && (
+              <p className="mt-1">
+                {tr("Secondary path")}: {tr(secondarySupportRail.guidanceLabel)}
+              </p>
+            )}
           </div>
           <div className="pc-state-card bg-white px-3 py-2 text-xs text-app-text-muted">
             <p className="pc-kicker">
               <AppIcon name="wallet" className="h-3.5 w-3.5" />
               {tr("Support flow")}
             </p>
-            <p className="mt-1">{tr("1) Support externally (optional).")}</p>
-            <p className="mt-1">{tr("2) Submit claim with proof/reference.")}</p>
-            <p className="mt-1">{tr("3) Owner reviews safely before perk grant.")}</p>
+            <p className="mt-1">{tr("1) Choose rail and support externally (optional).")}</p>
+            <p className="mt-1">
+              {tr("2) Boosty: continuity + claim fallback. CloudTips: automation-candidate path, still review-safe.")}
+            </p>
+            <p className="mt-1">{tr("3) Submit claim with proof/reference for owner review.")}</p>
           </div>
         </div>
         <div className="pc-detail-surface bg-app-surface">
@@ -1317,6 +1381,11 @@ function ProfileScenariosContent() {
             <p className="text-xs text-app-text-muted">
               {tr("Support is optional and opens on external provider pages.")}
             </p>
+            <p className="text-[11px] text-app-text-muted">
+              {tr(
+                "Boosty stays continuity/claim-first. CloudTips is the first automation-candidate rail, but owner review remains active until safe verification is proven.",
+              )}
+            </p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {supportRails.map((rail) =>
                 rail.isConfigured ? (
@@ -1343,6 +1412,8 @@ function ProfileScenariosContent() {
                       </span>
                     </p>
                     <p className="mt-1 text-xs text-app-text-muted">{tr(rail.subtitle)}</p>
+                    <p className="mt-1 text-[11px] text-app-text-muted">{tr(rail.guidanceLabel)}</p>
+                    <p className="mt-1 text-[11px] text-app-text-muted">{tr(rail.nextStepHint)}</p>
                     <p className="mt-1 text-[11px] text-app-text-muted">
                       {tr("External support page. Premium is reviewed manually after claim.")}
                     </p>
@@ -1372,6 +1443,7 @@ function ProfileScenariosContent() {
                       </span>
                     </p>
                     <p className="mt-1 text-xs text-app-text-muted">{tr(rail.subtitle)}</p>
+                    <p className="mt-1 text-[11px] text-app-text-muted">{tr(rail.guidanceLabel)}</p>
                     <p className="mt-1 text-xs text-app-text-muted">
                       {rail.id === "cloudtips" && rail.pendingReason === "duplicates_primary"
                         ? tr("CloudTips URL duplicates primary rail and stays disabled until changed.")
@@ -1470,6 +1542,19 @@ function ProfileScenariosContent() {
                     {tr("Created at")}:{" "}
                     {formatDateTime(latestPurchaseIntent.createdAt, latestPurchaseIntent.createdAt)}
                   </p>
+                  {latestIntentTrackedRail && (
+                    <p className="mt-1 text-[11px] text-app-text-muted">
+                      {tr("Last tracked rail path")}: {tr(latestIntentTrackedRail.title)} (
+                      {tr(latestIntentTrackedRail.guidanceLabel)}).
+                    </p>
+                  )}
+                  {latestIntentRailOperationalMode === "automation_candidate" && (
+                    <p className="mt-1 text-[11px] text-app-text-muted">
+                      {tr(
+                        "Automation-candidate continuity is tracked for this reference. Manual owner review still confirms eligibility.",
+                      )}
+                    </p>
+                  )}
                   <p className="mt-1 text-xs text-app-text-muted">
                     {tr(
                       "This code helps owner review match your support action. It does not activate Premium automatically.",
@@ -1555,6 +1640,13 @@ function ProfileScenariosContent() {
                   <p className="mt-1 text-[11px] text-app-text-muted">
                     {tr("Return tracked. Continue with claim submission if support is completed.")}
                   </p>
+                  {recentSupportReturnContext.railId === "cloudtips" && (
+                    <p className="mt-1 text-[11px] text-app-text-muted">
+                      {tr(
+                        "CloudTips return is tracked as automation-candidate context. Owner review is still the safe entitlement path today.",
+                      )}
+                    </p>
+                  )}
                 </>
               ) : null}
               <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -1730,6 +1822,17 @@ function ProfileScenariosContent() {
                   <span className="font-semibold text-app-text">{tr("Next step")}:</span>{" "}
                   {claimNextStepLabel}
                 </p>
+                {latestIntentTrackedRail && !premiumEntitlement?.isPremium && (
+                  <p className="mt-1 text-[11px] text-app-text-muted">
+                    {latestIntentTrackedRail.id === "cloudtips"
+                      ? tr(
+                          "Current rail context: CloudTips automation-candidate path. Owner review remains required until verified matching is introduced.",
+                        )
+                      : tr(
+                          "Current rail context: Boosty continuity/manual path. Include reference/proof and continue through claim review.",
+                        )}
+                  </p>
+                )}
               </>
             )}
             <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-app-text-muted">
