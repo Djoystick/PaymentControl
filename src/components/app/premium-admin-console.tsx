@@ -30,6 +30,12 @@ type PremiumAdminConsoleProps = {
   initData: string;
 };
 type AdminMessageTone = "info" | "success" | "error";
+type SupportClaimQueueFilter =
+  | "all"
+  | "needs_review"
+  | "approved"
+  | "rejected"
+  | "closed";
 
 const formatDateTime = (value: string | null, fallback: string): string => {
   if (!value) {
@@ -52,6 +58,8 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
   const [target, setTarget] = useState<PremiumAdminTargetPayload | null>(null);
   const [campaigns, setCampaigns] = useState<PremiumAdminCampaignPayload[]>([]);
   const [purchaseClaims, setPurchaseClaims] = useState<SupportClaimPayload[]>([]);
+  const [supportClaimQueueFilter, setSupportClaimQueueFilter] =
+    useState<SupportClaimQueueFilter>("needs_review");
   const [isResolvingTarget, setIsResolvingTarget] = useState(false);
   const [isSavingPremium, setIsSavingPremium] = useState(false);
   const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(false);
@@ -524,6 +532,89 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     return tr("Custom package code");
   };
 
+  const getClaimQueueRank = (status: SupportClaimPayload["status"]): number => {
+    if (status === "submitted" || status === "pending_review") {
+      return 0;
+    }
+
+    if (status === "approved") {
+      return 1;
+    }
+
+    if (status === "rejected") {
+      return 2;
+    }
+
+    return 3;
+  };
+
+  const sortedPurchaseClaims = useMemo(() => {
+    const next = [...purchaseClaims];
+    next.sort((left, right) => {
+      const statusRankDelta =
+        getClaimQueueRank(left.status) - getClaimQueueRank(right.status);
+      if (statusRankDelta !== 0) {
+        return statusRankDelta;
+      }
+
+      if (left.submittedAt !== right.submittedAt) {
+        return right.submittedAt.localeCompare(left.submittedAt);
+      }
+
+      return right.id.localeCompare(left.id);
+    });
+    return next;
+  }, [purchaseClaims]);
+
+  const supportClaimQueueCounts = useMemo(() => {
+    const needsReview = sortedPurchaseClaims.filter(
+      (claim) =>
+        claim.status === "submitted" || claim.status === "pending_review",
+    ).length;
+    const approved = sortedPurchaseClaims.filter(
+      (claim) => claim.status === "approved",
+    ).length;
+    const rejected = sortedPurchaseClaims.filter(
+      (claim) => claim.status === "rejected",
+    ).length;
+    const closed = sortedPurchaseClaims.filter(
+      (claim) => claim.status === "expired" || claim.status === "cancelled",
+    ).length;
+
+    return {
+      all: sortedPurchaseClaims.length,
+      needsReview,
+      approved,
+      rejected,
+      closed,
+    };
+  }, [sortedPurchaseClaims]);
+
+  const visiblePurchaseClaims = useMemo(() => {
+    if (supportClaimQueueFilter === "all") {
+      return sortedPurchaseClaims;
+    }
+
+    if (supportClaimQueueFilter === "needs_review") {
+      return sortedPurchaseClaims.filter(
+        (claim) =>
+          claim.status === "submitted" || claim.status === "pending_review",
+      );
+    }
+
+    if (supportClaimQueueFilter === "approved") {
+      return sortedPurchaseClaims.filter((claim) => claim.status === "approved");
+    }
+
+    if (supportClaimQueueFilter === "rejected") {
+      return sortedPurchaseClaims.filter((claim) => claim.status === "rejected");
+    }
+
+    return sortedPurchaseClaims.filter(
+      (claim) => claim.status === "expired" || claim.status === "cancelled",
+    );
+  }, [sortedPurchaseClaims, supportClaimQueueFilter]);
+
   if (!sessionChecked || !isAdmin) {
     return null;
   }
@@ -772,13 +863,14 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
         </div>
       </div>
 
-      <div className="pc-detail-surface mt-2 bg-app-surface">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+      <details className="pc-detail-surface mt-2 bg-app-surface">
+        <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          <AppIcon name="help" className="h-3.5 w-3.5" />
           {tr("Temporary support claim verification (22A.1)")}
-        </p>
-        <p className="mt-1 text-xs text-app-text-muted">
+        </summary>
+        <p className="mt-2 text-xs text-app-text-muted">
           {tr(
-            "Owner-only temporary helper for runtime verification. Remove after manual 22A closure.",
+            "Legacy owner-only helper for old verification flows. Keep collapsed unless explicitly needed.",
           )}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -849,7 +941,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
             </p>
           </div>
         )}
-      </div>
+      </details>
 
       <div className="pc-detail-surface mt-2 bg-app-surface">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
@@ -870,31 +962,121 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
             {isLoadingPurchaseClaims ? tr("Loading...") : tr("Refresh claim queue")}
           </button>
         </div>
+        <div className="mt-1.5 rounded-xl border border-app-border bg-white px-3 py-2 text-xs text-app-text-muted">
+          <p>
+            {tr("Visible")}: {visiblePurchaseClaims.length} / {tr("In queue")}:{" "}
+            {sortedPurchaseClaims.length}
+          </p>
+          <p className="mt-1">
+            {tr("Needs review first. Legacy context stays readable but secondary.")}
+          </p>
+          <div className="pc-segmented mt-1.5">
+            <button
+              type="button"
+              onClick={() => setSupportClaimQueueFilter("needs_review")}
+              aria-pressed={supportClaimQueueFilter === "needs_review"}
+              className="pc-segment-btn min-h-9"
+            >
+              {tr("Needs review")} ({supportClaimQueueCounts.needsReview})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSupportClaimQueueFilter("all")}
+              aria-pressed={supportClaimQueueFilter === "all"}
+              className="pc-segment-btn min-h-9"
+            >
+              {tr("All")} ({supportClaimQueueCounts.all})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSupportClaimQueueFilter("approved")}
+              aria-pressed={supportClaimQueueFilter === "approved"}
+              className="pc-segment-btn min-h-9"
+            >
+              {tr("Approved")} ({supportClaimQueueCounts.approved})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSupportClaimQueueFilter("rejected")}
+              aria-pressed={supportClaimQueueFilter === "rejected"}
+              className="pc-segment-btn min-h-9"
+            >
+              {tr("Rejected")} ({supportClaimQueueCounts.rejected})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSupportClaimQueueFilter("closed")}
+              aria-pressed={supportClaimQueueFilter === "closed"}
+              className="pc-segment-btn min-h-9"
+            >
+              {tr("Closed")} ({supportClaimQueueCounts.closed})
+            </button>
+          </div>
+        </div>
         <div className="mt-2 space-y-1.5">
-          {purchaseClaims.map((claim) => (
+          {visiblePurchaseClaims.map((claim) => (
             <details
               key={claim.id}
               className="pc-state-card bg-app-surface px-2 py-1.5 text-xs text-app-text-muted"
             >
-              <summary className="flex cursor-pointer items-center justify-between gap-2">
-                <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 font-semibold text-app-text">
-                  <span>
-                    {tr("Claim")} #{claim.id.slice(0, 8)}
-                  </span>
-                  <span className="text-app-text-muted">
-                    | {tr("Telegram user id")}: {claim.telegramUserId}
-                  </span>
-                  <span className="text-app-text-muted">
-                    |{" "}
-                    {isLegacyClaimRecord(claim)
-                      ? tr("Legacy format")
-                      : tr("Current format")}
-                  </span>
-                  {claim.purchaseCorrelationCode && (
-                    <span className="text-app-text-muted">
-                      | {tr("Support reference code")}: {claim.purchaseCorrelationCode}
+              <summary className="flex cursor-pointer items-start justify-between gap-2">
+                <span className="min-w-0 flex-1">
+                  <span className="inline-flex flex-wrap items-center gap-1 font-semibold text-app-text">
+                    <span>
+                      {tr("Claim")} #{claim.id.slice(0, 8)}
                     </span>
-                  )}
+                    <span
+                      className={`pc-status-pill ${
+                        isLegacyClaimRecord(claim)
+                          ? "pc-status-pill-warning"
+                          : "pc-status-pill-success"
+                      }`}
+                    >
+                      <AppIcon
+                        name={isLegacyClaimRecord(claim) ? "clock" : "check"}
+                        className="h-3 w-3"
+                      />
+                      {isLegacyClaimRecord(claim)
+                        ? tr("Legacy format")
+                        : tr("Current format")}
+                    </span>
+                    {(claim.status === "submitted" || claim.status === "pending_review") && (
+                      <span className="pc-status-pill pc-status-pill-warning">
+                        <AppIcon name="alert" className="h-3 w-3" />
+                        {tr("Needs review")}
+                      </span>
+                    )}
+                  </span>
+                  <span className="mt-1 inline-flex flex-wrap items-center gap-1 text-[11px] text-app-text-muted">
+                    <span className="pc-status-pill">
+                      <AppIcon name="workspace" className="h-3 w-3" />
+                      {tr("Telegram user id")}: {claim.telegramUserId}
+                    </span>
+                    <span className="pc-status-pill">
+                      <AppIcon name="support" className="h-3 w-3" />
+                      {getClaimRailLabel(claim)}
+                    </span>
+                    {claim.purchaseCorrelationCode && (
+                      <span className="pc-status-pill">
+                        <AppIcon name="wallet" className="h-3 w-3" />
+                        {tr("Support reference code")}: {claim.purchaseCorrelationCode}
+                      </span>
+                    )}
+                    <span className="pc-status-pill">
+                      <AppIcon name="clock" className="h-3 w-3" />
+                      {tr("Submitted at")}: {formatDateTime(claim.submittedAt, claim.submittedAt)}
+                    </span>
+                    <span className="pc-status-pill">
+                      <AppIcon name="template" className="h-3 w-3" />
+                      {tr("Proof fields")}:{" "}
+                      {[
+                        claim.paymentProofReference,
+                        claim.externalPayerHandle,
+                        claim.paymentProofText,
+                      ].filter((value) => Boolean(value?.trim())).length}
+                      /3
+                    </span>
+                  </span>
                 </span>
                 <span
                   className={`pc-status-pill ${getClaimStatusPillClass(claim.status)}`}
@@ -1011,7 +1193,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                     disabled={
                       reviewingClaimId === claim.id || !isClaimReviewable(claim.status)
                     }
-                    className="pc-btn-secondary disabled:opacity-60"
+                    className="pc-btn-primary disabled:opacity-60"
                   >
                     {reviewingClaimId === claim.id
                       ? tr("Saving...")
@@ -1023,7 +1205,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                     disabled={
                       reviewingClaimId === claim.id || !isClaimReviewable(claim.status)
                     }
-                    className="pc-btn-quiet disabled:opacity-60"
+                    className="pc-btn-danger disabled:opacity-60"
                   >
                     {reviewingClaimId === claim.id
                       ? tr("Saving...")
@@ -1047,12 +1229,20 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
               )}
             </details>
           ))}
-          {!isLoadingPurchaseClaims && purchaseClaims.length === 0 && (
+          {!isLoadingPurchaseClaims && sortedPurchaseClaims.length === 0 && (
             <p className="pc-state-inline">
               <AppIcon name="clock" className="h-3.5 w-3.5" />
               {tr("No support claims yet.")}
             </p>
           )}
+          {!isLoadingPurchaseClaims &&
+            sortedPurchaseClaims.length > 0 &&
+            visiblePurchaseClaims.length === 0 && (
+              <p className="pc-state-inline">
+                <AppIcon name="clock" className="h-3.5 w-3.5" />
+                {tr("No claims in this focus yet.")}
+              </p>
+            )}
         </div>
       </div>
 

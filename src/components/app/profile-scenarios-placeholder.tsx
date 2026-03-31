@@ -224,7 +224,14 @@ function ProfileScenariosContent() {
   const isGiftClaimGranted = giftPremiumClaimResult?.status === "granted";
   const supportRails = clientEnv.supportRails;
   const configuredSupportRails = supportRails.filter((rail) => rail.isConfigured);
+  const primarySupportRail = supportRails.find((rail) => rail.isPrimary) ?? null;
+  const secondarySupportRail = supportRails.find((rail) => !rail.isPrimary) ?? null;
   const isClaimRejected = latestPurchaseClaim?.status === "rejected";
+  const hasAnySupportProofField = Boolean(
+    purchaseClaimExternalHandle.trim() ||
+      purchaseClaimProofReference.trim() ||
+      purchaseClaimProofText.trim(),
+  );
   const purchaseClaimStatusLabel = (() => {
     if (!latestPurchaseClaim) {
       return null;
@@ -312,6 +319,32 @@ function ProfileScenariosContent() {
       : claimLifecycle.tone === "warning"
         ? "pc-status-pill-warning"
         : "";
+  const claimNextStepLabel = (() => {
+    if (premiumEntitlement?.isPremium) {
+      return tr("No action needed. Submit a new claim only after a new support period.");
+    }
+
+    if (!latestPurchaseClaim) {
+      return tr("Support externally, then open claim form and submit at least one proof field.");
+    }
+
+    if (
+      latestPurchaseClaim.status === "submitted" ||
+      latestPurchaseClaim.status === "pending_review"
+    ) {
+      return tr("Wait for owner review and refresh claim status later.");
+    }
+
+    if (latestPurchaseClaim.status === "approved") {
+      return tr("Refresh context if Premium status is not updated yet.");
+    }
+
+    if (latestPurchaseClaim.status === "rejected") {
+      return tr("Update proof and submit a new claim after your next support action.");
+    }
+
+    return tr("Claim is closed. Submit a new claim only after a new support period.");
+  })();
   const purchaseIntentSummaryLabel = (() => {
     if (!latestPurchaseIntent) {
       return tr("No support reference code yet");
@@ -908,6 +941,32 @@ function ProfileScenariosContent() {
             },
           )}
         </p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="pc-state-card bg-white px-3 py-2 text-xs text-app-text-muted">
+            <p className="pc-kicker">
+              <AppIcon name="support" className="h-3.5 w-3.5" />
+              {tr("Rail snapshot")}
+            </p>
+            <p className="mt-1">
+              {tr("Primary rail")}: {primarySupportRail ? tr(primarySupportRail.title) : tr("Not set")}
+            </p>
+            <p className="mt-1">
+              {tr("Secondary rail")}:{" "}
+              {secondarySupportRail?.isConfigured
+                ? tr("Configured")
+                : tr("Pending setup")}
+            </p>
+          </div>
+          <div className="pc-state-card bg-white px-3 py-2 text-xs text-app-text-muted">
+            <p className="pc-kicker">
+              <AppIcon name="wallet" className="h-3.5 w-3.5" />
+              {tr("Support flow")}
+            </p>
+            <p className="mt-1">{tr("1) Support externally (optional).")}</p>
+            <p className="mt-1">{tr("2) Submit claim with proof/reference.")}</p>
+            <p className="mt-1">{tr("3) Owner reviews safely before perk grant.")}</p>
+          </div>
+        </div>
         <div className="pc-detail-surface bg-app-surface">
           <p className="pc-kicker">
             <AppIcon name="premium" className="h-3.5 w-3.5" />
@@ -954,7 +1013,6 @@ function ProfileScenariosContent() {
                   {tr("Core features remain free in this phase.")}
                 </p>
               )}
-              <p className="mt-1 text-xs text-app-text-muted">{tr("Core features stay free.")}</p>
             </>
           )}
 
@@ -974,34 +1032,57 @@ function ProfileScenariosContent() {
                     href={rail.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="pc-action-card"
+                    className={`pc-action-card ${
+                      rail.isPrimary
+                        ? "border-app-accent/65 bg-white shadow-[0_10px_22px_var(--app-frame-shadow)]"
+                        : "bg-app-surface-soft"
+                    }`}
                   >
                     <p className="inline-flex items-center gap-1.5 text-sm font-semibold">
                       <AppIcon name="support" className="h-4 w-4" />
                       {tr(rail.title)}
-                      <span className={`pc-status-pill ${rail.isPrimary ? "pc-status-pill-success" : ""}`}>
+                      <span
+                        className={`pc-status-pill ${
+                          rail.isPrimary ? "pc-status-pill-success" : ""
+                        }`}
+                      >
                         {rail.isPrimary ? tr("Primary") : tr("Secondary")}
                       </span>
                     </p>
                     <p className="mt-1 text-xs text-app-text-muted">{tr(rail.subtitle)}</p>
+                    <p className="mt-1 text-[11px] text-app-text-muted">
+                      {tr("External support page. Premium is reviewed manually after claim.")}
+                    </p>
                     <span className="pc-btn-secondary mt-2 w-full justify-center text-xs">
                       {tr(rail.ctaLabel)}
                     </span>
                   </a>
                 ) : (
-                  <div key={rail.id} aria-disabled className="pc-action-card">
+                  <div
+                    key={rail.id}
+                    aria-disabled
+                    className={`pc-action-card ${
+                      rail.isPrimary ? "border-app-border bg-app-surface" : "bg-app-surface-soft"
+                    }`}
+                  >
                     <p className="inline-flex items-center gap-1.5 text-sm font-semibold">
                       <AppIcon name="support" className="h-4 w-4" />
                       {tr(rail.title)}
-                      <span className={`pc-status-pill ${rail.isPrimary ? "pc-status-pill-success" : ""}`}>
+                      <span
+                        className={`pc-status-pill ${
+                          rail.isPrimary ? "pc-status-pill-success" : ""
+                        }`}
+                      >
                         {rail.isPrimary ? tr("Primary") : tr("Secondary")}
                       </span>
                     </p>
                     <p className="mt-1 text-xs text-app-text-muted">{tr(rail.subtitle)}</p>
                     <p className="mt-1 text-xs text-app-text-muted">
-                      {rail.id === "cloudtips"
-                        ? tr("CloudTips slot is prepared and will appear after URL setup.")
-                        : tr("Support rail slot prepared. URL is not configured yet.")}
+                      {rail.id === "cloudtips" && rail.pendingReason === "duplicates_primary"
+                        ? tr("CloudTips URL duplicates primary rail and stays disabled until changed.")
+                        : rail.id === "cloudtips"
+                          ? tr("CloudTips slot is prepared and will appear after URL setup.")
+                          : tr("Support rail slot prepared. URL is not configured yet.")}
                     </p>
                     <span className="pc-status-pill pc-status-pill-warning mt-2">
                       <AppIcon name="clock" className="h-3 w-3" />
@@ -1023,10 +1104,11 @@ function ProfileScenariosContent() {
             <p className="pc-kicker">
               <AppIcon name="wallet" className="h-3.5 w-3.5" />
               {tr("Support reference code")}
+              <span className="pc-status-pill">{tr("Optional")}</span>
             </p>
             <p className="mt-1 text-xs text-app-text-muted">
               {tr(
-                "Prepare this code before support and add it to your support note if the external rail allows it.",
+                "Recommended: prepare this code first and include it in external support note when possible.",
               )}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -1158,7 +1240,20 @@ function ProfileScenariosContent() {
               {tr("Use this after external support to submit claim for owner review.")}
             </p>
             <p className="mt-1 text-[11px] text-app-text-muted">
-              {tr("Add at least one support proof field before claim submission.")}
+              {tr("At least one proof field is required for claim submission.")}
+            </p>
+            <p
+              className={`pc-status-pill mt-1 ${
+                hasAnySupportProofField ? "pc-status-pill-success" : "pc-status-pill-warning"
+              }`}
+            >
+              <AppIcon
+                name={hasAnySupportProofField ? "check" : "alert"}
+                className="h-3 w-3"
+              />
+              {hasAnySupportProofField
+                ? tr("Proof fields look sufficient for submission.")
+                : tr("Add at least one proof field to enable submit.")}
             </p>
             {latestPurchaseIntent && (
               <div className="mt-2 rounded-xl border border-app-border bg-white px-3 py-2 text-xs">
@@ -1210,7 +1305,7 @@ function ProfileScenariosContent() {
               <button
                 type="button"
                 onClick={() => void submitPremiumClaim()}
-                disabled={isSubmittingPremiumClaim}
+                disabled={isSubmittingPremiumClaim || !hasAnySupportProofField}
                 className={linkablePurchaseIntent ? "pc-btn-primary" : "pc-btn-secondary"}
               >
                 <AppIcon name="check" className="h-3.5 w-3.5" />
@@ -1274,6 +1369,10 @@ function ProfileScenariosContent() {
                   {claimLifecycle.label}
                 </p>
                 <p className="mt-1 text-xs text-app-text-muted">{claimLifecycle.hint}</p>
+                <p className="mt-1 text-xs text-app-text-muted">
+                  <span className="font-semibold text-app-text">{tr("Next step")}:</span>{" "}
+                  {claimNextStepLabel}
+                </p>
               </>
             )}
             <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-app-text-muted">

@@ -3,6 +3,9 @@ const readEnvValue = (value: string | undefined): string => {
 };
 
 export type SupportRailId = "boosty" | "cloudtips";
+export type SupportRailPendingReason =
+  | "missing_or_invalid_url"
+  | "duplicates_primary";
 
 export type SupportRailConfig = {
   id: SupportRailId;
@@ -12,6 +15,7 @@ export type SupportRailConfig = {
   url: string;
   isConfigured: boolean;
   isPrimary: boolean;
+  pendingReason: SupportRailPendingReason | null;
 };
 
 const DEFAULT_BOOSTY_SUPPORT_URL =
@@ -99,24 +103,35 @@ const resolveBoostySupportRailUrl = (): string => {
   return DEFAULT_BOOSTY_SUPPORT_URL;
 };
 
-const resolveCloudTipsSupportRailUrl = (primaryRailUrl: string): string => {
+const resolveCloudTipsSupportRail = (
+  primaryRailUrl: string,
+): { url: string; pendingReason: SupportRailPendingReason | null } => {
   const cloudTipsUrl = normalizeExternalUrl(
     readEnvValue(process.env.NEXT_PUBLIC_SUPPORT_CLOUDTIPS_URL),
   );
   if (!cloudTipsUrl) {
-    return "";
+    return {
+      url: "",
+      pendingReason: "missing_or_invalid_url",
+    };
   }
 
   if (cloudTipsUrl === primaryRailUrl) {
-    return "";
+    return {
+      url: "",
+      pendingReason: "duplicates_primary",
+    };
   }
 
-  return cloudTipsUrl;
+  return {
+    url: cloudTipsUrl,
+    pendingReason: null,
+  };
 };
 
 const resolveSupportRails = (): SupportRailConfig[] => {
   const boostyUrl = resolveBoostySupportRailUrl();
-  const cloudTipsUrl = resolveCloudTipsSupportRailUrl(boostyUrl);
+  const cloudTipsRail = resolveCloudTipsSupportRail(boostyUrl);
 
   return [
     {
@@ -127,15 +142,17 @@ const resolveSupportRails = (): SupportRailConfig[] => {
       url: boostyUrl,
       isConfigured: Boolean(boostyUrl),
       isPrimary: true,
+      pendingReason: null,
     },
     {
       id: "cloudtips",
       title: "CloudTips",
       subtitle: "Secondary support rail",
       ctaLabel: "Open CloudTips",
-      url: cloudTipsUrl,
-      isConfigured: Boolean(cloudTipsUrl),
+      url: cloudTipsRail.url,
+      isConfigured: Boolean(cloudTipsRail.url),
       isPrimary: false,
+      pendingReason: cloudTipsRail.pendingReason,
     },
   ];
 };
