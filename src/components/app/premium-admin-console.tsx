@@ -36,6 +36,22 @@ type SupportClaimQueueFilter =
   | "approved"
   | "rejected"
   | "closed";
+type SupportClaimRailFocus =
+  | "all"
+  | "cloudtips_candidate"
+  | "boosty_continuity"
+  | "manual_fallback"
+  | "legacy";
+type ClaimRailTriageKind =
+  | "cloudtips_candidate"
+  | "boosty_continuity"
+  | "manual_fallback"
+  | "legacy";
+type ClaimContinuityKind =
+  | "returned_tracked"
+  | "opened_external_tracked"
+  | "reference_linked"
+  | "manual_proof";
 
 const formatDateTime = (value: string | null, fallback: string): string => {
   if (!value) {
@@ -50,6 +66,125 @@ const formatDateTime = (value: string | null, fallback: string): string => {
   return parsed.toLocaleString();
 };
 
+const readClaimMetadataValue = (
+  claim: SupportClaimPayload,
+  key: string,
+): string | null => {
+  const raw = claim.metadata?.[key];
+  if (typeof raw !== "string") {
+    return null;
+  }
+
+  const normalized = raw.trim();
+  return normalized ? normalized : null;
+};
+
+const resolveClaimRailTriageKind = (
+  claim: SupportClaimPayload,
+): ClaimRailTriageKind => {
+  const supportRailId = readClaimMetadataValue(claim, "linked_support_rail_id");
+  const supportRailMode = readClaimMetadataValue(claim, "linked_support_rail_mode");
+  if (supportRailId === "cloudtips" || supportRailMode === "automation_candidate") {
+    return "cloudtips_candidate";
+  }
+
+  if (supportRailId === "boosty" || supportRailMode === "continuity_claim_manual") {
+    return "boosty_continuity";
+  }
+
+  if (claim.claimRail === "boosty_premium") {
+    return "legacy";
+  }
+
+  return "manual_fallback";
+};
+
+const resolveClaimContinuityKind = (
+  claim: SupportClaimPayload,
+): ClaimContinuityKind => {
+  const continuityStage = readClaimMetadataValue(
+    claim,
+    "linked_purchase_intent_continuity_stage",
+  );
+  const openedAt = readClaimMetadataValue(
+    claim,
+    "linked_purchase_intent_opened_external_at",
+  );
+  const returnedAt = readClaimMetadataValue(
+    claim,
+    "linked_purchase_intent_returned_at",
+  );
+  if (continuityStage === "returned_tracked" || returnedAt) {
+    return "returned_tracked";
+  }
+
+  if (continuityStage === "opened_external_tracked" || openedAt) {
+    return "opened_external_tracked";
+  }
+
+  if (continuityStage === "prepared_only" || claim.purchaseIntentId) {
+    return "reference_linked";
+  }
+
+  return "manual_proof";
+};
+
+const countClaimProofFields = (claim: SupportClaimPayload): number => {
+  return [
+    claim.paymentProofReference,
+    claim.externalPayerHandle,
+    claim.paymentProofText,
+  ].filter((value) => Boolean(value?.trim())).length;
+};
+
+const getClaimQueueRank = (status: SupportClaimPayload["status"]): number => {
+  if (status === "submitted" || status === "pending_review") {
+    return 0;
+  }
+
+  if (status === "approved") {
+    return 1;
+  }
+
+  if (status === "rejected") {
+    return 2;
+  }
+
+  return 3;
+};
+
+const getClaimRailFocusRank = (triageKind: ClaimRailTriageKind): number => {
+  if (triageKind === "cloudtips_candidate") {
+    return 0;
+  }
+
+  if (triageKind === "boosty_continuity") {
+    return 1;
+  }
+
+  if (triageKind === "manual_fallback") {
+    return 2;
+  }
+
+  return 3;
+};
+
+const getClaimContinuityRank = (continuityKind: ClaimContinuityKind): number => {
+  if (continuityKind === "returned_tracked") {
+    return 0;
+  }
+
+  if (continuityKind === "opened_external_tracked") {
+    return 1;
+  }
+
+  if (continuityKind === "reference_linked") {
+    return 2;
+  }
+
+  return 3;
+};
+
 export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
   const { tr } = useLocalization();
   const [sessionChecked, setSessionChecked] = useState(false);
@@ -60,6 +195,8 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
   const [purchaseClaims, setPurchaseClaims] = useState<SupportClaimPayload[]>([]);
   const [supportClaimQueueFilter, setSupportClaimQueueFilter] =
     useState<SupportClaimQueueFilter>("needs_review");
+  const [supportClaimRailFocus, setSupportClaimRailFocus] =
+    useState<SupportClaimRailFocus>("all");
   const [isResolvingTarget, setIsResolvingTarget] = useState(false);
   const [isSavingPremium, setIsSavingPremium] = useState(false);
   const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(false);
@@ -533,21 +670,21 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
   };
 
   const getClaimOperationalRailSummary = (claim: SupportClaimPayload) => {
-    const supportRailId = readClaimMetadataValue(claim, "linked_support_rail_id");
-    const supportRailMode = readClaimMetadataValue(claim, "linked_support_rail_mode");
-
-    if (supportRailId === "cloudtips" || supportRailMode === "automation_candidate") {
+    const triageKind = resolveClaimRailTriageKind(claim);
+    if (triageKind === "cloudtips_candidate") {
       return {
+        triageKind,
         label: tr("CloudTips candidate path"),
-        toneClass: "pc-status-pill-success",
+        toneClass: "pc-status-pill-warning",
         hint: tr(
-          "Claim continuity is linked to CloudTips candidate rail. Owner review remains required until verified automation exists.",
+          "CloudTips candidate context is available for faster owner triage. Manual review is still required before entitlement.",
         ),
       };
     }
 
-    if (supportRailId === "boosty" || supportRailMode === "continuity_claim_manual") {
+    if (triageKind === "boosty_continuity") {
       return {
+        triageKind,
         label: tr("Boosty continuity path"),
         toneClass: "",
         hint: tr(
@@ -556,8 +693,9 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
       };
     }
 
-    if (claim.claimRail === "boosty_premium") {
+    if (triageKind === "legacy") {
       return {
+        triageKind,
         label: tr("Legacy Boosty rail"),
         toneClass: "pc-status-pill-warning",
         hint: tr(
@@ -567,59 +705,38 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     }
 
     return {
-      label: tr("Rail context not tracked"),
+      triageKind,
+      label: tr("Manual fallback context"),
       toneClass: "pc-status-pill-warning",
       hint: tr(
-        "No explicit rail path metadata in this claim. Review by proof and continuity hints.",
+        "No explicit rail-path metadata in this claim. Review by support reference and proof fields.",
       ),
     };
   };
 
-  const readClaimMetadataValue = (
-    claim: SupportClaimPayload,
-    key: string,
-  ): string | null => {
-    const raw = claim.metadata?.[key];
-    if (typeof raw !== "string") {
-      return null;
-    }
-
-    const normalized = raw.trim();
-    return normalized ? normalized : null;
-  };
-
   const getClaimContinuitySummary = (claim: SupportClaimPayload) => {
-    const continuityStage = readClaimMetadataValue(
-      claim,
-      "linked_purchase_intent_continuity_stage",
-    );
-    const openedAt = readClaimMetadataValue(
-      claim,
-      "linked_purchase_intent_opened_external_at",
-    );
-    const returnedAt = readClaimMetadataValue(
-      claim,
-      "linked_purchase_intent_returned_at",
-    );
-
-    if (continuityStage === "returned_tracked" || returnedAt) {
+    const continuityKind = resolveClaimContinuityKind(claim);
+    if (continuityKind === "returned_tracked") {
       return {
+        continuityKind,
         label: tr("Return tracked"),
         toneClass: "pc-status-pill-success",
         hint: tr("Intent continuity includes external open and app return before claim."),
       };
     }
 
-    if (continuityStage === "opened_external_tracked" || openedAt) {
+    if (continuityKind === "opened_external_tracked") {
       return {
+        continuityKind,
         label: tr("External open tracked"),
         toneClass: "pc-status-pill-warning",
         hint: tr("External support open was tracked. Return event was not confirmed."),
       };
     }
 
-    if (continuityStage === "prepared_only" || claim.purchaseIntentId) {
+    if (continuityKind === "reference_linked") {
       return {
+        continuityKind,
         label: tr("Reference linked"),
         toneClass: "",
         hint: tr("Claim is linked to support reference code, with manual proof fallback."),
@@ -627,26 +744,91 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     }
 
     return {
+      continuityKind,
       label: tr("Manual proof path"),
       toneClass: "pc-status-pill-warning",
       hint: tr("No linked support reference continuity. Review relies on proof fields."),
     };
   };
 
-  const getClaimQueueRank = (status: SupportClaimPayload["status"]): number => {
-    if (status === "submitted" || status === "pending_review") {
-      return 0;
+  const getClaimOwnerTriageCue = (params: {
+    triageKind: ClaimRailTriageKind;
+    continuityKind: ClaimContinuityKind;
+    proofFieldsCount: number;
+  }) => {
+    const hasStrongProof = params.proofFieldsCount >= 2;
+    if (params.triageKind === "cloudtips_candidate") {
+      if (params.continuityKind === "returned_tracked" && hasStrongProof) {
+        return {
+          label: tr(
+            "Owner cue: CloudTips candidate with return tracked and sufficient proof. Manual decision can be made quickly.",
+          ),
+          toneClass: "pc-status-pill-success",
+        };
+      }
+
+      if (params.continuityKind === "opened_external_tracked" || hasStrongProof) {
+        return {
+          label: tr(
+            "Owner cue: CloudTips candidate needs coherence check between reference, return context, and proof before manual decision.",
+          ),
+          toneClass: "pc-status-pill-warning",
+        };
+      }
+
+      return {
+        label: tr(
+          "Owner cue: CloudTips candidate has weak continuity/proof context. Request stronger proof before approval.",
+        ),
+        toneClass: "pc-status-pill-warning",
+      };
     }
 
-    if (status === "approved") {
-      return 1;
+    if (params.triageKind === "boosty_continuity") {
+      if (
+        params.continuityKind === "returned_tracked" ||
+        params.continuityKind === "reference_linked"
+      ) {
+        return {
+          label: tr(
+            "Owner cue: Boosty continuity path. Verify support reference and proof details, then decide manually.",
+          ),
+          toneClass: "",
+        };
+      }
+
+      return {
+        label: tr(
+          "Owner cue: Boosty path has limited continuity context. Rely on submitted proof and admin note.",
+        ),
+        toneClass: "pc-status-pill-warning",
+      };
     }
 
-    if (status === "rejected") {
-      return 2;
+    if (params.triageKind === "legacy") {
+      return {
+        label: tr(
+          "Owner cue: Legacy context. Keep strict manual review and avoid assumptions from historical rail semantics.",
+        ),
+        toneClass: "pc-status-pill-warning",
+      };
     }
 
-    return 3;
+    if (hasStrongProof) {
+      return {
+        label: tr(
+          "Owner cue: Manual fallback with sufficient proof fields. Validate consistency, then decide manually.",
+        ),
+        toneClass: "",
+      };
+    }
+
+    return {
+      label: tr(
+        "Owner cue: Manual fallback with weak proof set. Request clearer reference, handle, or note before approval.",
+      ),
+      toneClass: "pc-status-pill-warning",
+    };
   };
 
   const sortedPurchaseClaims = useMemo(() => {
@@ -656,6 +838,25 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
         getClaimQueueRank(left.status) - getClaimQueueRank(right.status);
       if (statusRankDelta !== 0) {
         return statusRankDelta;
+      }
+
+      const railRankDelta =
+        getClaimRailFocusRank(resolveClaimRailTriageKind(left)) -
+        getClaimRailFocusRank(resolveClaimRailTriageKind(right));
+      if (railRankDelta !== 0) {
+        return railRankDelta;
+      }
+
+      const continuityRankDelta =
+        getClaimContinuityRank(resolveClaimContinuityKind(left)) -
+        getClaimContinuityRank(resolveClaimContinuityKind(right));
+      if (continuityRankDelta !== 0) {
+        return continuityRankDelta;
+      }
+
+      const proofDelta = countClaimProofFields(right) - countClaimProofFields(left);
+      if (proofDelta !== 0) {
+        return proofDelta;
       }
 
       if (left.submittedAt !== right.submittedAt) {
@@ -691,7 +892,7 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
     };
   }, [sortedPurchaseClaims]);
 
-  const visiblePurchaseClaims = useMemo(() => {
+  const statusScopedPurchaseClaims = useMemo(() => {
     if (supportClaimQueueFilter === "all") {
       return sortedPurchaseClaims;
     }
@@ -715,6 +916,57 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
       (claim) => claim.status === "expired" || claim.status === "cancelled",
     );
   }, [sortedPurchaseClaims, supportClaimQueueFilter]);
+
+  const supportClaimRailFocusCounts = useMemo(() => {
+    const cloudtipsCandidate = statusScopedPurchaseClaims.filter(
+      (claim) => resolveClaimRailTriageKind(claim) === "cloudtips_candidate",
+    ).length;
+    const boostyContinuity = statusScopedPurchaseClaims.filter(
+      (claim) => resolveClaimRailTriageKind(claim) === "boosty_continuity",
+    ).length;
+    const manualFallback = statusScopedPurchaseClaims.filter(
+      (claim) => resolveClaimRailTriageKind(claim) === "manual_fallback",
+    ).length;
+    const legacy = statusScopedPurchaseClaims.filter(
+      (claim) => resolveClaimRailTriageKind(claim) === "legacy",
+    ).length;
+
+    return {
+      all: statusScopedPurchaseClaims.length,
+      cloudtipsCandidate,
+      boostyContinuity,
+      manualFallback,
+      legacy,
+    };
+  }, [statusScopedPurchaseClaims]);
+
+  const visiblePurchaseClaims = useMemo(() => {
+    if (supportClaimRailFocus === "all") {
+      return statusScopedPurchaseClaims;
+    }
+
+    if (supportClaimRailFocus === "cloudtips_candidate") {
+      return statusScopedPurchaseClaims.filter(
+        (claim) => resolveClaimRailTriageKind(claim) === "cloudtips_candidate",
+      );
+    }
+
+    if (supportClaimRailFocus === "boosty_continuity") {
+      return statusScopedPurchaseClaims.filter(
+        (claim) => resolveClaimRailTriageKind(claim) === "boosty_continuity",
+      );
+    }
+
+    if (supportClaimRailFocus === "manual_fallback") {
+      return statusScopedPurchaseClaims.filter(
+        (claim) => resolveClaimRailTriageKind(claim) === "manual_fallback",
+      );
+    }
+
+    return statusScopedPurchaseClaims.filter(
+      (claim) => resolveClaimRailTriageKind(claim) === "legacy",
+    );
+  }, [statusScopedPurchaseClaims, supportClaimRailFocus]);
 
   if (!sessionChecked || !isAdmin) {
     return null;
@@ -1069,7 +1321,15 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
             {sortedPurchaseClaims.length}
           </p>
           <p className="mt-1">
-            {tr("Needs review first. Legacy context stays readable but secondary.")}
+            {tr("In current status focus")}: {statusScopedPurchaseClaims.length}
+          </p>
+          <p className="mt-1">
+            {tr(
+              "Needs review stays first. CloudTips candidate hints speed triage, but manual owner decision remains mandatory.",
+            )}
+          </p>
+          <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-app-text-muted">
+            {tr("Review status focus")}
           </p>
           <div className="pc-segmented mt-1.5">
             <button
@@ -1113,16 +1373,62 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
               {tr("Closed")} ({supportClaimQueueCounts.closed})
             </button>
           </div>
+          <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-app-text-muted">
+            {tr("Rail triage focus")}
+          </p>
+          <div className="pc-segmented mt-1">
+            <button
+              type="button"
+              onClick={() => setSupportClaimRailFocus("all")}
+              aria-pressed={supportClaimRailFocus === "all"}
+              className="pc-segment-btn min-h-9"
+            >
+              {tr("All rails")} ({supportClaimRailFocusCounts.all})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSupportClaimRailFocus("cloudtips_candidate")}
+              aria-pressed={supportClaimRailFocus === "cloudtips_candidate"}
+              className="pc-segment-btn min-h-9"
+            >
+              {tr("CloudTips candidate")} ({supportClaimRailFocusCounts.cloudtipsCandidate})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSupportClaimRailFocus("boosty_continuity")}
+              aria-pressed={supportClaimRailFocus === "boosty_continuity"}
+              className="pc-segment-btn min-h-9"
+            >
+              {tr("Boosty continuity")} ({supportClaimRailFocusCounts.boostyContinuity})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSupportClaimRailFocus("manual_fallback")}
+              aria-pressed={supportClaimRailFocus === "manual_fallback"}
+              className="pc-segment-btn min-h-9"
+            >
+              {tr("Manual fallback")} ({supportClaimRailFocusCounts.manualFallback})
+            </button>
+            <button
+              type="button"
+              onClick={() => setSupportClaimRailFocus("legacy")}
+              aria-pressed={supportClaimRailFocus === "legacy"}
+              className="pc-segment-btn min-h-9"
+            >
+              {tr("Legacy context")} ({supportClaimRailFocusCounts.legacy})
+            </button>
+          </div>
         </div>
         <div className="mt-2 space-y-1.5">
           {visiblePurchaseClaims.map((claim) => {
             const continuitySummary = getClaimContinuitySummary(claim);
             const operationalRailSummary = getClaimOperationalRailSummary(claim);
-            const proofFieldsCount = [
-              claim.paymentProofReference,
-              claim.externalPayerHandle,
-              claim.paymentProofText,
-            ].filter((value) => Boolean(value?.trim())).length;
+            const proofFieldsCount = countClaimProofFields(claim);
+            const ownerTriageCue = getClaimOwnerTriageCue({
+              triageKind: operationalRailSummary.triageKind,
+              continuityKind: continuitySummary.continuityKind,
+              proofFieldsCount,
+            });
 
             return (
               <details
@@ -1189,6 +1495,10 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                       {tr("Proof fields")}: {proofFieldsCount}/3
                     </span>
                   </span>
+                  <span className="mt-1 inline-flex items-start gap-1 text-[11px] text-app-text-muted">
+                    <AppIcon name="help" className="mt-0.5 h-3 w-3 shrink-0" />
+                    {ownerTriageCue.label}
+                  </span>
                 </span>
                 <span
                   className={`pc-status-pill ${getClaimStatusPillClass(claim.status)}`}
@@ -1232,12 +1542,19 @@ export function PremiumAdminConsole({ initData }: PremiumAdminConsoleProps) {
                     <AppIcon name="support" className="h-3 w-3" />
                     {operationalRailSummary.label}
                   </span>
+                  <span className={`pc-status-pill ${ownerTriageCue.toneClass}`}>
+                    <AppIcon name="help" className="h-3 w-3" />
+                    {tr("Owner triage cue")}
+                  </span>
                 </div>
                 <p className="mt-1 text-[11px] text-app-text-muted">
                   {continuitySummary.hint}
                 </p>
                 <p className="mt-1 text-[11px] text-app-text-muted">
                   {operationalRailSummary.hint}
+                </p>
+                <p className="mt-1 text-[11px] text-app-text-muted">
+                  {ownerTriageCue.label}
                 </p>
                 <p className="mt-1">
                   {tr("Rail")}: {getClaimRailLabel(claim)} ({claim.claimRail})
