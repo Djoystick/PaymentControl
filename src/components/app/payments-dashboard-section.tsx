@@ -14,7 +14,10 @@ import {
   writeCachedPaymentsList,
 } from "@/lib/payments/client-cache";
 import { useLocalization } from "@/lib/i18n/localization";
-import { APP_TAB_NAVIGATE_EVENT, type AppTab } from "@/components/app/app-shell";
+import {
+  APP_TAB_NAVIGATE_EVENT,
+  type AppTabNavigationEventDetail,
+} from "@/components/app/app-shell";
 import type {
   DashboardPaymentItemPayload,
   PaymentsDashboardPayload,
@@ -28,20 +31,7 @@ type PaymentsDashboardSectionProps = {
   variant?: "full" | "compact";
 };
 
-type CompactSummaryFilter = "none" | "all" | "upcoming" | "overdue";
 const WEEKLY_TO_MONTHLY_FACTOR = 52 / 12;
-const COMPACT_FILTER_STORAGE_KEY = "payment_control_home_compact_filter_v18a";
-
-const isCompactSummaryFilter = (
-  value: string | null,
-): value is CompactSummaryFilter => {
-  return (
-    value === "none" ||
-    value === "all" ||
-    value === "upcoming" ||
-    value === "overdue"
-  );
-};
 
 const formatAmount = (item: DashboardPaymentItemPayload): string => {
   return `${item.amount.toFixed(2)} ${item.currency}`;
@@ -54,17 +44,6 @@ const formatDueDate = (value: string): string => {
   }
 
   return parsed.toLocaleDateString();
-};
-
-const sortByDueDateThenTitle = (
-  a: DashboardPaymentItemPayload,
-  b: DashboardPaymentItemPayload,
-): number => {
-  if (a.dueDate !== b.dueDate) {
-    return a.dueDate.localeCompare(b.dueDate);
-  }
-
-  return a.title.localeCompare(b.title);
 };
 
 const DashboardBucket = ({
@@ -110,7 +89,6 @@ export function PaymentsDashboardSection({
   const { tr } = useLocalization();
   const [dashboard, setDashboard] = useState<PaymentsDashboardPayload | null>(null);
   const [activePayments, setActivePayments] = useState<RecurringPaymentPayload[]>([]);
-  const [compactFilter, setCompactFilter] = useState<CompactSummaryFilter>("none");
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const isFamilyWorkspace = workspace?.kind === "family";
@@ -134,42 +112,6 @@ export function PaymentsDashboardSection({
     return null;
   }, [workspace, tr]);
 
-  useEffect(() => {
-    if (!isCompact || !workspaceId || typeof window === "undefined") {
-      setCompactFilter("none");
-      return;
-    }
-
-    try {
-      const stored = window.localStorage.getItem(
-        `${COMPACT_FILTER_STORAGE_KEY}:${workspaceId}`,
-      );
-      if (isCompactSummaryFilter(stored)) {
-        setCompactFilter(stored);
-        return;
-      }
-    } catch {
-      // Ignore storage read errors.
-    }
-
-    setCompactFilter("none");
-  }, [isCompact, workspaceId]);
-
-  useEffect(() => {
-    if (!isCompact || !workspaceId || typeof window === "undefined") {
-      return;
-    }
-
-    try {
-      window.localStorage.setItem(
-        `${COMPACT_FILTER_STORAGE_KEY}:${workspaceId}`,
-        compactFilter,
-      );
-    } catch {
-      // Ignore storage write errors.
-    }
-  }, [compactFilter, isCompact, workspaceId]);
-
   const hasAnyActivePayments = useMemo(() => {
     if (!dashboard) {
       return false;
@@ -180,14 +122,14 @@ export function PaymentsDashboardSection({
     );
   }, [dashboard]);
 
-  const openRemindersTab = useCallback(() => {
+  const navigateToTab = useCallback((detail: AppTabNavigationEventDetail) => {
     if (typeof window === "undefined") {
       return;
     }
 
     window.dispatchEvent(
-      new CustomEvent<{ tab: AppTab }>(APP_TAB_NAVIGATE_EVENT, {
-        detail: { tab: "reminders" },
+      new CustomEvent<AppTabNavigationEventDetail>(APP_TAB_NAVIGATE_EVENT, {
+        detail,
       }),
     );
   }, []);
@@ -303,56 +245,6 @@ export function PaymentsDashboardSection({
       .join(" | ");
   }, [monthlyTotals]);
 
-  const allActiveDashboardItems = useMemo(() => {
-    return activePayments
-      .map((payment) => ({
-        id: payment.id,
-        title: payment.title,
-        amount: payment.amount,
-        currency: payment.currency,
-        category: payment.category,
-        dueDate: payment.currentCycle.dueDate,
-        cycleState: payment.currentCycle.state,
-      }))
-      .sort(sortByDueDateThenTitle);
-  }, [activePayments]);
-
-  const compactFilteredItems = useMemo(() => {
-    if (!dashboard) {
-      return [];
-    }
-
-    if (compactFilter === "all") {
-      return allActiveDashboardItems;
-    }
-
-    if (compactFilter === "upcoming") {
-      return dashboard.upcoming;
-    }
-
-    if (compactFilter === "overdue") {
-      return dashboard.overdue;
-    }
-
-    return [];
-  }, [allActiveDashboardItems, compactFilter, dashboard]);
-
-  const compactFilterLabel = useMemo(() => {
-    if (compactFilter === "all") {
-      return tr("Total");
-    }
-
-    if (compactFilter === "upcoming") {
-      return tr("Upcoming");
-    }
-
-    if (compactFilter === "overdue") {
-      return tr("Overdue");
-    }
-
-    return "";
-  }, [compactFilter, tr]);
-
   return (
     <section className="pc-surface pc-screen-stack">
       <div>
@@ -378,116 +270,149 @@ export function PaymentsDashboardSection({
               {dashboard && (
                 <div className="pc-screen-stack">
                   <div className="pc-kpi-grid">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCompactFilter((current) => (current === "all" ? "none" : "all"))
-                    }
-                    aria-pressed={compactFilter === "all"}
-                    className="pc-kpi-card min-h-[64px] text-left"
-                  >
-                    <p className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-app-border/70 bg-app-surface-elevated text-app-text-muted">
-                      <AppIcon name="payments" className="h-3.5 w-3.5" />
-                    </p>
-                    <p
-                      className={`mt-0.5 inline-flex items-center gap-1 text-[11px] ${
-                        compactFilter === "all" ? "text-app-accent-strong" : "text-app-text-muted"
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigateToTab({
+                          tab: "reminders",
+                          intent: "reminders_all",
+                          sourceTab: "home",
+                          reason: "Open full reminders list from Home snapshot.",
+                        })
+                      }
+                      className="pc-kpi-card min-h-[64px] text-left"
+                    >
+                      <p className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-app-border/70 bg-app-surface-elevated text-app-text-muted">
+                        <AppIcon name="payments" className="h-3.5 w-3.5" />
+                      </p>
+                      <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-app-text-muted">
+                        {tr("Total")}
+                      </p>
+                      <p className="text-sm font-semibold">{totalActiveCount}</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigateToTab({
+                          tab: "reminders",
+                          intent: "reminders_upcoming",
+                          sourceTab: "home",
+                          reason: "Continue in Reminders: upcoming unpaid cards.",
+                        })
+                      }
+                      className="pc-kpi-card min-h-[64px] text-left"
+                    >
+                      <p className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-app-border/70 bg-app-surface-elevated text-app-text-muted">
+                        <AppIcon name="clock" className="h-3.5 w-3.5" />
+                      </p>
+                      <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-app-text-muted">
+                        {tr("Upcoming")}
+                      </p>
+                      <p className="text-sm font-semibold">{dashboard.summary.upcomingCount}</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigateToTab({
+                          tab: "reminders",
+                          intent: "reminders_action_now",
+                          sourceTab: "home",
+                          reason: "Continue in Reminders: action-now cards.",
+                        })
+                      }
+                      className={`pc-kpi-card min-h-[64px] text-left ${
+                        dashboard.summary.overdueCount > 0 ? "pc-kpi-card-alert" : ""
                       }`}
                     >
-                      {tr("Total")}
-                    </p>
-                    <p className="text-sm font-semibold">{totalActiveCount}</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCompactFilter((current) =>
-                        current === "upcoming" ? "none" : "upcoming",
-                      )
-                    }
-                    aria-pressed={compactFilter === "upcoming"}
-                    className="pc-kpi-card min-h-[64px] text-left"
-                  >
-                    <p className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-app-border/70 bg-app-surface-elevated text-app-text-muted">
-                      <AppIcon name="clock" className="h-3.5 w-3.5" />
-                    </p>
-                    <p
-                      className={`mt-0.5 inline-flex items-center gap-1 text-[11px] ${
-                        compactFilter === "upcoming"
-                          ? "text-app-accent-strong"
-                          : "text-app-text-muted"
-                      }`}
-                    >
-                      {tr("Upcoming")}
-                    </p>
-                    <p className="text-sm font-semibold">
-                      {dashboard.summary.upcomingCount}
-                    </p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCompactFilter((current) =>
-                        current === "overdue" ? "none" : "overdue",
-                      )
-                    }
-                    aria-pressed={compactFilter === "overdue"}
-                    className={`pc-kpi-card min-h-[64px] text-left ${
-                      dashboard.summary.overdueCount > 0 && compactFilter !== "overdue"
-                        ? "pc-kpi-card-alert"
-                        : ""
-                    }`}
-                  >
-                    <p className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-app-border/70 bg-app-surface-elevated text-app-text-muted">
-                      <AppIcon name="alert" className="h-3.5 w-3.5" />
-                    </p>
-                    <p
-                      className={`mt-0.5 inline-flex items-center gap-1 text-[11px] ${
-                        compactFilter === "overdue"
-                          ? "text-app-accent-strong"
-                          : "text-app-text-muted"
-                      }`}
-                    >
-                      {tr("Overdue")}
-                    </p>
-                    <p className="text-sm font-semibold">
-                      {dashboard.summary.overdueCount}
-                    </p>
-                  </button>
-                  <div className="pc-kpi-card cursor-default min-h-[64px]">
-                    <p className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-app-border/70 bg-app-surface-elevated text-app-text-muted">
-                      <AppIcon name="wallet" className="h-3.5 w-3.5" />
-                    </p>
-                    <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-app-text-muted">
-                      {tr("Monthly payment cost")}
-                    </p>
-                    <p className="text-sm font-semibold text-app-text">{monthlyTotalLabel}</p>
+                      <p className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-app-border/70 bg-app-surface-elevated text-app-text-muted">
+                        <AppIcon name="alert" className="h-3.5 w-3.5" />
+                      </p>
+                      <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-app-text-muted">
+                        {tr("Overdue")}
+                      </p>
+                      <p className="text-sm font-semibold">{dashboard.summary.overdueCount}</p>
+                    </button>
+                    <div className="pc-kpi-card cursor-default min-h-[64px]">
+                      <p className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-app-border/70 bg-app-surface-elevated text-app-text-muted">
+                        <AppIcon name="wallet" className="h-3.5 w-3.5" />
+                      </p>
+                      <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-app-text-muted">
+                        {tr("Monthly payment cost")}
+                      </p>
+                      <p className="text-sm font-semibold text-app-text">{monthlyTotalLabel}</p>
+                    </div>
                   </div>
-                </div>
 
-                  <button
-                    type="button"
-                    onClick={openRemindersTab}
-                    className="pc-btn-primary w-full"
-                  >
-                    <AppIcon name="reminders" className="h-3.5 w-3.5" />
-                    {tr("Open Reminders for actions")}
-                  </button>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigateToTab({
+                          tab: "reminders",
+                          intent:
+                            dashboard.summary.overdueCount > 0 ||
+                            dashboard.summary.dueTodayCount > 0
+                              ? "reminders_action_now"
+                              : "reminders_all",
+                          sourceTab: "home",
+                          reason:
+                            dashboard.summary.overdueCount > 0 ||
+                            dashboard.summary.dueTodayCount > 0
+                              ? "Open Reminders with action-now focus."
+                              : "Open Reminders for daily routine.",
+                        })
+                      }
+                      className="pc-btn-primary w-full"
+                    >
+                      <AppIcon name="reminders" className="h-3.5 w-3.5" />
+                      {dashboard.summary.overdueCount > 0 || dashboard.summary.dueTodayCount > 0
+                        ? tr("Open action-now Reminders")
+                        : tr("Open Reminders for actions")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigateToTab({
+                          tab: "history",
+                          intent: "history_recent_updates",
+                          sourceTab: "home",
+                          reason: "Review recent changes in History.",
+                        })
+                      }
+                      className="pc-btn-secondary w-full"
+                    >
+                      <AppIcon name="history" className="h-3.5 w-3.5" />
+                      {tr("Open History updates")}
+                    </button>
+                  </div>
                 </div>
               )}
 
               {dashboard && !hasAnyActivePayments && (
                 <div className="pc-empty-state mt-2">
-                  <p className="text-sm font-semibold text-app-text">
-                    {tr("No payments yet")}
-                  </p>
+                  <p className="text-sm font-semibold text-app-text">{tr("No payments yet")}</p>
                   <p className="mt-1 text-xs text-app-text-muted">
                     {tr("Open Reminders and add your first recurring payment.")}
                   </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigateToTab({
+                        tab: "reminders",
+                        intent: "reminders_add_payment",
+                        sourceTab: "home",
+                        reason: "Start first recurring payment from Home empty state.",
+                      })
+                    }
+                    className="pc-btn-secondary mt-2"
+                  >
+                    <AppIcon name="add" className="h-3.5 w-3.5" />
+                    {tr("Add first payment")}
+                  </button>
                 </div>
               )}
 
-              {dashboard && hasAnyActivePayments && compactFilter === "none" && (
+              {dashboard && hasAnyActivePayments && (
                 <p className="pc-state-inline mt-2">
                   <AppIcon name="check" className="h-3.5 w-3.5" />
                   {tr("Paid")} {dashboard.summary.paidThisCycleCount} | {tr("Unpaid")}{" "}
@@ -496,65 +421,6 @@ export function PaymentsDashboardSection({
                     ? ` | ${tr("Mismatch")} ${dashboard.summary.paidByMismatchCount}`
                     : ""}
                 </p>
-              )}
-
-              {hasAnyActivePayments && compactFilter !== "none" && (
-                <div className="pc-detail-surface mt-2">
-                  <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                    <AppIcon name="reminders" className="h-3.5 w-3.5" />
-                    {tr("Filtered by")}: {compactFilterLabel}
-                  </p>
-                  {compactFilteredItems.length === 0 ? (
-                    <p className="mt-2 text-xs text-app-text-muted">
-                      {tr("No matching cards in this segment.")}
-                    </p>
-                  ) : (
-                    <ul className="mt-1.5 space-y-1">
-                      {compactFilteredItems.map((item) => (
-                        <li key={item.id} className="pc-state-card text-xs text-app-text">
-                          <p className="font-medium">{item.title}</p>
-                          <p className="inline-flex items-center gap-1 text-app-text-muted">
-                            <AppIcon name="clock" className="h-3.5 w-3.5" />
-                            {formatAmount(item)} - {tr("Due")} {formatDueDate(item.dueDate)}
-                          </p>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <div className="mt-2">
-                    <button
-                      type="button"
-                      onClick={() => setCompactFilter("none")}
-                      className="pc-btn-quiet"
-                    >
-                      <AppIcon name="refresh" className="h-3.5 w-3.5" />
-                      {tr("Show all payments")}
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {hasAnyActivePayments && compactFilter === "none" && (
-                <details className="pc-detail-surface mt-2">
-                  <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                    <AppIcon name="clock" className="h-3.5 w-3.5" />
-                    {tr("Due now details")}
-                  </summary>
-                  <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
-                    <DashboardBucket
-                      title={tr("Due today")}
-                      items={(dashboard?.dueToday ?? []).slice(0, 3)}
-                      emptyLabel={tr("No unpaid payments due today.")}
-                      dueLabel={tr("Due")}
-                    />
-                    <DashboardBucket
-                      title={tr("Overdue")}
-                      items={(dashboard?.overdue ?? []).slice(0, 3)}
-                      emptyLabel={tr("No overdue unpaid payments.")}
-                      dueLabel={tr("Due")}
-                    />
-                  </div>
-                </details>
               )}
 
               <div className="mt-2 flex items-center gap-2">

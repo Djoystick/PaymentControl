@@ -12,6 +12,10 @@ import {
 } from "@/lib/payments/client-cache";
 import { useLocalization } from "@/lib/i18n/localization";
 import { AppIcon } from "@/components/app/app-icon";
+import {
+  consumeTabNavigationContext,
+  type AppNavigationIntent,
+} from "@/components/app/app-shell";
 import type {
   RecurringPaymentPayload,
   WorkspaceResponsiblePayerOptionPayload,
@@ -33,6 +37,12 @@ type ActivityItem = {
   kind: "created" | "updated" | "archived" | "paid_cycle";
   label: string;
 };
+
+type HistoryNavigationIntent = Extract<
+  AppNavigationIntent,
+  "history_recent_updates" | "history_recent_paid"
+>;
+type ActivityFocusFilter = "all" | "changes" | "paid";
 
 const resolveActivityIcon = (
   kind: ActivityItem["kind"],
@@ -172,6 +182,11 @@ export function PaymentsActivitySection({
   const [responsiblePayerOptions, setResponsiblePayerOptions] = useState<
     WorkspaceResponsiblePayerOptionPayload[]
   >([]);
+  const [activityFocusFilter, setActivityFocusFilter] =
+    useState<ActivityFocusFilter>("all");
+  const [entryFlowContextReason, setEntryFlowContextReason] = useState<string | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -199,6 +214,28 @@ export function PaymentsActivitySection({
     () => buildActivityItems(payments, isFamilyWorkspace),
     [isFamilyWorkspace, payments],
   );
+  const activityFocusCounts = useMemo(() => {
+    const paid = activityItems.filter((item) => item.kind === "paid_cycle").length;
+    const changes = activityItems.filter((item) => item.kind !== "paid_cycle").length;
+
+    return {
+      all: activityItems.length,
+      changes,
+      paid,
+    };
+  }, [activityItems]);
+
+  const focusedActivityItems = useMemo(() => {
+    if (activityFocusFilter === "all") {
+      return activityItems;
+    }
+
+    if (activityFocusFilter === "paid") {
+      return activityItems.filter((item) => item.kind === "paid_cycle");
+    }
+
+    return activityItems.filter((item) => item.kind !== "paid_cycle");
+  }, [activityFocusFilter, activityItems]);
 
   const scopedPaymentsCount = useMemo(
     () =>
@@ -287,6 +324,33 @@ export function PaymentsActivitySection({
     }
   }, [initData, tr, workspaceId, workspaceUnavailable]);
 
+  const applyHistoryNavigationIntent = useCallback(
+    (intent: HistoryNavigationIntent, reason?: string) => {
+      if (intent === "history_recent_paid") {
+        setActivityFocusFilter("paid");
+        setEntryFlowContextReason(
+          reason ?? "Continue from Home with paid-events focus.",
+        );
+        return;
+      }
+
+      setActivityFocusFilter("changes");
+      setEntryFlowContextReason(reason ?? "Continue from Home with recent updates focus.");
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const context = consumeTabNavigationContext("history");
+    if (
+      context &&
+      (context.intent === "history_recent_updates" ||
+        context.intent === "history_recent_paid")
+    ) {
+      applyHistoryNavigationIntent(context.intent, context.reason);
+    }
+  }, [applyHistoryNavigationIntent]);
+
   useEffect(() => {
     loadActivity();
   }, [loadActivity]);
@@ -320,6 +384,24 @@ export function PaymentsActivitySection({
         </p>
       ) : (
         <>
+          {entryFlowContextReason && (
+            <div className="pc-state-card flex items-center justify-between gap-2 text-xs text-app-text-muted">
+              <p className="inline-flex min-w-0 items-center gap-1">
+                <AppIcon name="history" className="h-3.5 w-3.5 shrink-0" />
+                <span className="truncate">
+                  {tr("Continue flow")}: {tr(entryFlowContextReason)}
+                </span>
+              </p>
+              <button
+                type="button"
+                onClick={() => setEntryFlowContextReason(null)}
+                className="pc-btn-quiet min-h-8 px-2 py-1 text-[11px]"
+              >
+                {tr("Clear focus")}
+              </button>
+            </div>
+          )}
+
           <details className="pc-detail-surface">
             <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               <AppIcon name="history" className="h-3.5 w-3.5" />
@@ -347,6 +429,53 @@ export function PaymentsActivitySection({
           </details>
 
           <div className="pc-detail-surface">
+            <div className="mb-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-app-text-muted">
+                {tr("Focus")}
+              </p>
+              <div className="pc-segmented mt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivityFocusFilter("all");
+                    setEntryFlowContextReason(null);
+                  }}
+                  aria-pressed={activityFocusFilter === "all"}
+                  className={`pc-segment-btn min-h-8 ${
+                    activityFocusFilter === "all" ? "pc-segment-btn-active" : ""
+                  }`}
+                >
+                  {tr("All events")} ({activityFocusCounts.all})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivityFocusFilter("changes");
+                    setEntryFlowContextReason(null);
+                  }}
+                  aria-pressed={activityFocusFilter === "changes"}
+                  className={`pc-segment-btn min-h-8 ${
+                    activityFocusFilter === "changes" ? "pc-segment-btn-active" : ""
+                  }`}
+                >
+                  {tr("Changes")} ({activityFocusCounts.changes})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivityFocusFilter("paid");
+                    setEntryFlowContextReason(null);
+                  }}
+                  aria-pressed={activityFocusFilter === "paid"}
+                  className={`pc-segment-btn min-h-8 ${
+                    activityFocusFilter === "paid" ? "pc-segment-btn-active" : ""
+                  }`}
+                >
+                  {tr("Paid events")} ({activityFocusCounts.paid})
+                </button>
+              </div>
+            </div>
+
             {scopedPaymentsCount === 0 ? (
               <div className="pc-empty-state space-y-1">
                 <p className="text-sm font-semibold text-app-text">{tr("History is empty")}</p>
@@ -367,9 +496,26 @@ export function PaymentsActivitySection({
                   {tr("Mark paid or edit a payment in Reminders to populate History.")}
                 </p>
               </div>
+            ) : focusedActivityItems.length === 0 ? (
+              <div className="pc-empty-state space-y-1">
+                <p className="text-sm font-semibold text-app-text">
+                  {tr("No events in this focus yet.")}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivityFocusFilter("all");
+                    setEntryFlowContextReason(null);
+                  }}
+                  className="pc-btn-quiet mt-2"
+                >
+                  <AppIcon name="refresh" className="h-3.5 w-3.5" />
+                  {tr("Show all events")}
+                </button>
+              </div>
             ) : (
               <ul className="space-y-1.5">
-                {activityItems.map((item) => (
+                {focusedActivityItems.map((item) => (
                   (() => {
                     const responsiblePayerName = isFamilyWorkspace
                       ? resolveResponsiblePayerDisplayName(

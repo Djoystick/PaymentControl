@@ -1,7 +1,10 @@
 import { clientEnv } from "@/lib/config/client-env";
 import { useLocalization } from "@/lib/i18n/localization";
 import { AppIcon } from "@/components/app/app-icon";
-import { APP_TAB_NAVIGATE_EVENT, type AppTab } from "@/components/app/app-shell";
+import {
+  APP_TAB_NAVIGATE_EVENT,
+  type AppTabNavigationEventDetail,
+} from "@/components/app/app-shell";
 
 export function LandingScreen() {
   const { tr } = useLocalization();
@@ -12,8 +15,13 @@ export function LandingScreen() {
     }
 
     window.dispatchEvent(
-      new CustomEvent<{ tab: AppTab }>(APP_TAB_NAVIGATE_EVENT, {
-        detail: { tab: "reminders" },
+      new CustomEvent<AppTabNavigationEventDetail>(APP_TAB_NAVIGATE_EVENT, {
+        detail: {
+          tab: "reminders",
+          intent: "reminders_add_payment",
+          sourceTab: "home",
+          reason: "Open add-payment flow from Home.",
+        },
       }),
     );
   };

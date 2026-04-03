@@ -10,6 +10,28 @@ type AppShellProps = {
 };
 
 export type AppTab = "home" | "reminders" | "history" | "profile";
+export type AppNavigationIntent =
+  | "reminders_add_payment"
+  | "reminders_action_now"
+  | "reminders_upcoming"
+  | "reminders_all"
+  | "history_recent_updates"
+  | "history_recent_paid";
+
+export type AppTabNavigationEventDetail = {
+  tab?: AppTab;
+  intent?: AppNavigationIntent;
+  sourceTab?: AppTab;
+  reason?: string;
+};
+
+export type AppTabNavigationContext = {
+  tab: AppTab;
+  intent: AppNavigationIntent;
+  sourceTab?: AppTab;
+  reason?: string;
+  createdAt: string;
+};
 
 type OnboardingStep = {
   title: string;
@@ -33,6 +55,134 @@ const tabItems: ReadonlyArray<{
 export const ONBOARDING_STORAGE_KEY = "payment_control_onboarding_v10c_done";
 export const ONBOARDING_REPLAY_EVENT = "payment-control-replay-onboarding";
 export const APP_TAB_NAVIGATE_EVENT = "payment-control-navigate-tab";
+const APP_TAB_NAVIGATION_CONTEXT_STORAGE_KEY =
+  "payment_control_tab_navigation_context_v27c";
+
+const isAppTab = (value: string): value is AppTab => {
+  return tabItems.some((item) => item.key === value);
+};
+
+const isAppNavigationIntent = (value: string): value is AppNavigationIntent => {
+  return [
+    "reminders_add_payment",
+    "reminders_action_now",
+    "reminders_upcoming",
+    "reminders_all",
+    "history_recent_updates",
+    "history_recent_paid",
+  ].includes(value);
+};
+
+const readTabNavigationContextMap = (): Partial<Record<AppTab, AppTabNavigationContext>> => {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(
+      APP_TAB_NAVIGATION_CONTEXT_STORAGE_KEY,
+    );
+    if (!rawValue) {
+      return {};
+    }
+
+    const parsed = JSON.parse(rawValue) as Partial<Record<AppTab, AppTabNavigationContext>>;
+    if (!parsed || typeof parsed !== "object") {
+      return {};
+    }
+
+    const normalized: Partial<Record<AppTab, AppTabNavigationContext>> = {};
+    for (const [rawTab, rawContext] of Object.entries(parsed)) {
+      if (!isAppTab(rawTab) || !rawContext) {
+        continue;
+      }
+
+      if (
+        !isAppNavigationIntent(rawContext.intent) ||
+        !isAppTab(rawContext.tab) ||
+        rawContext.tab !== rawTab
+      ) {
+        continue;
+      }
+
+      normalized[rawTab] = {
+        tab: rawContext.tab,
+        intent: rawContext.intent,
+        sourceTab: rawContext.sourceTab,
+        reason: rawContext.reason,
+        createdAt: rawContext.createdAt ?? new Date().toISOString(),
+      };
+    }
+
+    return normalized;
+  } catch {
+    return {};
+  }
+};
+
+const writeTabNavigationContextMap = (
+  value: Partial<Record<AppTab, AppTabNavigationContext>>,
+) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(
+      APP_TAB_NAVIGATION_CONTEXT_STORAGE_KEY,
+      JSON.stringify(value),
+    );
+  } catch {
+    // Ignore localStorage write errors in restricted environments.
+  }
+};
+
+export const queueTabNavigationContext = (
+  value: Omit<AppTabNavigationContext, "createdAt">,
+) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const nextMap = readTabNavigationContextMap();
+  nextMap[value.tab] = {
+    ...value,
+    createdAt: new Date().toISOString(),
+  };
+  writeTabNavigationContextMap(nextMap);
+};
+
+export const consumeTabNavigationContext = (
+  tab: AppTab,
+): AppTabNavigationContext | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const nextMap = readTabNavigationContextMap();
+  const target = nextMap[tab] ?? null;
+  if (!target) {
+    return null;
+  }
+
+  delete nextMap[tab];
+  writeTabNavigationContextMap(nextMap);
+  return target;
+};
+
+const clearTabNavigationContext = (tab: AppTab) => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const nextMap = readTabNavigationContextMap();
+  if (!nextMap[tab]) {
+    return;
+  }
+
+  delete nextMap[tab];
+  writeTabNavigationContextMap(nextMap);
+};
 
 const onboardingSteps: OnboardingStep[] = [
   {
@@ -84,6 +234,7 @@ export function AppShell({ screens }: AppShellProps) {
   const [onboardingStepIndex, setOnboardingStepIndex] = useState(0);
 
   const handleTabClick = useCallback((tab: AppTab) => {
+    clearTabNavigationContext(tab);
     setActiveTab(tab);
   }, []);
 
@@ -132,7 +283,7 @@ export function AppShell({ screens }: AppShellProps) {
 
   useEffect(() => {
     const handleTabNavigation = (event: Event) => {
-      const customEvent = event as CustomEvent<{ tab?: AppTab }>;
+      const customEvent = event as CustomEvent<AppTabNavigationEventDetail>;
       const targetTab = customEvent.detail?.tab;
       if (!targetTab) {
         return;
@@ -140,6 +291,17 @@ export function AppShell({ screens }: AppShellProps) {
 
       if (!tabItems.some((item) => item.key === targetTab)) {
         return;
+      }
+
+      if (customEvent.detail?.intent) {
+        queueTabNavigationContext({
+          tab: targetTab,
+          intent: customEvent.detail.intent,
+          sourceTab: customEvent.detail.sourceTab,
+          reason: customEvent.detail.reason,
+        });
+      } else {
+        clearTabNavigationContext(targetTab);
       }
 
       setActiveTab(targetTab);
