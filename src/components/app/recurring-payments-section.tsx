@@ -1322,6 +1322,27 @@ export function RecurringPaymentsSection({
                   <span className="pc-state-inline">{tr("Core fields first")}</span>
                 </div>
               </div>
+              <div className="pc-state-card mt-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                  {tr("Main action")}
+                </p>
+                <p className="mt-0.5 text-xs text-app-text-muted">
+                  {tr("Add or edit recurring payments in one compact form.")}
+                </p>
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  <span className="pc-chip pc-chip-strong">
+                    {editingPaymentId ? tr("Continue editing") : tr("Add payment")}
+                  </span>
+                  <span className="pc-chip">
+                    {form.isSubscription ? tr("Subscription") : tr("Payment")}
+                  </span>
+                  <span className="pc-chip">
+                    {form.cadence === "weekly"
+                      ? `${tr("Weekly")} • ${tr("weekday")} ${form.dueDay || "1"}`
+                      : `${tr("Monthly")} • ${tr("day")} ${form.dueDay || "1"}`}
+                  </span>
+                </div>
+              </div>
               <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <div className="relative sm:col-span-2">
                   <input
@@ -1410,9 +1431,6 @@ export function RecurringPaymentsSection({
                         {tr("Continue manually")}
                       </button>
                     </div>
-                    <p className="mt-0.5 text-[11px] text-app-text-muted">
-                      {tr("Choose a template or continue manually.")}
-                    </p>
                     <div className="mt-1 flex flex-wrap gap-1.5">
                       {quickTemplateOptions.map((option) => (
                         <button
@@ -1529,6 +1547,17 @@ export function RecurringPaymentsSection({
                 <p className="mt-1 text-xs text-app-text-muted">
                   {tr("Reminder timing, category, currency, and notes")}
                 </p>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  <span className="pc-chip">
+                    {tr("Reminder settings")}: {form.remindersEnabled ? tr("On") : tr("Off")}
+                  </span>
+                  <span className="pc-chip">
+                    {tr("Category")}: {form.category || tr("General")}
+                  </span>
+                  <span className="pc-chip">
+                    {tr("Currency")}: {(form.currency || "RUB").toUpperCase()}
+                  </span>
+                </div>
                 <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <input
                     value={form.currency}
@@ -1639,6 +1668,28 @@ export function RecurringPaymentsSection({
                   placeholder={tr("Notes (optional)")}
                   className="pc-textarea mt-2 h-20 resize-y"
                 />
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={saveCurrentFormAsTemplate}
+                    disabled={isSaving}
+                    className="pc-btn-secondary min-h-9 px-3 py-1 text-xs"
+                  >
+                    <AppIcon name="template" className="h-3.5 w-3.5" />
+                    {tr("Save as template")}
+                  </button>
+                  {!editingPaymentId && (
+                    <button
+                      type="button"
+                      onClick={resetFormDraft}
+                      disabled={isSaving}
+                      className="pc-btn-quiet min-h-9 px-3 py-1 text-xs"
+                    >
+                      <AppIcon name="refresh" className="h-3.5 w-3.5" />
+                      {tr("Clear form")}
+                    </button>
+                  )}
+                </div>
               </details>
 
               <div className="pc-modal-sheet-foot mt-2">
@@ -1659,24 +1710,6 @@ export function RecurringPaymentsSection({
                   >
                     {editingPaymentId ? tr("Cancel edit") : tr("Close form")}
                   </button>
-                  <button
-                    type="button"
-                    onClick={saveCurrentFormAsTemplate}
-                    disabled={isSaving}
-                    className="pc-btn-secondary"
-                  >
-                    {tr("Save as template")}
-                  </button>
-                  {!editingPaymentId && (
-                    <button
-                      type="button"
-                      onClick={resetFormDraft}
-                      disabled={isSaving}
-                      className="pc-btn-secondary"
-                    >
-                      {tr("Clear form")}
-                    </button>
-                  )}
                 </div>
               </div>
             </div>
@@ -1794,7 +1827,7 @@ export function RecurringPaymentsSection({
 
           <div className="pc-detail-surface">
             <div className="flex items-start justify-between gap-2">
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                   {tr("Main action")}
                 </p>
@@ -1803,13 +1836,15 @@ export function RecurringPaymentsSection({
                   {tr("Create and manage payments in one place.")}
                 </p>
               </div>
-              <HelpPopover
-                buttonLabel={tr("Open quick actions help")}
-                title={tr("Quick actions help")}
+              <button
+                type="button"
+                onClick={() => void loadPayments()}
+                disabled={isLoading || isSaving}
+                className="pc-btn-quiet min-h-8 px-2 py-1 text-[11px]"
               >
-                <p>{tr("Open payment form for new entries.")}</p>
-                <p>{tr("Edit or delete directly from each payment card.")}</p>
-              </HelpPopover>
+                <AppIcon name="refresh" className="h-3.5 w-3.5" />
+                {tr("Refresh section")}
+              </button>
             </div>
 
             <div className="mt-1.5 flex flex-wrap gap-1">
@@ -1858,12 +1893,19 @@ export function RecurringPaymentsSection({
               </button>
               <button
                 type="button"
-                onClick={() => void loadPayments()}
-                disabled={isLoading || isSaving}
+                onClick={() => {
+                  setPaymentListView("payments");
+                  setShowPausedSubscriptionsOnly(false);
+                  setReminderFocusFilter((current) =>
+                    current === "upcoming" ? "all" : "upcoming",
+                  );
+                  setEntryFlowContextReason("Continue from Home with upcoming focus.");
+                }}
+                aria-pressed={reminderFocusFilter === "upcoming"}
                 className="pc-btn-quiet"
               >
-                <AppIcon name="refresh" className="h-3.5 w-3.5" />
-                {tr("Refresh section")}
+                <AppIcon name="clock" className="h-3.5 w-3.5" />
+                {tr("Upcoming")} ({focusFilterCounts.upcoming})
               </button>
             </div>
           </div>
@@ -1993,8 +2035,11 @@ export function RecurringPaymentsSection({
                 </button>
               </div>
               <p className="mt-1 text-[11px] text-app-text-muted">
-                {tr("Visible")}: {focusedVisiblePayments.length} / {tr("In list")}:{" "}
-                {visiblePayments.length} / {tr("Total")}: {activePayments.length}
+                {tr("Showing {visible} of {inList} cards ({total} active total).", {
+                  visible: focusedVisiblePayments.length,
+                  inList: visiblePayments.length,
+                  total: activePayments.length,
+                })}
               </p>
               <div className="mt-1.5">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-app-text-muted">
@@ -2117,191 +2162,166 @@ export function RecurringPaymentsSection({
                           : "pc-payment-card-default"
                     }`}
                   >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-app-text">{payment.title}</p>
-                            <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-app-text-muted">
-                              <AppIcon
-                                name={payment.isSubscription ? "subscriptions" : "payments"}
-                                className="h-3.5 w-3.5"
-                              />
-                              {payment.isSubscription ? tr("Subscription") : tr("Payment")}
-                            </p>
-                          </div>
-                          <span className="pc-chip pc-chip-strong text-xs">
-                            {formatAmount(payment)}
-                          </span>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-app-text">{payment.title}</p>
+                          <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-app-text-muted">
+                            <AppIcon
+                              name={payment.isSubscription ? "subscriptions" : "payments"}
+                              className="h-3.5 w-3.5"
+                            />
+                            {payment.isSubscription ? tr("Subscription") : tr("Payment")}
+                          </p>
                         </div>
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                          <span
-                            className={`pc-status-pill ${
-                              isPaidCurrentCycle
-                                ? "pc-status-pill-success"
-                                : "pc-status-pill-warning"
+                        <div className="shrink-0 text-right">
+                          <p className="text-sm font-semibold text-app-text">{formatAmount(payment)}</p>
+                          <p
+                            className={`mt-0.5 text-[11px] ${
+                              isOverdueNow
+                                ? "text-amber-700"
+                                : isDueTodayNow
+                                  ? "text-app-accent-strong"
+                                  : "text-app-text-muted"
                             }`}
                           >
-                            <AppIcon
-                              name={isPaidCurrentCycle ? "check" : "clock"}
-                              className="h-3 w-3"
-                            />
-                            {isPaidCurrentCycle ? tr("Paid") : tr("Unpaid")}
-                          </span>
-                          {isOverdueNow && (
-                            <span
-                              className="pc-status-pill pc-status-pill-error"
-                            >
-                              <AppIcon name="alert" className="h-3 w-3" />
-                              {tr("Overdue (unpaid)")}
-                            </span>
-                          )}
-                          {isDueTodayNow && (
-                            <span className="pc-status-pill pc-status-pill-warning">
-                              <AppIcon name="clock" className="h-3 w-3" />
-                              {tr("Due today (unpaid)")}
-                            </span>
-                          )}
-                          {isUpcomingNow && (
-                            <span className="pc-status-pill">
-                              <AppIcon name="clock" className="h-3 w-3" />
-                              {tr("Upcoming (unpaid)")}
-                            </span>
-                          )}
-                          {payment.isSubscription && payment.isPaused && (
-                            <span className="pc-status-pill">
-                              <AppIcon name="subscriptions" className="h-3 w-3" />
-                              {tr("Paused")}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="mt-1 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                          <div className="pc-state-card bg-app-surface-elevated px-2 py-1.5">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-app-text-muted">
-                              {isPaidCurrentCycle ? tr("Next payment date") : tr("Due")}
-                            </p>
-                            <p
-                              className={`mt-0.5 text-xs font-semibold ${
-                                isOverdueNow
-                                  ? "text-amber-700"
-                                  : isDueTodayNow
-                                    ? "text-app-accent-strong"
-                                    : "text-app-text"
-                              }`}
-                            >
-                              {formatDueDate(
-                                isPaidCurrentCycle
-                                  ? nextCycleDueDate
-                                  : payment.currentCycle.dueDate,
-                              )}
-                            </p>
-                          </div>
-                          <div className="pc-state-card bg-app-surface-elevated px-2 py-1.5">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-app-text-muted">
-                              {tr("Cadence")}
-                            </p>
-                            <p className="mt-0.5 text-xs font-semibold text-app-text">
-                              {payment.cadence === "weekly"
-                                ? `${tr("Weekly")} • ${tr("weekday")} ${payment.dueDay}`
-                                : `${tr("Monthly")} • ${tr("day")} ${payment.dueDay}`}
-                            </p>
-                          </div>
-                        </div>
-
-                        {payment.paymentScope === "shared" ? (
-                          <p className="mt-1 text-xs text-app-text-muted">
-                            {tr("Who pays")}: {responsiblePayerName}
+                            {isPaidCurrentCycle ? tr("Next payment date") : tr("Due")}:{" "}
+                            {formatDueDate(
+                              isPaidCurrentCycle ? nextCycleDueDate : payment.currentCycle.dueDate,
+                            )}
                           </p>
-                        ) : null}
-                        <p className="mt-0.5 text-[11px] text-app-text-muted">
-                          {tr("Current cycle")}: {tr(payment.currentCycle.state)}
-                          {payment.currentCycle.paidAt ? ` • ${tr("Paid this cycle.")}` : ""}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span
+                          className={`pc-status-pill ${
+                            isPaidCurrentCycle
+                              ? "pc-status-pill-success"
+                              : "pc-status-pill-warning"
+                          }`}
+                        >
+                          <AppIcon
+                            name={isPaidCurrentCycle ? "check" : "clock"}
+                            className="h-3 w-3"
+                          />
+                          {isPaidCurrentCycle ? tr("Paid") : tr("Unpaid")}
+                        </span>
+                        {isOverdueNow && (
+                          <span className="pc-status-pill pc-status-pill-error">
+                            <AppIcon name="alert" className="h-3 w-3" />
+                            {tr("Overdue (unpaid)")}
+                          </span>
+                        )}
+                        {isDueTodayNow && (
+                          <span className="pc-status-pill pc-status-pill-warning">
+                            <AppIcon name="clock" className="h-3 w-3" />
+                            {tr("Due today (unpaid)")}
+                          </span>
+                        )}
+                        {isUpcomingNow && (
+                          <span className="pc-status-pill">
+                            <AppIcon name="clock" className="h-3 w-3" />
+                            {tr("Upcoming (unpaid)")}
+                          </span>
+                        )}
+                        <span className="pc-chip">
+                          {payment.cadence === "weekly"
+                            ? `${tr("Weekly")} • ${tr("weekday")} ${payment.dueDay}`
+                            : `${tr("Monthly")} • ${tr("day")} ${payment.dueDay}`}
+                        </span>
+                        {payment.isSubscription && payment.isPaused && (
+                          <span className="pc-status-pill">
+                            <AppIcon name="subscriptions" className="h-3 w-3" />
+                            {tr("Paused")}
+                          </span>
+                        )}
+                      </div>
+
+                      {payment.paymentScope === "shared" ? (
+                        <p className="text-xs text-app-text-muted">
+                          {tr("Who pays")}: {responsiblePayerName}
+                          {isPaidCurrentCycle ? ` • ${tr("Paid by")}: ${paidByName ?? tr("Not captured")}` : ""}
                         </p>
-                        {isPaidCurrentCycle && payment.paymentScope === "shared" && (
-                          <p className="mt-0.5 text-xs text-app-text-muted">
-                            {tr("Paid by")}: {paidByName ?? tr("Not captured")}
+                      ) : null}
+                      {payment.paymentScope === "shared" &&
+                        isPaidCurrentCycle &&
+                        hasEconomicsMismatch && (
+                          <p className="text-[11px] font-medium text-amber-700">
+                            {tr("Economics hint")}: {paidByName ?? tr("Another member")}{" "}
+                            {tr("covered this cycle, while responsibility is on")}{" "}
+                            {responsiblePayerName ?? tr("another member")}.
                           </p>
                         )}
-                        {payment.paymentScope === "shared" &&
-                          isPaidCurrentCycle &&
-                          hasEconomicsMismatch && (
-                            <p className="mt-0.5 text-[11px] font-medium text-amber-700">
-                              {tr("Economics hint")}: {paidByName ?? tr("Another member")}{" "}
-                              {tr("covered this cycle, while responsibility is on")}{" "}
-                              {responsiblePayerName ?? tr("another member")}.
-                            </p>
-                          )}
-                        {payment.paymentScope === "shared" &&
-                          isPaidCurrentCycle &&
-                          !hasEconomicsMismatch &&
-                          payment.responsibleProfileId &&
-                          payment.currentCycle.paidByProfileId &&
-                          payment.responsibleProfileId ===
-                            payment.currentCycle.paidByProfileId && (
-                            <p className="mt-0.5 text-[11px] font-medium text-emerald-700">
-                              {tr("Economics: aligned (responsible payer paid this cycle).")}
-                            </p>
-                          )}
-                        <details className="pc-state-card mt-1.5 bg-app-surface-elevated px-1.5 py-1 text-xs text-app-text-muted">
-                          <summary className="inline-flex cursor-pointer items-center gap-1 font-semibold text-app-text">
-                            <AppIcon name="template" className="h-3.5 w-3.5 text-app-text-muted" />
-                            {tr("Details and actions")}
-                          </summary>
-                          <div className="mt-1 flex flex-wrap gap-1">
-                            <span className="pc-chip">
-                              {payment.paymentScope === "shared"
-                                ? tr("Family shared")
-                                : tr("Personal")}
-                            </span>
-                            <span className="pc-chip">
-                              {payment.isSubscription ? tr("Subscription") : tr("Payment")}
-                            </span>
-                            <span className="pc-chip">
-                              {payment.category}
-                            </span>
-                            <span className="pc-chip">
-                              {payment.isRequired ? tr("Required") : tr("Optional")}
-                            </span>
-                            <span className="pc-chip">
-                              {tr("Status")}: {tr(payment.status)}
-                            </span>
-                          </div>
-                          <p className="mt-1">
-                            {payment.remindersEnabled
-                              ? `${tr("On")} (${tr("before")} ${payment.remindDaysBefore}d, ${tr("due day")} ${payment.remindOnDueDay ? tr("yes") : tr("no")}, ${tr("overdue")} ${payment.remindOnOverdue ? tr("yes") : tr("no")})`
-                              : tr("Off")}
+                      {payment.paymentScope === "shared" &&
+                        isPaidCurrentCycle &&
+                        !hasEconomicsMismatch &&
+                        payment.responsibleProfileId &&
+                        payment.currentCycle.paidByProfileId &&
+                        payment.responsibleProfileId ===
+                          payment.currentCycle.paidByProfileId && (
+                          <p className="text-[11px] font-medium text-emerald-700">
+                            {tr("Economics: aligned (responsible payer paid this cycle).")}
                           </p>
-                          {payment.notes && <p className="mt-1">{payment.notes}</p>}
-                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        )}
+
+                      <details className="pc-state-card bg-app-surface-elevated px-1.5 py-1 text-xs text-app-text-muted">
+                        <summary className="inline-flex cursor-pointer items-center gap-1 font-semibold text-app-text">
+                          <AppIcon name="template" className="h-3.5 w-3.5 text-app-text-muted" />
+                          {tr("Details and actions")}
+                        </summary>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          <span className="pc-chip">
+                            {payment.paymentScope === "shared"
+                              ? tr("Family shared")
+                              : tr("Personal")}
+                          </span>
+                          <span className="pc-chip">
+                            {payment.isSubscription ? tr("Subscription") : tr("Payment")}
+                          </span>
+                          <span className="pc-chip">{payment.category}</span>
+                          <span className="pc-chip">
+                            {payment.isRequired ? tr("Required") : tr("Optional")}
+                          </span>
+                          <span className="pc-chip">
+                            {tr("Status")}: {tr(payment.status)}
+                          </span>
+                        </div>
+                        <p className="mt-1">
+                          {payment.remindersEnabled
+                            ? `${tr("On")} (${tr("before")} ${payment.remindDaysBefore}d, ${tr("due day")} ${payment.remindOnDueDay ? tr("yes") : tr("no")}, ${tr("overdue")} ${payment.remindOnOverdue ? tr("yes") : tr("no")})`
+                            : tr("Off")}
+                        </p>
+                        {payment.notes && <p className="mt-1">{payment.notes}</p>}
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => savePaymentAsTemplate(payment)}
+                            disabled={isSaving || payment.status === "archived"}
+                            className="pc-btn-quiet disabled:opacity-60"
+                          >
+                            <AppIcon name="template" className="h-3.5 w-3.5" />
+                            {tr("Save as template")}
+                          </button>
+                          {payment.isSubscription && (
                             <button
                               type="button"
-                              onClick={() => savePaymentAsTemplate(payment)}
-                              disabled={isSaving || payment.status === "archived"}
+                              onClick={() =>
+                                handlePauseResume(payment.id, !payment.isPaused)
+                              }
+                              disabled={
+                                isSaving || payment.status === "archived" || isFamilyWorkspace
+                              }
                               className="pc-btn-quiet disabled:opacity-60"
                             >
-                              <AppIcon name="template" className="h-3.5 w-3.5" />
-                              {tr("Save as template")}
+                              <AppIcon name="subscriptions" className="h-3.5 w-3.5" />
+                              {payment.isPaused ? tr("Resume") : tr("Pause")}
                             </button>
-                            {payment.isSubscription && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handlePauseResume(payment.id, !payment.isPaused)
-                                }
-                                disabled={
-                                  isSaving || payment.status === "archived" || isFamilyWorkspace
-                                }
-                                className="pc-btn-quiet disabled:opacity-60"
-                              >
-                                <AppIcon name="subscriptions" className="h-3.5 w-3.5" />
-                                {payment.isPaused ? tr("Resume") : tr("Pause")}
-                              </button>
-                            )}
-                          </div>
-                        </details>
-                      </div>
-                      <div className="mt-0.5 flex w-full flex-col gap-1.5 sm:mt-0 sm:w-44 sm:shrink-0">
+                          )}
+                        </div>
+                      </details>
+
+                      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
                         <button
                           type="button"
                           onClick={() =>
@@ -2314,7 +2334,7 @@ export function RecurringPaymentsSection({
                             isFamilyWorkspace,
                             isSaving,
                           )}
-                          className={`pc-btn-primary min-h-11 w-full text-xs disabled:opacity-60 ${
+                          className={`pc-btn-primary min-h-11 w-full text-xs disabled:opacity-60 sm:col-span-3 ${
                             isOverdueNow ? "pc-btn-primary-warning" : ""
                           }`}
                         >
@@ -2322,30 +2342,26 @@ export function RecurringPaymentsSection({
                             name={isPaidCurrentCycle ? "undo" : "check"}
                             className="h-3.5 w-3.5"
                           />
-                          {isPaidCurrentCycle
-                            ? tr("Undo paid")
-                            : tr("Mark paid")}
+                          {isPaidCurrentCycle ? tr("Undo paid") : tr("Mark paid")}
                         </button>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => startEdit(payment)}
-                            disabled={isSaving || payment.status === "archived"}
-                            className="pc-btn-secondary min-h-9 px-2 py-1 text-xs text-app-text-muted disabled:opacity-60"
-                          >
-                            <AppIcon name="edit" className="h-3.5 w-3.5" />
-                            {tr("Edit")}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPendingDeletePaymentId(payment.id)}
-                            disabled={isSaving || payment.status === "archived"}
-                            className="pc-btn-danger min-h-9 px-2 py-1 text-xs disabled:opacity-60"
-                          >
-                            <AppIcon name="archive" className="h-3.5 w-3.5" />
-                            {tr("Delete")}
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => startEdit(payment)}
+                          disabled={isSaving || payment.status === "archived"}
+                          className="pc-btn-secondary min-h-9 px-2 py-1 text-xs text-app-text-muted disabled:opacity-60 sm:col-span-2"
+                        >
+                          <AppIcon name="edit" className="h-3.5 w-3.5" />
+                          {tr("Edit")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPendingDeletePaymentId(payment.id)}
+                          disabled={isSaving || payment.status === "archived"}
+                          className="pc-btn-danger min-h-9 px-2 py-1 text-xs disabled:opacity-60"
+                        >
+                          <AppIcon name="archive" className="h-3.5 w-3.5" />
+                          {tr("Delete")}
+                        </button>
                       </div>
                       {pendingDeletePaymentId === payment.id && (
                         <div className="mt-1.5 rounded-xl border border-red-200 bg-red-50/70 px-2 py-2 text-xs text-red-900">
