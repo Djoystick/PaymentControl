@@ -206,9 +206,9 @@ export function AppShell({ screens }: AppShellProps) {
   const onboardingOverlay =
     typeof document !== "undefined" && isOnboardingVisible && activeOnboardingStep
       ? createPortal(
-          <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 px-3 [padding-top:max(0.75rem,env(safe-area-inset-top))] [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="pc-modal-overlay z-[80]">
             <div
-              className="pc-surface w-full max-w-md rounded-3xl p-3.5"
+              className="pc-modal-dialog w-full max-w-md p-3.5"
               style={{
                 maxHeight:
                   "calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1.5rem)",
@@ -298,8 +298,8 @@ export function AppShell({ screens }: AppShellProps) {
   return (
     <>
       <div className="relative mx-auto flex min-h-dvh w-full max-w-[420px] flex-col px-1.5 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] pt-1.5 sm:px-2.5">
-        <div className="relative flex min-h-[calc(100dvh-0.75rem)] flex-1 flex-col rounded-[30px] border border-app-border/80 bg-gradient-to-b from-app-surface via-app-surface/94 to-app-surface-soft/55 p-2 shadow-[0_20px_48px_var(--app-frame-shadow)] backdrop-blur">
-          <div className="mb-1.5 flex items-center justify-between rounded-2xl border border-app-border/80 bg-app-surface px-2 py-1 shadow-sm">
+        <div className="pc-shell-frame relative flex min-h-[calc(100dvh-0.75rem)] flex-1 flex-col p-2 backdrop-blur">
+          <header className="pc-shell-header mb-1.5 flex items-center justify-between gap-2">
             <div className="min-w-0">
               <p className="pc-kicker">
                 {tr("Payment Control")}
@@ -314,15 +314,15 @@ export function AppShell({ screens }: AppShellProps) {
               <AppIcon name="clock" className="h-3 w-3" />
               {tr(activeTabItem.label)}
             </span>
-          </div>
+          </header>
 
           <main className="relative z-0 flex-1 overflow-x-clip pb-2 pt-0.5">
-            <div key={activeTab} className="app-screen-enter space-y-2">
+            <div key={activeTab} className="app-screen-enter pc-screen-stack">
               {screens[activeTab]}
             </div>
           </main>
 
-          <footer className="sticky bottom-1 z-40 mt-2 rounded-[24px] border border-app-border/80 bg-app-surface/95 p-1.25 shadow-[0_12px_30px_var(--app-frame-shadow)] backdrop-blur supports-[backdrop-filter]:bg-app-surface/90 [padding-bottom:calc(env(safe-area-inset-bottom)+0.3rem)]">
+          <footer className="pc-tabbar sticky bottom-1 z-40 mt-2 p-1.25 backdrop-blur supports-[backdrop-filter]:bg-app-surface/90 [padding-bottom:calc(env(safe-area-inset-bottom)+0.3rem)]">
             <div className="grid grid-cols-4 gap-1">
               {tabItems.map((tab) => (
                 <button
@@ -331,10 +331,8 @@ export function AppShell({ screens }: AppShellProps) {
                   onClick={() => handleTabClick(tab.key)}
                   aria-current={activeTab === tab.key ? "page" : undefined}
                   aria-label={tr(tab.label)}
-                  className={`group flex min-h-[52px] touch-manipulation flex-col items-center justify-center rounded-2xl border px-1.5 py-1 text-center transition ${
-                    activeTab === tab.key
-                      ? "border-app-accent bg-app-accent text-white shadow-[0_8px_16px_rgba(31,122,67,0.28)]"
-                      : "border-app-border/90 bg-app-surface text-app-text-muted shadow-sm hover:border-app-accent/50 hover:bg-app-surface-soft/70"
+                  className={`pc-tab-btn group touch-manipulation px-1.5 py-1 text-center ${
+                    activeTab === tab.key ? "pc-tab-btn-active" : ""
                   }`}
                 >
                   <span

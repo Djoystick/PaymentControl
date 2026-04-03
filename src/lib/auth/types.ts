@@ -333,3 +333,29 @@ export type SupporterBadgeManageError = {
 export type SupporterBadgeManageResponse =
   | SupporterBadgeManageSuccess
   | SupporterBadgeManageError;
+
+export type SupporterBadgeLookupSuccess = {
+  ok: true;
+  target: SupporterBadgeAdminTargetPayload;
+  checkedAt: string;
+};
+
+export type SupporterBadgeLookupErrorCode =
+  | CurrentAppContextErrorCode
+  | "SUPPORTER_BADGE_FORBIDDEN"
+  | "SUPPORTER_BADGE_TARGET_INVALID"
+  | "SUPPORTER_BADGE_FOUNDATION_NOT_READY"
+  | "SUPPORTER_BADGE_TARGET_NOT_FOUND"
+  | "SUPPORTER_BADGE_LOOKUP_FAILED";
+
+export type SupporterBadgeLookupError = {
+  ok: false;
+  error: {
+    code: SupporterBadgeLookupErrorCode;
+    message: string;
+  };
+};
+
+export type SupporterBadgeLookupResponse =
+  | SupporterBadgeLookupSuccess
+  | SupporterBadgeLookupError;

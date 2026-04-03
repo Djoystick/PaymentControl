@@ -7,6 +7,7 @@ import type {
   SupporterBadgeAdminTargetPayload,
 } from "@/lib/auth/types";
 import {
+  lookupSupporterBadgeTarget,
   manageSupporterBadge,
   submitBugReport,
 } from "@/lib/auth/client";
@@ -55,6 +56,10 @@ const formatDateTime = (value: string | null, noExpiryLabel = "No expiry"): stri
   }
 
   return parsed.toLocaleString();
+};
+
+const normalizeTelegramUserIdInput = (value: string): string => {
+  return value.replace(/\D+/g, "").slice(0, 20);
 };
 
 function ProfileScenariosContent() {
@@ -110,12 +115,16 @@ function ProfileScenariosContent() {
   const [supporterBadgeNote, setSupporterBadgeNote] = useState("");
   const [isSubmittingSupporterBadgeAction, setIsSubmittingSupporterBadgeAction] =
     useState(false);
+  const [isCheckingSupporterBadgeTarget, setIsCheckingSupporterBadgeTarget] =
+    useState(false);
   const [supporterBadgeFeedback, setSupporterBadgeFeedback] = useState<{
     kind: "success" | "error";
     message: string;
   } | null>(null);
   const [supporterBadgeTarget, setSupporterBadgeTarget] =
     useState<SupporterBadgeAdminTargetPayload | null>(null);
+  const [supporterBadgeLastCheckedAt, setSupporterBadgeLastCheckedAt] =
+    useState<string | null>(null);
   const [isOnboardingFlagCompleted, setIsOnboardingFlagCompleted] = useState<
     boolean | null
   >(() => readOnboardingFlagState());
@@ -266,8 +275,21 @@ function ProfileScenariosContent() {
     }
   };
 
-  const runSupporterBadgeAction = async (action: "grant" | "revoke") => {
-    if (isSubmittingSupporterBadgeAction) {
+  const resolveSupporterTargetTelegramUserId = (): string | null => {
+    const normalized = supporterTargetTelegramUserId.trim();
+    if (!/^[0-9]{5,20}$/.test(normalized)) {
+      setSupporterBadgeFeedback({
+        kind: "error",
+        message: tr("Target Telegram user id is invalid."),
+      });
+      return null;
+    }
+
+    return normalized;
+  };
+
+  const runSupporterBadgeLookup = async () => {
+    if (isCheckingSupporterBadgeTarget || isSubmittingSupporterBadgeAction) {
       return;
     }
 
@@ -279,12 +301,68 @@ function ProfileScenariosContent() {
       return;
     }
 
-    const targetTelegramUserId = supporterTargetTelegramUserId.trim();
-    if (!/^[0-9]{5,20}$/.test(targetTelegramUserId)) {
+    const targetTelegramUserId = resolveSupporterTargetTelegramUserId();
+    if (!targetTelegramUserId) {
+      return;
+    }
+
+    if (!initData) {
       setSupporterBadgeFeedback({
         kind: "error",
-        message: tr("Target Telegram user id is invalid."),
+        message: tr("Init context is not ready yet. Please refresh and retry."),
       });
+      return;
+    }
+
+    setIsCheckingSupporterBadgeTarget(true);
+    setSupporterBadgeFeedback(null);
+    try {
+      const result = await lookupSupporterBadgeTarget({
+        initData,
+        targetTelegramUserId,
+      });
+
+      if (!result.ok) {
+        setSupporterBadgeTarget(null);
+        setSupporterBadgeLastCheckedAt(null);
+        setSupporterBadgeFeedback({
+          kind: "error",
+          message: tr(result.error.message),
+        });
+        return;
+      }
+
+      setSupporterBadgeTarget(result.target);
+      setSupporterBadgeLastCheckedAt(result.checkedAt);
+      setSupporterBadgeFeedback({
+        kind: "success",
+        message: tr("Supporter profile loaded."),
+      });
+    } catch {
+      setSupporterBadgeFeedback({
+        kind: "error",
+        message: tr("Supporter badge target check failed."),
+      });
+    } finally {
+      setIsCheckingSupporterBadgeTarget(false);
+    }
+  };
+
+  const runSupporterBadgeAction = async (action: "grant" | "revoke") => {
+    if (isSubmittingSupporterBadgeAction || isCheckingSupporterBadgeTarget) {
+      return;
+    }
+
+    if (!canManageSupporters) {
+      setSupporterBadgeFeedback({
+        kind: "error",
+        message: tr("Current account is not allowed to manage supporter badges."),
+      });
+      return;
+    }
+
+    const targetTelegramUserId = resolveSupporterTargetTelegramUserId();
+    if (!targetTelegramUserId) {
       return;
     }
 
@@ -302,6 +380,43 @@ function ProfileScenariosContent() {
         kind: "error",
         message: tr("Init context is not ready yet. Please refresh and retry."),
       });
+      return;
+    }
+
+    if (
+      supporterBadgeTarget &&
+      supporterBadgeTarget.telegramUserId === targetTelegramUserId
+    ) {
+      if (action === "grant" && supporterBadgeTarget.supporterBadgeActive) {
+        setSupporterBadgeFeedback({
+          kind: "success",
+          message: tr("No change needed. Badge is already active."),
+        });
+        return;
+      }
+
+      if (action === "revoke" && !supporterBadgeTarget.supporterBadgeActive) {
+        setSupporterBadgeFeedback({
+          kind: "success",
+          message: tr("No change needed. Badge is already inactive."),
+        });
+        return;
+      }
+    }
+
+    const confirmed = window.confirm(
+      action === "grant"
+        ? tr("Confirm grant supporter badge for Telegram user id {telegramUserId}?", {
+            telegramUserId: targetTelegramUserId,
+          })
+        : tr(
+            "Confirm removal of supporter badge for Telegram user id {telegramUserId}?",
+            {
+              telegramUserId: targetTelegramUserId,
+            },
+          ),
+    );
+    if (!confirmed) {
       return;
     }
 
@@ -324,6 +439,7 @@ function ProfileScenariosContent() {
       }
 
       setSupporterBadgeTarget(result.target);
+      setSupporterBadgeLastCheckedAt(new Date().toISOString());
       setSupporterBadgeFeedback({
         kind: "success",
         message:
@@ -346,7 +462,7 @@ function ProfileScenariosContent() {
   };
 
   const homeScreen = (
-    <div className="space-y-2">
+    <div className="pc-screen-stack">
       <LandingScreen />
       <PaymentsDashboardSection
         workspace={workspace}
@@ -357,7 +473,7 @@ function ProfileScenariosContent() {
   );
 
   const remindersScreen = (
-    <div className="space-y-2">
+    <div className="pc-screen-stack">
       <RecurringPaymentsSection
         workspace={workspace}
         initData={initData}
@@ -366,21 +482,21 @@ function ProfileScenariosContent() {
   );
 
   const historyScreen = (
-    <div className="space-y-2">
+    <div className="pc-screen-stack">
       <PaymentsActivitySection workspace={workspace} initData={initData} />
     </div>
   );
 
   const profileScreen = (
-    <section className="flex flex-col gap-2">
+    <section className="pc-screen-stack">
       <div className="pc-surface">
         <div className="flex items-center justify-between">
-          <h2 className="inline-flex items-center gap-2 text-base font-semibold text-app-text">
+          <h2 className="pc-section-title">
             <AppIcon name="profile" className="h-4 w-4" />
             {tr("Profile")}
           </h2>
         </div>
-        <p className="mt-1 text-xs text-app-text-muted">
+        <p className="pc-section-subtitle">
           {tr("Profile controls context and onboarding")}
         </p>
         <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
@@ -400,69 +516,64 @@ function ProfileScenariosContent() {
         {!isLoading && (
           <p className="mt-1 text-xs text-app-text-muted">{tr("Context ready")}</p>
         )}
-        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+        <div className="mt-1.5">
           <p className="inline-flex items-center gap-1 text-xs font-semibold text-app-text-muted">
             <AppIcon name="language" className="h-3.5 w-3.5" />
             {tr("Language")}:
           </p>
-          <button
-            type="button"
-            onClick={() => setLanguage("ru")}
-            className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
-              language === "ru"
-                ? "border-app-accent bg-app-accent text-white"
-                : "border-app-border text-app-text"
-            }`}
-          >
-            {tr("Russian")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setLanguage("en")}
-            className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
-              language === "en"
-                ? "border-app-accent bg-app-accent text-white"
-                : "border-app-border text-app-text"
-            }`}
-          >
-            {tr("English")}
-          </button>
+          <div className="pc-segmented mt-1">
+            <button
+              type="button"
+              onClick={() => setLanguage("ru")}
+              aria-pressed={language === "ru"}
+              className={`pc-segment-btn min-h-8 ${language === "ru" ? "pc-segment-btn-active" : ""}`}
+            >
+              {tr("Russian")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setLanguage("en")}
+              aria-pressed={language === "en"}
+              className={`pc-segment-btn min-h-8 ${language === "en" ? "pc-segment-btn-active" : ""}`}
+            >
+              {tr("English")}
+            </button>
+          </div>
         </div>
-        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+        <div className="mt-1.5">
           <p className="inline-flex items-center gap-1 text-xs font-semibold text-app-text-muted">
             <AppIcon name="theme" className="h-3.5 w-3.5" />
             {tr("Theme")}:
           </p>
-          <button
-            type="button"
-            onClick={() => setTheme("light")}
-            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
-              theme === "light"
-                ? "border-app-accent bg-app-accent text-white"
-                : "border-app-border text-app-text"
-            }`}
-          >
-            <AppIcon name="sun" className="h-3 w-3" />
-            {tr("Light")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setTheme("dark")}
-            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
-              theme === "dark"
-                ? "border-app-accent bg-app-accent text-white"
-                : "border-app-border text-app-text"
-            }`}
-          >
-            <AppIcon name="moon" className="h-3 w-3" />
-            {tr("Dark")}
-          </button>
+          <div className="pc-segmented mt-1">
+            <button
+              type="button"
+              onClick={() => setTheme("light")}
+              aria-pressed={theme === "light"}
+              className={`pc-segment-btn min-h-8 ${theme === "light" ? "pc-segment-btn-active" : ""}`}
+            >
+              <AppIcon name="sun" className="h-3 w-3" />
+              {tr("Light")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme("dark")}
+              aria-pressed={theme === "dark"}
+              className={`pc-segment-btn min-h-8 ${theme === "dark" ? "pc-segment-btn-active" : ""}`}
+            >
+              <AppIcon name="moon" className="h-3 w-3" />
+              {tr("Dark")}
+            </button>
+          </div>
         </div>
         {profile && (
           <>
             <p className="mt-1.5 text-sm text-app-text">
               {profile.firstName} {profile.lastName ?? ""}
               {profile.username ? ` (@${profile.username})` : ""}
+            </p>
+            <p className="mt-1 text-xs text-app-text-muted">
+              {tr("Telegram user id")}: {profile.telegramUserId}
             </p>
             {profile.supporterBadgeActive && (
               <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-app-text">
@@ -622,13 +733,26 @@ function ProfileScenariosContent() {
                 type="text"
                 value={supporterTargetTelegramUserId}
                 onChange={(event) => {
-                  setSupporterTargetTelegramUserId(event.target.value);
+                  const normalizedValue = normalizeTelegramUserIdInput(
+                    event.target.value,
+                  );
+                  setSupporterTargetTelegramUserId(normalizedValue);
+                  setSupporterBadgeTarget((prev) =>
+                    prev && prev.telegramUserId === normalizedValue ? prev : null,
+                  );
+                  setSupporterBadgeLastCheckedAt(null);
                   setSupporterBadgeFeedback(null);
                 }}
                 placeholder={tr("Numeric Telegram user id")}
                 inputMode="numeric"
+                maxLength={20}
                 className="pc-input"
               />
+              <p className="text-[11px] text-app-text-muted">
+                {tr(
+                  "Paste numeric Telegram user id only. Username or @handle is not accepted.",
+                )}
+              </p>
             </div>
             <div className="space-y-1">
               <p className="text-xs font-semibold text-app-text">
@@ -646,11 +770,48 @@ function ProfileScenariosContent() {
                 className="pc-textarea resize-y"
               />
             </div>
+            <p className="text-[11px] text-app-text-muted">
+              {tr(
+                "Ask user to open Profile and share Telegram numeric user id for exact match.",
+              )}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void runSupporterBadgeLookup()}
+                disabled={isCheckingSupporterBadgeTarget || isSubmittingSupporterBadgeAction}
+                className="pc-btn-quiet disabled:opacity-60"
+              >
+                <AppIcon name="refresh" className="h-3.5 w-3.5" />
+                {isCheckingSupporterBadgeTarget
+                  ? tr("Checking...")
+                  : tr("Check current status")}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!profile) {
+                    return;
+                  }
+                  setSupporterTargetTelegramUserId(
+                    normalizeTelegramUserIdInput(profile.telegramUserId),
+                  );
+                  setSupporterBadgeTarget(null);
+                  setSupporterBadgeLastCheckedAt(null);
+                  setSupporterBadgeFeedback(null);
+                }}
+                disabled={!profile || isCheckingSupporterBadgeTarget || isSubmittingSupporterBadgeAction}
+                className="pc-btn-quiet disabled:opacity-60"
+              >
+                <AppIcon name="profile" className="h-3.5 w-3.5" />
+                {tr("Use my Telegram user id")}
+              </button>
+            </div>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => void runSupporterBadgeAction("grant")}
-                disabled={isSubmittingSupporterBadgeAction}
+                disabled={isSubmittingSupporterBadgeAction || isCheckingSupporterBadgeTarget}
                 className="pc-btn-secondary disabled:opacity-60"
               >
                 <AppIcon name="check" className="h-3.5 w-3.5" />
@@ -661,7 +822,7 @@ function ProfileScenariosContent() {
               <button
                 type="button"
                 onClick={() => void runSupporterBadgeAction("revoke")}
-                disabled={isSubmittingSupporterBadgeAction}
+                disabled={isSubmittingSupporterBadgeAction || isCheckingSupporterBadgeTarget}
                 className="pc-btn-quiet disabled:opacity-60"
               >
                 <AppIcon name="undo" className="h-3.5 w-3.5" />
@@ -669,7 +830,7 @@ function ProfileScenariosContent() {
               </button>
             </div>
             {supporterBadgeTarget && (
-              <div className="rounded-xl border border-app-border bg-white px-3 py-2 text-xs text-app-text">
+              <div className="pc-state-card px-3 py-2 text-xs text-app-text">
                 <p className="font-semibold">
                   {supporterBadgeTarget.firstName}{" "}
                   {supporterBadgeTarget.lastName ?? ""}
@@ -686,6 +847,15 @@ function ProfileScenariosContent() {
                     ? tr("Active")
                     : tr("Inactive")}
                 </p>
+                {supporterBadgeLastCheckedAt && (
+                  <p className="mt-1 text-app-text-muted">
+                    {tr("Last checked at")}:{" "}
+                    {formatDateTime(supporterBadgeLastCheckedAt)}
+                  </p>
+                )}
+                <p className="mt-1 text-app-text-muted">
+                  {tr("Updated at")}: {formatDateTime(supporterBadgeTarget.updatedAt)}
+                </p>
                 {supporterBadgeTarget.supporterBadgeGrantedAt && (
                   <p className="mt-1 text-app-text-muted">
                     {tr("Granted at")}:{" "}
@@ -696,6 +866,28 @@ function ProfileScenariosContent() {
                   <p className="mt-1 text-app-text-muted">
                     {tr("Revoked at")}:{" "}
                     {formatDateTime(supporterBadgeTarget.supporterBadgeRevokedAt)}
+                  </p>
+                )}
+                {supporterBadgeTarget.supporterBadgeSource && (
+                  <p className="mt-1 text-app-text-muted">
+                    {tr("Source")}: {supporterBadgeTarget.supporterBadgeSource}
+                  </p>
+                )}
+                {supporterBadgeTarget.supporterBadgeNote && (
+                  <p className="mt-1 text-app-text-muted">
+                    {tr("Owner note")}: {supporterBadgeTarget.supporterBadgeNote}
+                  </p>
+                )}
+                {supporterBadgeTarget.supporterBadgeGrantedByTelegramUserId && (
+                  <p className="mt-1 text-app-text-muted">
+                    {tr("Granted by Telegram user id")}:{" "}
+                    {supporterBadgeTarget.supporterBadgeGrantedByTelegramUserId}
+                  </p>
+                )}
+                {supporterBadgeTarget.supporterBadgeRevokedByTelegramUserId && (
+                  <p className="mt-1 text-app-text-muted">
+                    {tr("Revoked by Telegram user id")}:{" "}
+                    {supporterBadgeTarget.supporterBadgeRevokedByTelegramUserId}
                   </p>
                 )}
               </div>
@@ -742,7 +934,7 @@ function ProfileScenariosContent() {
                     <AppIcon name="support" className="h-4 w-4" />
                     {tr(rail.title)}
                   </p>
-                  <span className="pc-btn-secondary mt-2 w-full justify-center text-xs">
+                  <span className="pc-btn-quiet mt-2 w-full justify-center text-xs">
                     {tr(rail.ctaLabel)}
                   </span>
                 </a>
@@ -802,7 +994,7 @@ function ProfileScenariosContent() {
               {workspaces.map((workspaceOption) => (
                 <div
                   key={workspaceOption.id}
-                  className="flex items-center justify-between rounded-xl border border-app-border bg-white px-3 py-2"
+                  className="pc-state-card flex items-center justify-between px-3 py-2"
                 >
                   <p className="text-sm text-app-text">
                     {workspaceOption.title} ({tr(workspaceOption.kind)})
@@ -855,12 +1047,12 @@ function ProfileScenariosContent() {
               {tr("Generate one-time invite")}
             </button>
             {generatedInvite && generatedInvite.workspaceId === workspace.id ? (
-              <div className="rounded-xl border border-app-border bg-white px-3 py-2 text-xs text-app-text">
+              <div className="pc-state-card px-3 py-2 text-xs text-app-text">
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-semibold">
                     {tr("One-time invite for {workspace}", { workspace: workspace.title })}
                   </p>
-                  <span className="rounded-full border border-app-border px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
+                  <span className="pc-chip">
                     {tr(inviteStatusLabels[generatedInvite.inviteStatus])}
                   </span>
                 </div>
@@ -969,7 +1161,7 @@ function ProfileScenariosContent() {
                   </button>
                 </>
               )}
-              <div className="space-y-2 rounded-xl border border-app-border bg-white px-3 py-2">
+              <div className="pc-state-card space-y-2 px-3 py-2">
                 <p className="text-xs font-semibold text-app-text">{tr("Join by invite token")}</p>
                 <input
                   value={inviteTokenInput}
@@ -1005,7 +1197,7 @@ function ProfileScenariosContent() {
                   {tr("Accept invite")}
                 </button>
                 {inviteAcceptDiagnostic && (
-                  <details className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-xs text-app-text">
+                  <details className="pc-state-card px-3 py-2 text-xs text-app-text">
                     <summary className="pc-summary-action inline-flex items-center gap-1.5 font-semibold text-app-text">
                       <AppIcon name="alert" className="h-3.5 w-3.5" />
                       {tr("Accept invite diagnostic")}

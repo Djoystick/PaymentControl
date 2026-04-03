@@ -303,16 +303,16 @@ export function PaymentsActivitySection({
   }, [loadActivity]);
 
   return (
-    <section className="pc-surface">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="inline-flex items-center gap-2 text-base font-semibold text-app-text">
+    <section className="pc-surface pc-screen-stack">
+      <div>
+        <h2 className="pc-section-title">
           <AppIcon name="history" className="h-4 w-4" />
           {tr("History")}
         </h2>
-      </div>
-      <p className="text-xs text-app-text-muted">
+      <p className="pc-section-subtitle">
         {tr("Recent events from your payment routine.")}
       </p>
+      </div>
 
       {workspaceUnavailable ? (
         <p className="pc-empty-state text-sm">
@@ -320,8 +320,9 @@ export function PaymentsActivitySection({
         </p>
       ) : (
         <>
-          <details className="pc-detail-surface mb-1.5">
-            <summary className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          <details className="pc-detail-surface">
+            <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+              <AppIcon name="history" className="h-3.5 w-3.5" />
               {tr("History context")}
             </summary>
             <div className="mt-1.5 grid grid-cols-2 gap-1.5">
@@ -345,7 +346,7 @@ export function PaymentsActivitySection({
             </div>
           </details>
 
-          <div className="pc-detail-surface mt-2">
+          <div className="pc-detail-surface">
             {scopedPaymentsCount === 0 ? (
               <div className="pc-empty-state space-y-1">
                 <p className="text-sm font-semibold text-app-text">{tr("History is empty")}</p>
@@ -367,7 +368,7 @@ export function PaymentsActivitySection({
                 </p>
               </div>
             ) : (
-              <ul className="space-y-1">
+              <ul className="space-y-1.5">
                 {activityItems.map((item) => (
                   (() => {
                     const responsiblePayerName = isFamilyWorkspace
@@ -405,7 +406,7 @@ export function PaymentsActivitySection({
                     return (
                       <li
                         key={item.id}
-                        className="pc-state-card px-1.5 py-1 text-xs text-app-text"
+                        className="pc-state-card px-1.5 py-1.5 text-xs text-app-text"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span
@@ -445,7 +446,7 @@ export function PaymentsActivitySection({
             )}
           </div>
 
-          <div className="mt-2 flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={loadActivity}

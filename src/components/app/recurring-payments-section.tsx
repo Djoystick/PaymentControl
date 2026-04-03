@@ -1198,14 +1198,14 @@ export function RecurringPaymentsSection({
     typeof document !== "undefined" && isComposerExpanded
       ? createPortal(
           <div
-            className="fixed inset-0 z-[85] flex items-end justify-center bg-black/45 px-3 sm:items-center [padding-top:max(0.75rem,env(safe-area-inset-top))] [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]"
+            className="pc-modal-overlay pc-modal-overlay-sheet z-[85]"
             onClick={() => requestCloseComposer()}
           >
             <div
               role="dialog"
               aria-modal="true"
               aria-label={editingPaymentId ? tr("Edit payment") : tr("Add payment")}
-              className="pc-surface w-full max-w-lg rounded-3xl p-3 sm:p-3.5"
+              className="pc-modal-dialog w-full max-w-lg p-3 sm:p-3.5"
               style={{
                 maxHeight:
                   "calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1.5rem)",
@@ -1214,7 +1214,7 @@ export function RecurringPaymentsSection({
               }}
               onClick={(event) => event.stopPropagation()}
             >
-              <div className="sticky top-0 z-20 -mx-1 rounded-2xl border border-app-border bg-app-surface px-2 py-2 shadow-sm">
+              <div className="pc-modal-sheet-head">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="pc-kicker">
@@ -1273,7 +1273,7 @@ export function RecurringPaymentsSection({
                   {editingPaymentId === null &&
                     form.title.trim().length > 0 &&
                     isTemplateSuggestionsOpen && (
-                      <div className="absolute inset-x-0 top-full z-30 mt-1 rounded-xl border border-app-border bg-white p-2 shadow-lg">
+                      <div className="pc-popover absolute inset-x-0 top-full z-30 mt-1 p-2">
                         <div className="flex items-center justify-between gap-2 text-[11px] text-app-text-muted">
                           <span className="font-semibold uppercase tracking-[0.12em]">
                             {tr("Matching templates")}
@@ -1318,7 +1318,7 @@ export function RecurringPaymentsSection({
                                       {localizedTemplate.title}
                                     </p>
                                   </div>
-                                  <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-[11px] font-semibold text-app-text-muted">
+                                  <span className="pc-chip">
                                     {template.isSubscription
                                       ? tr("Subscription")
                                       : tr("Payment")}
@@ -1386,7 +1386,7 @@ export function RecurringPaymentsSection({
                   />
                 </label>
                 {isFamilyWorkspace && (
-                  <label className="rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text">
+                  <label className="pc-check-row">
                     <span className="block text-xs font-semibold text-app-text-muted">
                       {tr("Who pays (responsible payer)")}
                     </span>
@@ -1457,7 +1457,8 @@ export function RecurringPaymentsSection({
                 open={isAdvancedFormExpanded}
                 onToggle={(event) => setIsAdvancedFormExpanded(event.currentTarget.open)}
               >
-                <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                  <AppIcon name="template" className="h-3.5 w-3.5" />
                   {tr("Advanced options")}
                 </summary>
                 <p className="mt-1 text-xs text-app-text-muted">
@@ -1480,7 +1481,7 @@ export function RecurringPaymentsSection({
                     placeholder={tr("Category")}
                     className="pc-input"
                   />
-                  <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text">
+                  <label className="pc-check-row">
                     <input
                       type="checkbox"
                       checked={form.isRequired}
@@ -1490,7 +1491,7 @@ export function RecurringPaymentsSection({
                     />
                     {tr("Required payment")}
                   </label>
-                  <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text">
+                  <label className="pc-check-row">
                     <input
                       type="checkbox"
                       checked={form.isSubscription}
@@ -1503,7 +1504,7 @@ export function RecurringPaymentsSection({
                     />
                     {tr("Mark as subscription")}
                   </label>
-                  <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text sm:col-span-2">
+                  <label className="pc-check-row sm:col-span-2">
                     <input
                       type="checkbox"
                       checked={form.remindersEnabled}
@@ -1534,7 +1535,7 @@ export function RecurringPaymentsSection({
                     <option value="3">{tr("Remind 3 days before")}</option>
                   </select>
 
-                  <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text">
+                  <label className="pc-check-row">
                     <input
                       type="checkbox"
                       checked={form.remindOnDueDay}
@@ -1549,7 +1550,7 @@ export function RecurringPaymentsSection({
                     {tr("Remind on due day")}
                   </label>
 
-                  <label className="flex items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text sm:col-span-2">
+                  <label className="pc-check-row sm:col-span-2">
                     <input
                       type="checkbox"
                       checked={form.remindOnOverdue}
@@ -1575,7 +1576,7 @@ export function RecurringPaymentsSection({
                 />
               </details>
 
-              <div className="sticky bottom-0 z-20 -mx-1 mt-2 rounded-2xl border border-app-border bg-app-surface px-2 py-2 shadow-[0_-10px_18px_var(--app-frame-shadow)]">
+              <div className="pc-modal-sheet-foot mt-2">
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
@@ -1623,14 +1624,14 @@ export function RecurringPaymentsSection({
     typeof document !== "undefined" && isComposerExpanded && isDiscardConfirmOpen
       ? createPortal(
           <div
-            className="fixed inset-0 z-[90] flex items-end justify-center bg-black/50 px-3 sm:items-center [padding-top:max(0.75rem,env(safe-area-inset-top))] [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]"
+            className="pc-modal-overlay pc-modal-overlay-sheet z-[90]"
             onClick={keepComposerEditing}
           >
             <div
               role="dialog"
               aria-modal="true"
               aria-label={tr("Unsaved changes")}
-              className="pc-surface w-full max-w-sm rounded-2xl p-3"
+              className="pc-modal-dialog w-full max-w-sm p-3"
               onClick={(event) => event.stopPropagation()}
             >
               <p className="pc-kicker">
@@ -1667,15 +1668,18 @@ export function RecurringPaymentsSection({
 
   return (
     <>
-      <section className="pc-surface">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="inline-flex items-center gap-2 text-base font-semibold text-app-text">
+      <section className="pc-surface pc-screen-stack">
+      <div>
+        <h2 className="pc-section-title">
           <AppIcon name="reminders" className="h-4 w-4" />
           {tr("Recurring Payments")}
         </h2>
+        <p className="pc-section-subtitle">
+          {tr("Add and manage recurring payments here first.")}
+        </p>
       </div>
       {workspace && (
-        <div className="pc-state-card mb-2 flex items-center justify-between gap-2 text-xs text-app-text-muted">
+        <div className="pc-state-card flex items-center justify-between gap-2 text-xs text-app-text-muted">
           <p className="inline-flex items-center gap-1">
             <AppIcon name="workspace" className="h-3.5 w-3.5" />
             {tr("Workspace")}: {workspace.title} ({tr(workspace.kind)})
@@ -1705,7 +1709,7 @@ export function RecurringPaymentsSection({
         </p>
       ) : (
         <>
-          <div className="pc-detail-surface mb-1.5">
+          <div className="pc-detail-surface">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
@@ -1725,25 +1729,20 @@ export function RecurringPaymentsSection({
               </HelpPopover>
             </div>
 
-            <p className="mt-1 text-[11px] text-app-text-muted">
-              {tr("Due today")}:{" "}
-              <span className="font-semibold text-app-text">
-                {remindersActSummary.dueTodayCount}
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              <span className="pc-chip">
+                {tr("Due today")}: {remindersActSummary.dueTodayCount}
               </span>
-              {" • "}
-              {tr("Overdue")}:{" "}
-              <span className="font-semibold text-app-text">
-                {remindersActSummary.overdueCount}
+              <span className="pc-chip">
+                {tr("Overdue")}: {remindersActSummary.overdueCount}
               </span>
-              {" • "}
-              {tr("Active")}:{" "}
-              <span className="font-semibold text-app-text">
-                {remindersActSummary.activeCount}
+              <span className="pc-chip">
+                {tr("Active")}: {remindersActSummary.activeCount}
               </span>
-              {" • "}
-              {tr("Action now")}:{" "}
-              <span className="font-semibold text-app-text">{actionNowCount}</span>
-            </p>
+              <span className="pc-chip pc-chip-strong">
+                {tr("Action now")}: {actionNowCount}
+              </span>
+            </div>
 
             <div className="mt-2 flex flex-wrap gap-2">
               <button
@@ -1795,7 +1794,8 @@ export function RecurringPaymentsSection({
 
           {activePayments.length > 0 && paymentListView === "subscriptions" && (
             <details className="pc-detail-surface mt-2">
-              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+              <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                <AppIcon name="subscriptions" className="h-3.5 w-3.5" />
                 {tr("Subscription insights - active {active}, unpaid {unpaid}", {
                   active: subscriptionSummary.activeSubscriptionsCount,
                   unpaid: subscriptionSummary.unpaidSubscriptionsCount,
@@ -1859,6 +1859,7 @@ export function RecurringPaymentsSection({
                 <button
                   type="button"
                   onClick={() => setPaymentListView("payments")}
+                  aria-pressed={paymentListView === "payments"}
                   className={`pc-segment-btn min-h-9 ${
                     paymentListView === "payments"
                       ? "pc-segment-btn-active"
@@ -1871,6 +1872,7 @@ export function RecurringPaymentsSection({
                 <button
                   type="button"
                   onClick={() => setPaymentListView("subscriptions")}
+                  aria-pressed={paymentListView === "subscriptions"}
                   className={`pc-segment-btn min-h-9 ${
                     paymentListView === "subscriptions"
                       ? "pc-segment-btn-active"
@@ -1894,7 +1896,9 @@ export function RecurringPaymentsSection({
                     type="button"
                     onClick={() => setReminderFocusFilter("all")}
                     aria-pressed={reminderFocusFilter === "all"}
-                    className="pc-segment-btn min-h-9"
+                    className={`pc-segment-btn min-h-9 ${
+                      reminderFocusFilter === "all" ? "pc-segment-btn-active" : ""
+                    }`}
                   >
                     {tr("All")} ({focusFilterCounts.all})
                   </button>
@@ -1902,7 +1906,9 @@ export function RecurringPaymentsSection({
                     type="button"
                     onClick={() => setReminderFocusFilter("action_now")}
                     aria-pressed={reminderFocusFilter === "action_now"}
-                    className="pc-segment-btn min-h-9"
+                    className={`pc-segment-btn min-h-9 ${
+                      reminderFocusFilter === "action_now" ? "pc-segment-btn-active" : ""
+                    }`}
                   >
                     {tr("Action now")} ({focusFilterCounts.actionNow})
                   </button>
@@ -1910,7 +1916,9 @@ export function RecurringPaymentsSection({
                     type="button"
                     onClick={() => setReminderFocusFilter("upcoming")}
                     aria-pressed={reminderFocusFilter === "upcoming"}
-                    className="pc-segment-btn min-h-9"
+                    className={`pc-segment-btn min-h-9 ${
+                      reminderFocusFilter === "upcoming" ? "pc-segment-btn-active" : ""
+                    }`}
                   >
                     {tr("Upcoming")} ({focusFilterCounts.upcoming})
                   </button>
@@ -1918,7 +1926,9 @@ export function RecurringPaymentsSection({
                     type="button"
                     onClick={() => setReminderFocusFilter("paid")}
                     aria-pressed={reminderFocusFilter === "paid"}
-                    className="pc-segment-btn min-h-9"
+                    className={`pc-segment-btn min-h-9 ${
+                      reminderFocusFilter === "paid" ? "pc-segment-btn-active" : ""
+                    }`}
                   >
                     {tr("Paid")} ({focusFilterCounts.paid})
                   </button>
@@ -1988,7 +1998,7 @@ export function RecurringPaymentsSection({
                               {payment.isSubscription ? tr("Subscription") : tr("Payment")}
                             </p>
                           </div>
-                          <span className="rounded-full border border-app-border bg-white px-2 py-0.5 text-xs font-bold text-app-text">
+                          <span className="pc-chip pc-chip-strong text-xs">
                             {formatAmount(payment)}
                           </span>
                         </div>
@@ -2035,7 +2045,7 @@ export function RecurringPaymentsSection({
                         </div>
 
                         <div className="mt-1 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                          <div className="pc-state-card bg-white px-2 py-1.5">
+                          <div className="pc-state-card bg-app-surface-elevated px-2 py-1.5">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-app-text-muted">
                               {isPaidCurrentCycle ? tr("Next payment date") : tr("Due")}
                             </p>
@@ -2055,7 +2065,7 @@ export function RecurringPaymentsSection({
                               )}
                             </p>
                           </div>
-                          <div className="pc-state-card bg-white px-2 py-1.5">
+                          <div className="pc-state-card bg-app-surface-elevated px-2 py-1.5">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-app-text-muted">
                               {tr("Cadence")}
                             </p>
@@ -2101,27 +2111,27 @@ export function RecurringPaymentsSection({
                               {tr("Economics: aligned (responsible payer paid this cycle).")}
                             </p>
                           )}
-                        <details className="pc-state-card mt-1.5 bg-white px-1.5 py-1 text-xs text-app-text-muted">
+                        <details className="pc-state-card mt-1.5 bg-app-surface-elevated px-1.5 py-1 text-xs text-app-text-muted">
                           <summary className="inline-flex cursor-pointer items-center gap-1 font-semibold text-app-text">
                             <AppIcon name="template" className="h-3.5 w-3.5 text-app-text-muted" />
                             {tr("Details and actions")}
                           </summary>
                           <div className="mt-1 flex flex-wrap gap-1">
-                            <span className="rounded-full border border-app-border bg-app-surface px-2 py-0.5 text-[11px]">
+                            <span className="pc-chip">
                               {payment.paymentScope === "shared"
                                 ? tr("Family shared")
                                 : tr("Personal")}
                             </span>
-                            <span className="rounded-full border border-app-border bg-app-surface px-2 py-0.5 text-[11px]">
+                            <span className="pc-chip">
                               {payment.isSubscription ? tr("Subscription") : tr("Payment")}
                             </span>
-                            <span className="rounded-full border border-app-border bg-app-surface px-2 py-0.5 text-[11px]">
+                            <span className="pc-chip">
                               {payment.category}
                             </span>
-                            <span className="rounded-full border border-app-border bg-app-surface px-2 py-0.5 text-[11px]">
+                            <span className="pc-chip">
                               {payment.isRequired ? tr("Required") : tr("Optional")}
                             </span>
-                            <span className="rounded-full border border-app-border bg-app-surface px-2 py-0.5 text-[11px]">
+                            <span className="pc-chip">
                               {tr("Status")}: {tr(payment.status)}
                             </span>
                           </div>
@@ -2172,10 +2182,8 @@ export function RecurringPaymentsSection({
                             isFamilyWorkspace,
                             isSaving,
                           )}
-                          className={`inline-flex min-h-11 w-full touch-manipulation items-center justify-center gap-1.5 rounded-lg px-3 py-1 text-xs font-semibold text-white disabled:opacity-60 ${
-                            isOverdueNow
-                              ? "bg-amber-600 shadow-[0_8px_18px_rgba(194,120,16,0.3)]"
-                              : "bg-app-accent shadow-[0_8px_18px_rgba(31,122,67,0.28)]"
+                          className={`pc-btn-primary min-h-11 w-full text-xs disabled:opacity-60 ${
+                            isOverdueNow ? "pc-btn-primary-warning" : ""
                           }`}
                         >
                           <AppIcon

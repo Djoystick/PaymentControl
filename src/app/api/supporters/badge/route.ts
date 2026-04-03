@@ -2,11 +2,16 @@ import { NextResponse } from "next/server";
 import type {
   SupporterBadgeManageAction,
   SupporterBadgeManageError,
+  SupporterBadgeLookupError,
+  SupporterBadgeLookupResponse,
   SupporterBadgeManageResponse,
 } from "@/lib/auth/types";
 import { resolveTelegramIdentity } from "@/lib/auth/resolve-telegram-identity";
 import { isSupabaseServerConfigured } from "@/lib/config/server-env";
-import { updateSupporterBadgeForTelegramUser } from "@/lib/profile/repository";
+import {
+  readSupporterBadgeAdminTargetByTelegramUserId,
+  updateSupporterBadgeForTelegramUser,
+} from "@/lib/profile/repository";
 import { canManageSupporterBadges } from "@/lib/supporter/access";
 
 type ManageSupporterBadgeBody = {
@@ -35,6 +40,28 @@ const codeToStatus: Record<SupporterBadgeManageError["error"]["code"], number> =
   SUPPORTER_BADGE_FOUNDATION_NOT_READY: 503,
   SUPPORTER_BADGE_TARGET_NOT_FOUND: 404,
   SUPPORTER_BADGE_UPDATE_FAILED: 500,
+};
+
+const lookupCodeToStatus: Record<
+  SupporterBadgeLookupError["error"]["code"],
+  number
+> = {
+  TELEGRAM_INIT_DATA_MISSING: 400,
+  TELEGRAM_INIT_DATA_INVALID: 401,
+  TELEGRAM_INIT_DATA_EXPIRED: 401,
+  TELEGRAM_USER_INVALID: 401,
+  TELEGRAM_BOT_TOKEN_MISSING: 503,
+  SUPABASE_NOT_CONFIGURED: 503,
+  PROFILE_UPSERT_FAILED: 500,
+  WORKSPACE_ENSURE_FAILED: 500,
+  APP_CONTEXT_NOT_INITIALIZED: 409,
+  WORKSPACE_NOT_FOUND: 404,
+  WORKSPACE_LIST_FAILED: 500,
+  SUPPORTER_BADGE_FORBIDDEN: 403,
+  SUPPORTER_BADGE_TARGET_INVALID: 400,
+  SUPPORTER_BADGE_FOUNDATION_NOT_READY: 503,
+  SUPPORTER_BADGE_TARGET_NOT_FOUND: 404,
+  SUPPORTER_BADGE_LOOKUP_FAILED: 500,
 };
 
 const isManageAction = (value: string | undefined): value is SupporterBadgeManageAction => {
@@ -70,6 +97,88 @@ const jsonError = (
     status: codeToStatus[code] ?? 400,
   });
 };
+
+const jsonLookupError = (
+  code: SupporterBadgeLookupError["error"]["code"],
+  message: string,
+) => {
+  const payload: SupporterBadgeLookupError = {
+    ok: false,
+    error: {
+      code,
+      message,
+    },
+  };
+
+  return NextResponse.json<SupporterBadgeLookupResponse>(payload, {
+    status: lookupCodeToStatus[code] ?? 400,
+  });
+};
+
+export async function GET(request: Request) {
+  if (!isSupabaseServerConfigured) {
+    return jsonLookupError(
+      "SUPABASE_NOT_CONFIGURED",
+      "Supabase server configuration is missing.",
+    );
+  }
+
+  const url = new URL(request.url);
+  const targetTelegramUserId = normalizeTelegramUserId(
+    url.searchParams.get("targetTelegramUserId") ?? "",
+  );
+  if (!/^[0-9]{5,20}$/.test(targetTelegramUserId)) {
+    return jsonLookupError(
+      "SUPPORTER_BADGE_TARGET_INVALID",
+      "Target Telegram user id is invalid.",
+    );
+  }
+
+  const identityResult = resolveTelegramIdentity(
+    request.headers.get("x-telegram-init-data") ?? undefined,
+  );
+  if (!identityResult.ok) {
+    return jsonLookupError(identityResult.error.code, identityResult.error.message);
+  }
+
+  if (!canManageSupporterBadges(identityResult.identity.telegramUserId)) {
+    return jsonLookupError(
+      "SUPPORTER_BADGE_FORBIDDEN",
+      "Current account is not allowed to manage supporter badges.",
+    );
+  }
+
+  const result = await readSupporterBadgeAdminTargetByTelegramUserId(
+    targetTelegramUserId,
+  );
+
+  if (!result.ok) {
+    if (result.reason === "TARGET_NOT_FOUND") {
+      return jsonLookupError(
+        "SUPPORTER_BADGE_TARGET_NOT_FOUND",
+        "Target profile was not found.",
+      );
+    }
+
+    if (result.reason === "FOUNDATION_NOT_READY") {
+      return jsonLookupError(
+        "SUPPORTER_BADGE_FOUNDATION_NOT_READY",
+        "Supporter badge foundation is not ready. Apply Phase 26C migration.",
+      );
+    }
+
+    return jsonLookupError(
+      "SUPPORTER_BADGE_LOOKUP_FAILED",
+      "Failed to read supporter badge target.",
+    );
+  }
+
+  return NextResponse.json<SupporterBadgeLookupResponse>({
+    ok: true,
+    target: result.target,
+    checkedAt: new Date().toISOString(),
+  });
+}
 
 export async function POST(request: Request) {
   if (!isSupabaseServerConfigured) {

@@ -249,6 +249,44 @@ export type UpdateSupporterBadgeForTelegramUserResult =
       reason: "TARGET_NOT_FOUND" | "FOUNDATION_NOT_READY" | "UPDATE_FAILED";
     };
 
+export type ReadSupporterBadgeAdminTargetByTelegramUserIdResult =
+  | { ok: true; target: SupporterBadgeAdminTargetPayload }
+  | {
+      ok: false;
+      reason: "TARGET_NOT_FOUND" | "FOUNDATION_NOT_READY" | "READ_FAILED";
+    };
+
+export const readSupporterBadgeAdminTargetByTelegramUserId = async (
+  targetTelegramUserId: string,
+): Promise<ReadSupporterBadgeAdminTargetByTelegramUserIdResult> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return { ok: false, reason: "READ_FAILED" };
+  }
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(supporterAdminTargetSelection)
+    .eq("telegram_user_id", targetTelegramUserId)
+    .maybeSingle<SupporterBadgeAdminTargetRow>();
+
+  if (error) {
+    if (error.code === "42703") {
+      return { ok: false, reason: "FOUNDATION_NOT_READY" };
+    }
+    return { ok: false, reason: "READ_FAILED" };
+  }
+
+  if (!data) {
+    return { ok: false, reason: "TARGET_NOT_FOUND" };
+  }
+
+  return {
+    ok: true,
+    target: toSupporterBadgeAdminTargetPayload(data),
+  };
+};
+
 export const updateSupporterBadgeForTelegramUser = async (
   params: UpdateSupporterBadgeForTelegramUserParams,
 ): Promise<UpdateSupporterBadgeForTelegramUserResult> => {

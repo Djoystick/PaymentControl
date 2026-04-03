@@ -354,12 +354,17 @@ export function PaymentsDashboardSection({
   }, [compactFilter, tr]);
 
   return (
-    <section className="pc-surface">
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="inline-flex items-center gap-2 text-base font-semibold text-app-text">
+    <section className="pc-surface pc-screen-stack">
+      <div>
+        <h2 className="pc-section-title">
           <AppIcon name={isCompact ? "home" : "payments"} className="h-4 w-4" />
           {isCompact ? tr("Payment snapshot") : tr("Dashboard")}
         </h2>
+        <p className="pc-section-subtitle">
+          {isCompact
+            ? tr("Today snapshot")
+            : tr("Recent payment load and due-state overview.")}
+        </p>
       </div>
 
       {workspaceUnavailable ? (
@@ -371,29 +376,22 @@ export function PaymentsDashboardSection({
           {isCompact ? (
             <>
               {dashboard && (
-                <div>
-                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                    {tr("Today snapshot")}
-                  </p>
-                  <div className="grid grid-cols-2 gap-1.5">
+                <div className="pc-screen-stack">
+                  <div className="pc-kpi-grid">
                   <button
                     type="button"
                     onClick={() =>
                       setCompactFilter((current) => (current === "all" ? "none" : "all"))
                     }
                     aria-pressed={compactFilter === "all"}
-                    className={`min-h-[62px] rounded-2xl border p-1.5 text-left transition ${
-                      compactFilter === "all"
-                        ? "border-app-accent bg-app-accent text-white shadow-[0_10px_22px_rgba(31,122,67,0.3)]"
-                        : "border-app-border bg-app-surface text-app-text shadow-sm"
-                    }`}
+                    className="pc-kpi-card min-h-[64px] text-left"
                   >
-                    <p className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-white/15">
+                    <p className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-app-border/70 bg-app-surface-elevated text-app-text-muted">
                       <AppIcon name="payments" className="h-3.5 w-3.5" />
                     </p>
                     <p
                       className={`mt-0.5 inline-flex items-center gap-1 text-[11px] ${
-                        compactFilter === "all" ? "text-white/90" : "text-app-text-muted"
+                        compactFilter === "all" ? "text-app-accent-strong" : "text-app-text-muted"
                       }`}
                     >
                       {tr("Total")}
@@ -408,18 +406,16 @@ export function PaymentsDashboardSection({
                       )
                     }
                     aria-pressed={compactFilter === "upcoming"}
-                    className={`min-h-[62px] rounded-2xl border p-1.5 text-left transition ${
-                      compactFilter === "upcoming"
-                        ? "border-app-accent bg-app-accent text-white shadow-[0_10px_22px_rgba(31,122,67,0.3)]"
-                        : "border-app-border bg-app-surface text-app-text shadow-sm"
-                    }`}
+                    className="pc-kpi-card min-h-[64px] text-left"
                   >
-                    <p className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-white/15">
+                    <p className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-app-border/70 bg-app-surface-elevated text-app-text-muted">
                       <AppIcon name="clock" className="h-3.5 w-3.5" />
                     </p>
                     <p
                       className={`mt-0.5 inline-flex items-center gap-1 text-[11px] ${
-                        compactFilter === "upcoming" ? "text-white/90" : "text-app-text-muted"
+                        compactFilter === "upcoming"
+                          ? "text-app-accent-strong"
+                          : "text-app-text-muted"
                       }`}
                     >
                       {tr("Upcoming")}
@@ -436,20 +432,20 @@ export function PaymentsDashboardSection({
                       )
                     }
                     aria-pressed={compactFilter === "overdue"}
-                    className={`min-h-[62px] rounded-2xl border p-1.5 text-left transition ${
-                      compactFilter === "overdue"
-                        ? "border-app-accent bg-app-accent text-white shadow-[0_10px_22px_rgba(31,122,67,0.3)]"
-                        : dashboard.summary.overdueCount > 0
-                          ? "border-amber-300 bg-amber-50/70 text-amber-800 shadow-sm"
-                          : "border-app-border bg-app-surface text-app-text shadow-sm"
+                    className={`pc-kpi-card min-h-[64px] text-left ${
+                      dashboard.summary.overdueCount > 0 && compactFilter !== "overdue"
+                        ? "pc-kpi-card-alert"
+                        : ""
                     }`}
                   >
-                    <p className="inline-flex h-5 w-5 items-center justify-center rounded-md bg-white/15">
+                    <p className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-app-border/70 bg-app-surface-elevated text-app-text-muted">
                       <AppIcon name="alert" className="h-3.5 w-3.5" />
                     </p>
                     <p
                       className={`mt-0.5 inline-flex items-center gap-1 text-[11px] ${
-                        compactFilter === "overdue" ? "text-white/90" : "text-app-text-muted"
+                        compactFilter === "overdue"
+                          ? "text-app-accent-strong"
+                          : "text-app-text-muted"
                       }`}
                     >
                       {tr("Overdue")}
@@ -458,8 +454,8 @@ export function PaymentsDashboardSection({
                       {dashboard.summary.overdueCount}
                     </p>
                   </button>
-                  <div className="pc-state-card bg-app-surface-soft p-1.5">
-                    <p className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-app-border bg-app-surface text-app-text-muted">
+                  <div className="pc-kpi-card cursor-default min-h-[64px]">
+                    <p className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-app-border/70 bg-app-surface-elevated text-app-text-muted">
                       <AppIcon name="wallet" className="h-3.5 w-3.5" />
                     </p>
                     <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-app-text-muted">
@@ -469,16 +465,14 @@ export function PaymentsDashboardSection({
                   </div>
                 </div>
 
-                  <div className="mt-2">
-                    <button
-                      type="button"
-                      onClick={openRemindersTab}
-                      className="pc-btn-primary w-full"
-                    >
-                      <AppIcon name="reminders" className="h-3.5 w-3.5" />
-                      {tr("Open Reminders for actions")}
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={openRemindersTab}
+                    className="pc-btn-primary w-full"
+                  >
+                    <AppIcon name="reminders" className="h-3.5 w-3.5" />
+                    {tr("Open Reminders for actions")}
+                  </button>
                 </div>
               )}
 
@@ -517,7 +511,7 @@ export function PaymentsDashboardSection({
                   ) : (
                     <ul className="mt-1.5 space-y-1">
                       {compactFilteredItems.map((item) => (
-                        <li key={item.id} className="rounded-xl bg-app-surface px-2 py-1 text-xs text-app-text">
+                        <li key={item.id} className="pc-state-card text-xs text-app-text">
                           <p className="font-medium">{item.title}</p>
                           <p className="inline-flex items-center gap-1 text-app-text-muted">
                             <AppIcon name="clock" className="h-3.5 w-3.5" />
@@ -542,7 +536,8 @@ export function PaymentsDashboardSection({
 
               {hasAnyActivePayments && compactFilter === "none" && (
                 <details className="pc-detail-surface mt-2">
-                  <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                  <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                    <AppIcon name="clock" className="h-3.5 w-3.5" />
                     {tr("Due now details")}
                   </summary>
                   <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -592,11 +587,11 @@ export function PaymentsDashboardSection({
 
               {dashboard && (
                 <div
-                  className={`grid grid-cols-2 gap-2 ${
+                  className={`pc-kpi-grid ${
                     isFamilyWorkspace ? "md:grid-cols-6" : "md:grid-cols-5"
                   }`}
                 >
-                  <div className="pc-state-card bg-app-surface-soft p-2">
+                  <div className="pc-kpi-card cursor-default p-2">
                     <p className="text-[11px] text-app-text-muted">
                       {isFamilyWorkspace
                         ? `${tr("Shared")} ${tr("Due today").toLowerCase()}`
@@ -606,7 +601,7 @@ export function PaymentsDashboardSection({
                       {dashboard.summary.dueTodayCount}
                     </p>
                   </div>
-                  <div className="pc-state-card bg-app-surface-soft p-2">
+                  <div className="pc-kpi-card cursor-default p-2">
                     <p className="text-[11px] text-app-text-muted">
                       {isFamilyWorkspace
                         ? `${tr("Shared")} ${tr("Upcoming").toLowerCase()}`
@@ -617,7 +612,11 @@ export function PaymentsDashboardSection({
                       {dashboard.summary.upcomingCount}
                     </p>
                   </div>
-                  <div className="pc-state-card bg-app-surface-soft p-2">
+                  <div
+                    className={`pc-kpi-card cursor-default p-2 ${
+                      dashboard.summary.overdueCount > 0 ? "pc-kpi-card-alert" : ""
+                    }`}
+                  >
                     <p className="text-[11px] text-app-text-muted">
                       {isFamilyWorkspace
                         ? `${tr("Shared")} ${tr("Overdue").toLowerCase()}`
@@ -627,7 +626,7 @@ export function PaymentsDashboardSection({
                       {dashboard.summary.overdueCount}
                     </p>
                   </div>
-                  <div className="pc-state-card bg-app-surface-soft p-2">
+                  <div className="pc-kpi-card cursor-default p-2">
                     <p className="text-[11px] text-app-text-muted">
                       {isFamilyWorkspace
                         ? `${tr("Shared")} ${tr("Paid").toLowerCase()}`
@@ -637,7 +636,7 @@ export function PaymentsDashboardSection({
                       {dashboard.summary.paidThisCycleCount}
                     </p>
                   </div>
-                  <div className="pc-state-card bg-app-surface-soft p-2">
+                  <div className="pc-kpi-card cursor-default p-2">
                     <p className="text-[11px] text-app-text-muted">
                       {isFamilyWorkspace
                         ? `${tr("Shared")} ${tr("Unpaid").toLowerCase()}`
@@ -648,7 +647,7 @@ export function PaymentsDashboardSection({
                     </p>
                   </div>
                   {isFamilyWorkspace && (
-                    <div className="pc-state-card bg-app-surface-soft p-2">
+                    <div className="pc-kpi-card cursor-default p-2">
                       <p className="text-[11px] text-app-text-muted">
                         {tr("Paid mismatch hints")}
                       </p>

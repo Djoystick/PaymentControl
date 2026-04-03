@@ -160,7 +160,7 @@ export function HelpPopover({ buttonLabel, title, children }: HelpPopoverProps) 
       {isOpen && (
         <div
           ref={popoverRef}
-          className={`fixed z-[70] max-h-[calc(100dvh-20px)] max-w-[calc(100dvw-20px)] overflow-y-auto rounded-xl border border-app-border bg-app-surface-elevated p-3 text-left text-xs text-app-text shadow-[0_10px_24px_var(--app-frame-shadow)] ${
+          className={`pc-popover fixed z-[70] max-h-[calc(100dvh-20px)] max-w-[calc(100dvw-20px)] overflow-y-auto p-3 text-left text-xs text-app-text ${
             popoverStyle ? "" : "invisible"
           }`}
           style={

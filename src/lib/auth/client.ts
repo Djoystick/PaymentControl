@@ -11,6 +11,7 @@ import type {
   ScenarioUpdateResponse,
   SelectedScenario,
   SupporterBadgeManageAction,
+  SupporterBadgeLookupResponse,
   SupporterBadgeManageResponse,
   WorkspaceSwitchResponse,
 } from "@/lib/auth/types";
@@ -151,4 +152,22 @@ export const manageSupporterBadge = async (params: {
     targetTelegramUserId: params.targetTelegramUserId,
     note: params.note ?? "",
   });
+};
+
+export const lookupSupporterBadgeTarget = async (params: {
+  initData: string;
+  targetTelegramUserId: string;
+}): Promise<SupporterBadgeLookupResponse> => {
+  const query = new URLSearchParams({
+    targetTelegramUserId: params.targetTelegramUserId,
+  });
+
+  const response = await fetch(`/api/supporters/badge?${query.toString()}`, {
+    method: "GET",
+    headers: {
+      "x-telegram-init-data": params.initData,
+    },
+  });
+
+  return (await response.json()) as SupporterBadgeLookupResponse;
 };

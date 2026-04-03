@@ -1,59 +1,59 @@
 @import "tailwindcss";
 
 :root {
-  --app-bg: #f1f4f0;
+  --app-bg: #ecf4f6;
   --app-surface: #ffffff;
-  --app-surface-soft: #e5ede4;
+  --app-surface-soft: #e7f1f4;
   --app-surface-elevated: #ffffff;
-  --app-border: #b7c9ba;
-  --app-text: #132014;
-  --app-text-muted: #485d4a;
-  --app-accent: #1f7a43;
-  --app-accent-strong: #14552e;
-  --app-warm: #f9efe2;
-  --app-bg-glow-a: #d5ecdc;
-  --app-bg-glow-b: #d9e4fb;
-  --app-frame-shadow: rgba(19, 32, 20, 0.12);
-  --app-state-info-bg: #eef4f0;
-  --app-state-info-border: #b8cbc0;
-  --app-state-info-text: #2f4b35;
-  --app-state-success-bg: #e9f6ef;
-  --app-state-success-border: #9ed4b4;
-  --app-state-success-text: #1f6c42;
-  --app-state-warning-bg: #fbf3e7;
-  --app-state-warning-border: #e0bf8e;
-  --app-state-warning-text: #895a17;
-  --app-state-danger-bg: #fbecee;
-  --app-state-danger-border: #e1adb6;
-  --app-state-danger-text: #8d3040;
+  --app-border: #bfd0d7;
+  --app-text: #14303f;
+  --app-text-muted: #4c6875;
+  --app-accent: #0b7ea5;
+  --app-accent-strong: #056583;
+  --app-warm: #f8f2e8;
+  --app-bg-glow-a: #d8eff3;
+  --app-bg-glow-b: #dce8f8;
+  --app-frame-shadow: rgba(11, 39, 54, 0.14);
+  --app-state-info-bg: #edf4f7;
+  --app-state-info-border: #b8cdda;
+  --app-state-info-text: #2f5266;
+  --app-state-success-bg: #e8f7f0;
+  --app-state-success-border: #9ed5bd;
+  --app-state-success-text: #1f6f4a;
+  --app-state-warning-bg: #faf3e9;
+  --app-state-warning-border: #e1c091;
+  --app-state-warning-text: #8b5f1c;
+  --app-state-danger-bg: #fbecef;
+  --app-state-danger-border: #e2afb9;
+  --app-state-danger-text: #8e3244;
 }
 
 :root[data-theme="dark"] {
-  --app-bg: #0f1514;
-  --app-surface: #182120;
-  --app-surface-soft: #111918;
-  --app-surface-elevated: #202b29;
-  --app-border: #3a4b46;
-  --app-text: #edf5f0;
-  --app-text-muted: #9db4aa;
-  --app-accent: #4fb67d;
-  --app-accent-strong: #2f8b5a;
-  --app-warm: #2a2f2d;
-  --app-bg-glow-a: #1a2b26;
-  --app-bg-glow-b: #1c2436;
-  --app-frame-shadow: rgba(0, 0, 0, 0.35);
-  --app-state-info-bg: #1c2724;
-  --app-state-info-border: #41544d;
-  --app-state-info-text: #c0d3cb;
-  --app-state-success-bg: #1d2d25;
-  --app-state-success-border: #3f8d64;
-  --app-state-success-text: #a7e2c2;
-  --app-state-warning-bg: #2e261d;
-  --app-state-warning-border: #8f7348;
-  --app-state-warning-text: #f0d3a3;
-  --app-state-danger-bg: #2c2024;
-  --app-state-danger-border: #925964;
-  --app-state-danger-text: #f1bec8;
+  --app-bg: #0f171c;
+  --app-surface: #17242c;
+  --app-surface-soft: #111b22;
+  --app-surface-elevated: #1d2b33;
+  --app-border: #37505d;
+  --app-text: #eaf3f7;
+  --app-text-muted: #9fb5c0;
+  --app-accent: #45a8cf;
+  --app-accent-strong: #2c8fb4;
+  --app-warm: #2b2f2f;
+  --app-bg-glow-a: #1a2f39;
+  --app-bg-glow-b: #1b263a;
+  --app-frame-shadow: rgba(0, 0, 0, 0.38);
+  --app-state-info-bg: #1b2a32;
+  --app-state-info-border: #3f5d6d;
+  --app-state-info-text: #c6d9e2;
+  --app-state-success-bg: #1b3028;
+  --app-state-success-border: #3c8f69;
+  --app-state-success-text: #a8e0c5;
+  --app-state-warning-bg: #2f271f;
+  --app-state-warning-border: #8f734c;
+  --app-state-warning-text: #efd4a7;
+  --app-state-danger-bg: #2d2127;
+  --app-state-danger-border: #965d69;
+  --app-state-danger-text: #f1bfca;
 }
 
 @theme inline {
@@ -80,8 +80,8 @@ body {
   min-height: 100dvh;
   overflow-x: hidden;
   background:
-    radial-gradient(circle at 8% 0%, var(--app-bg-glow-a) 0%, transparent 42%),
-    radial-gradient(circle at 94% 100%, var(--app-bg-glow-b) 0%, transparent 40%),
+    radial-gradient(circle at 12% 0%, var(--app-bg-glow-a) 0%, transparent 46%),
+    radial-gradient(circle at 90% 100%, var(--app-bg-glow-b) 0%, transparent 42%),
     var(--app-bg);
   color: var(--app-text);
   font-family: var(--font-manrope), sans-serif;
@@ -114,47 +114,47 @@ body {
 
 .pc-surface {
   border: 1px solid var(--app-border);
-  border-radius: 1.25rem;
+  border-radius: 1.125rem;
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--app-surface) 94%, #ffffff 6%) 0%,
+    color-mix(in srgb, var(--app-surface) 95%, #ffffff 5%) 0%,
     var(--app-surface) 100%
   );
-  padding: 0.625rem;
+  padding: 0.75rem;
   box-shadow:
-    0 1px 0 color-mix(in srgb, var(--app-border) 65%, transparent),
-    0 12px 28px var(--app-frame-shadow);
+    0 1px 0 color-mix(in srgb, var(--app-border) 68%, transparent),
+    0 12px 26px color-mix(in srgb, var(--app-frame-shadow) 86%, transparent);
 }
 
 .pc-surface-soft {
-  background: var(--app-surface-soft);
+  background: color-mix(in srgb, var(--app-surface-soft) 90%, var(--app-surface) 10%);
 }
 
 .pc-detail-surface {
   border: 1px solid var(--app-border);
-  border-radius: 0.9rem;
-  background: color-mix(in srgb, var(--app-surface-soft) 84%, var(--app-surface) 16%);
-  padding: 0.625rem;
+  border-radius: 0.95rem;
+  background: color-mix(in srgb, var(--app-surface-soft) 78%, var(--app-surface) 22%);
+  padding: 0.7rem;
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--app-surface) 55%, transparent),
-    0 8px 18px color-mix(in srgb, var(--app-frame-shadow) 62%, transparent);
+    inset 0 1px 0 color-mix(in srgb, var(--app-surface) 56%, transparent),
+    0 8px 18px color-mix(in srgb, var(--app-frame-shadow) 58%, transparent);
 }
 
 .pc-state-card {
   border: 1px solid var(--app-border);
   border-radius: 0.8rem;
-  background: var(--app-surface);
-  padding: 0.45rem;
-  box-shadow: 0 6px 14px color-mix(in srgb, var(--app-frame-shadow) 58%, transparent);
+  background: color-mix(in srgb, var(--app-surface) 92%, var(--app-surface-soft) 8%);
+  padding: 0.5rem;
+  box-shadow: 0 5px 13px color-mix(in srgb, var(--app-frame-shadow) 52%, transparent);
 }
 
 .pc-empty-state {
   border: 1px solid var(--app-border);
   border-radius: 0.9rem;
-  background: color-mix(in srgb, var(--app-surface-soft) 80%, var(--app-surface) 20%);
-  padding: 0.625rem;
+  background: color-mix(in srgb, var(--app-surface-soft) 76%, var(--app-surface) 24%);
+  padding: 0.75rem;
   color: var(--app-text-muted);
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--app-frame-shadow) 48%, transparent);
+  box-shadow: 0 8px 16px color-mix(in srgb, var(--app-frame-shadow) 44%, transparent);
 }
 
 .pc-state-inline {
@@ -175,11 +175,11 @@ body {
   align-items: flex-start;
   gap: 0.45rem;
   border: 1px solid var(--app-state-info-border);
-  border-radius: 0.75rem;
+  border-radius: 0.8rem;
   background: var(--app-state-info-bg);
-  padding: 0.5rem 0.65rem;
+  padding: 0.56rem 0.7rem;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 650;
   color: var(--app-state-info-text);
 }
 
@@ -253,33 +253,53 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
-  border-radius: 0.75rem;
-  border: 1px solid transparent;
+  border-radius: 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--app-accent) 65%, #ffffff 35%);
   background: var(--app-accent);
   padding: 0.45rem 0.825rem;
   font-size: 0.875rem;
   font-weight: 700;
   color: #ffffff;
-  box-shadow: 0 10px 20px rgba(31, 122, 67, 0.3);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.28) inset,
+    0 10px 20px color-mix(in srgb, var(--app-accent) 34%, transparent);
   transition:
     background-color 140ms ease-out,
+    border-color 140ms ease-out,
     box-shadow 140ms ease-out,
     transform 120ms ease-out;
 }
 
 .pc-btn-primary:hover {
   background: var(--app-accent-strong);
-  box-shadow: 0 12px 24px rgba(31, 122, 67, 0.32);
+  border-color: color-mix(in srgb, var(--app-accent-strong) 70%, #ffffff 30%);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.28) inset,
+    0 12px 24px color-mix(in srgb, var(--app-accent-strong) 36%, transparent);
 }
 
 .pc-btn-primary:active {
-  transform: translateY(1px);
-  box-shadow: 0 6px 14px rgba(31, 122, 67, 0.28);
+  transform: translateY(1px) scale(0.99);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.24) inset,
+    0 6px 14px color-mix(in srgb, var(--app-accent-strong) 34%, transparent);
 }
 
 .pc-btn-primary:disabled {
-  opacity: 0.7;
+  opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.pc-btn-primary-warning {
+  border-color: color-mix(in srgb, var(--app-state-warning-border) 82%, #ffffff 18%);
+  background: color-mix(in srgb, var(--app-state-warning-text) 76%, #d99022 24%);
+}
+
+.pc-btn-primary-warning:hover {
+  background: color-mix(in srgb, var(--app-state-warning-text) 86%, #bf6f10 14%);
+  border-color: color-mix(in srgb, var(--app-state-warning-text) 70%, #ffffff 30%);
 }
 
 .pc-btn-primary:focus-visible,
@@ -301,14 +321,14 @@ details.pc-state-card > summary:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
-  border-radius: 0.75rem;
+  border-radius: 0.8rem;
   border: 1px solid var(--app-border);
   background: var(--app-surface-elevated);
   padding: 0.4rem 0.825rem;
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--app-text);
-  box-shadow: 0 5px 12px var(--app-frame-shadow);
+  box-shadow: 0 5px 12px color-mix(in srgb, var(--app-frame-shadow) 56%, transparent);
   transition:
     border-color 140ms ease-out,
     color 140ms ease-out,
@@ -324,11 +344,11 @@ details.pc-state-card > summary:focus-visible {
 .pc-btn-secondary:hover {
   border-color: var(--app-accent);
   color: var(--app-accent-strong);
-  box-shadow: 0 8px 16px var(--app-frame-shadow);
+  box-shadow: 0 9px 18px color-mix(in srgb, var(--app-frame-shadow) 60%, transparent);
 }
 
 .pc-btn-secondary:active {
-  transform: translateY(1px);
+  transform: translateY(1px) scale(0.995);
 }
 
 .pc-btn-danger {
@@ -339,14 +359,14 @@ details.pc-state-card > summary:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
-  border-radius: 0.75rem;
+  border-radius: 0.8rem;
   border: 1px solid var(--app-state-danger-border);
   background: var(--app-state-danger-bg);
   padding: 0.4rem 0.825rem;
   font-size: 0.8125rem;
   font-weight: 700;
   color: var(--app-state-danger-text);
-  box-shadow: 0 5px 12px var(--app-frame-shadow);
+  box-shadow: 0 5px 12px color-mix(in srgb, var(--app-frame-shadow) 58%, transparent);
   transition:
     border-color 140ms ease-out,
     box-shadow 140ms ease-out,
@@ -355,11 +375,11 @@ details.pc-state-card > summary:focus-visible {
 
 .pc-btn-danger:hover {
   border-color: color-mix(in srgb, var(--app-state-danger-border) 80%, #b12d42 20%);
-  box-shadow: 0 8px 16px var(--app-frame-shadow);
+  box-shadow: 0 8px 16px color-mix(in srgb, var(--app-frame-shadow) 62%, transparent);
 }
 
 .pc-btn-danger:active {
-  transform: translateY(1px);
+  transform: translateY(1px) scale(0.995);
 }
 
 .pc-btn-danger:disabled {
@@ -374,14 +394,14 @@ details.pc-state-card > summary:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 0.25rem;
-  border-radius: 0.625rem;
+  border-radius: 0.72rem;
   border: 1px solid var(--app-border);
   background: var(--app-surface-elevated);
   padding: 0.2rem 0.55rem;
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--app-text-muted);
-  box-shadow: 0 3px 8px var(--app-frame-shadow);
+  box-shadow: 0 3px 8px color-mix(in srgb, var(--app-frame-shadow) 54%, transparent);
   transition:
     border-color 140ms ease-out,
     color 140ms ease-out,
@@ -397,11 +417,12 @@ details.pc-state-card > summary:focus-visible {
 }
 
 .pc-btn-quiet:active {
-  transform: translateY(1px);
+  transform: translateY(1px) scale(0.995);
 }
 
 .pc-btn-quiet:disabled {
   cursor: not-allowed;
+  opacity: 0.62;
 }
 
 .pc-btn-secondary[aria-pressed="true"],
@@ -419,8 +440,8 @@ details.pc-state-card > summary:focus-visible {
   align-items: center;
   gap: 0.375rem;
   border: 1px solid var(--app-border);
-  border-radius: 1rem;
-  background: var(--app-surface);
+  border-radius: 0.95rem;
+  background: color-mix(in srgb, var(--app-surface) 90%, var(--app-surface-soft) 10%);
   padding: 0.375rem;
 }
 
@@ -431,20 +452,34 @@ details.pc-state-card > summary:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 0.375rem;
-  border-radius: 0.75rem;
+  border-radius: 0.72rem;
   border: 1px solid var(--app-border);
   background: var(--app-surface);
   padding: 0.2rem 0.65rem;
   font-size: 0.75rem;
   font-weight: 700;
   color: var(--app-text);
+  transition:
+    border-color 140ms ease-out,
+    background-color 140ms ease-out,
+    color 140ms ease-out,
+    transform 120ms ease-out,
+    box-shadow 140ms ease-out;
+}
+
+.pc-segment-btn:hover {
+  border-color: var(--app-accent);
+}
+
+.pc-segment-btn:active {
+  transform: translateY(1px);
 }
 
 .pc-segment-btn-active {
   border-color: var(--app-accent);
   background: var(--app-accent);
   color: #ffffff;
-  box-shadow: 0 8px 16px rgba(31, 122, 67, 0.28);
+  box-shadow: 0 8px 16px color-mix(in srgb, var(--app-accent) 34%, transparent);
 }
 
 details.pc-detail-surface,
@@ -455,11 +490,11 @@ details.pc-state-card {
 details.pc-detail-surface > summary,
 details.pc-state-card > summary {
   cursor: pointer;
-  border-radius: 0.65rem;
+  border-radius: 0.72rem;
   border: 1px solid var(--app-border);
   background: var(--app-surface-elevated);
-  box-shadow: 0 4px 10px var(--app-frame-shadow);
-  padding: 0.2rem 0.4rem;
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--app-frame-shadow) 52%, transparent);
+  padding: 0.24rem 0.48rem;
   transition:
     color 140ms ease-out,
     background-color 140ms ease-out,
@@ -476,7 +511,7 @@ details.pc-state-card > summary:hover {
 details.pc-detail-surface[open],
 details.pc-state-card[open] {
   border-color: var(--app-accent);
-  box-shadow: 0 10px 20px var(--app-frame-shadow);
+  box-shadow: 0 10px 20px color-mix(in srgb, var(--app-frame-shadow) 62%, transparent);
 }
 
 details.pc-detail-surface[open] > summary,
@@ -484,27 +519,42 @@ details.pc-state-card[open] > summary {
   border-color: var(--app-accent);
   background: var(--app-state-info-bg);
   color: var(--app-accent-strong);
-  box-shadow: 0 8px 18px var(--app-frame-shadow);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--app-frame-shadow) 56%, transparent);
 }
 
 .pc-summary-action {
   cursor: pointer;
   border: 1px solid var(--app-border);
   background: var(--app-surface-elevated);
-  box-shadow: 0 4px 10px var(--app-frame-shadow);
-  border-radius: 0.7rem;
-  padding: 0.2rem 0.45rem;
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--app-frame-shadow) 54%, transparent);
+  border-radius: 0.72rem;
+  padding: 0.24rem 0.5rem;
+  transition:
+    border-color 140ms ease-out,
+    color 140ms ease-out,
+    background-color 140ms ease-out,
+    box-shadow 140ms ease-out,
+    transform 120ms ease-out;
+}
+
+.pc-summary-action:hover {
+  border-color: var(--app-accent);
+  color: var(--app-accent-strong);
+}
+
+.pc-summary-action:active {
+  transform: translateY(1px);
 }
 
 .pc-action-card {
   display: block;
   cursor: pointer;
   border: 1px solid var(--app-border);
-  border-radius: 0.9rem;
+  border-radius: 0.92rem;
   background: var(--app-surface);
-  padding: 0.7rem;
+  padding: 0.72rem;
   color: var(--app-text);
-  box-shadow: 0 6px 16px var(--app-frame-shadow);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--app-frame-shadow) 56%, transparent);
   transition:
     border-color 140ms ease-out,
     box-shadow 140ms ease-out,
@@ -514,11 +564,16 @@ details.pc-state-card[open] > summary {
 
 .pc-action-card:hover {
   border-color: var(--app-accent);
-  box-shadow: 0 10px 22px var(--app-frame-shadow);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--app-frame-shadow) 60%, transparent);
 }
 
 .pc-action-card:active {
-  transform: translateY(1px);
+  transform: translateY(1px) scale(0.997);
+}
+
+.pc-action-card:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
 }
 
 .pc-action-card[aria-disabled="true"] {
@@ -536,10 +591,10 @@ details.pc-state-card[open] > summary {
 }
 
 .pc-payment-card {
-  border-radius: 1rem;
+  border-radius: 1.02rem;
   border: 1px solid var(--app-border);
-  padding: 0.625rem;
-  box-shadow: 0 9px 18px color-mix(in srgb, var(--app-frame-shadow) 62%, transparent);
+  padding: 0.7rem;
+  box-shadow: 0 9px 18px color-mix(in srgb, var(--app-frame-shadow) 58%, transparent);
   transition:
     border-color 140ms ease-out,
     box-shadow 140ms ease-out,
@@ -547,19 +602,19 @@ details.pc-state-card[open] > summary {
 }
 
 .pc-payment-card-default {
-  background: color-mix(in srgb, var(--app-surface-soft) 74%, var(--app-surface) 26%);
+  background: color-mix(in srgb, var(--app-surface-soft) 66%, var(--app-surface) 34%);
 }
 
 .pc-payment-card-due-today {
   border-color: color-mix(in srgb, var(--app-accent) 52%, var(--app-border) 48%);
   background: var(--app-surface);
-  box-shadow: 0 11px 22px color-mix(in srgb, var(--app-frame-shadow) 72%, transparent);
+  box-shadow: 0 11px 22px color-mix(in srgb, var(--app-frame-shadow) 66%, transparent);
 }
 
 .pc-payment-card-overdue {
   border-color: var(--app-state-warning-border);
   background: color-mix(in srgb, var(--app-state-warning-bg) 84%, var(--app-surface) 16%);
-  box-shadow: 0 11px 22px color-mix(in srgb, var(--app-frame-shadow) 72%, transparent);
+  box-shadow: 0 11px 22px color-mix(in srgb, var(--app-frame-shadow) 66%, transparent);
 }
 
 .pc-input,
@@ -567,8 +622,8 @@ details.pc-state-card[open] > summary {
 .pc-textarea {
   width: 100%;
   border: 1px solid var(--app-border);
-  border-radius: 0.8rem;
-  background: var(--app-surface);
+  border-radius: 0.82rem;
+  background: color-mix(in srgb, var(--app-surface) 96%, var(--app-surface-soft) 4%);
   color: var(--app-text);
   font-size: 0.875rem;
   line-height: 1.25rem;
@@ -583,7 +638,9 @@ details.pc-state-card[open] > summary {
 .pc-select:focus,
 .pc-textarea:focus {
   border-color: var(--app-accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--app-accent) 22%, transparent);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--app-accent) 26%, transparent),
+    0 6px 16px color-mix(in srgb, var(--app-frame-shadow) 45%, transparent);
   outline: none;
 }
 
@@ -605,7 +662,7 @@ details.pc-state-card[open] > summary {
   border: 1px solid var(--app-border);
   background: var(--app-surface-elevated);
   color: var(--app-text);
-  box-shadow: 0 4px 10px var(--app-frame-shadow);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--app-frame-shadow) 56%, transparent);
   transition:
     border-color 140ms ease-out,
     color 140ms ease-out,
@@ -631,6 +688,234 @@ details.pc-state-card[open] > summary {
   letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--app-text-muted);
+}
+
+.pc-screen-stack > * + * {
+  margin-top: 0.625rem;
+}
+
+.pc-section-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.985rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--app-text);
+}
+
+.pc-section-subtitle {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--app-text-muted);
+}
+
+.pc-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.pc-kpi-card {
+  cursor: pointer;
+  border: 1px solid var(--app-border);
+  border-radius: 0.92rem;
+  background: color-mix(in srgb, var(--app-surface) 94%, var(--app-surface-soft) 6%);
+  padding: 0.45rem;
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--app-frame-shadow) 48%, transparent);
+  transition:
+    border-color 140ms ease-out,
+    background-color 140ms ease-out,
+    box-shadow 140ms ease-out,
+    transform 120ms ease-out;
+}
+
+.pc-kpi-card:hover {
+  border-color: var(--app-accent);
+}
+
+.pc-kpi-card:active {
+  transform: translateY(1px);
+}
+
+.pc-kpi-card[aria-pressed="true"] {
+  border-color: var(--app-accent);
+  background: color-mix(in srgb, var(--app-accent) 16%, var(--app-surface) 84%);
+  box-shadow: 0 9px 18px color-mix(in srgb, var(--app-frame-shadow) 58%, transparent);
+}
+
+.pc-kpi-card-alert {
+  border-color: color-mix(in srgb, var(--app-state-warning-border) 84%, var(--app-border) 16%);
+  background: color-mix(in srgb, var(--app-state-warning-bg) 54%, var(--app-surface) 46%);
+}
+
+.pc-kpi-card:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
+.pc-modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  background: color-mix(in srgb, #08121a 42%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.pc-modal-overlay-sheet {
+  align-items: flex-end;
+}
+
+@media (min-width: 640px) {
+  .pc-modal-overlay-sheet {
+    align-items: center;
+  }
+}
+
+.pc-modal-dialog {
+  width: min(100%, 42rem);
+  border-radius: 1.1rem;
+  border: 1px solid var(--app-border);
+  background: color-mix(in srgb, var(--app-surface) 96%, #ffffff 4%);
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--app-border) 64%, transparent),
+    0 20px 42px color-mix(in srgb, var(--app-frame-shadow) 82%, transparent);
+}
+
+.pc-modal-sheet-head {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin-left: -0.15rem;
+  margin-right: -0.15rem;
+  border-radius: 0.95rem;
+  border: 1px solid color-mix(in srgb, var(--app-border) 88%, transparent);
+  background: color-mix(in srgb, var(--app-surface) 95%, var(--app-surface-soft) 5%);
+  padding: 0.55rem;
+  box-shadow: 0 7px 16px color-mix(in srgb, var(--app-frame-shadow) 48%, transparent);
+}
+
+.pc-modal-sheet-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  margin-left: -0.15rem;
+  margin-right: -0.15rem;
+  border-radius: 0.95rem;
+  border: 1px solid color-mix(in srgb, var(--app-border) 88%, transparent);
+  background: color-mix(in srgb, var(--app-surface) 95%, var(--app-surface-soft) 5%);
+  padding: 0.55rem;
+  box-shadow: 0 -10px 18px color-mix(in srgb, var(--app-frame-shadow) 56%, transparent);
+}
+
+.pc-shell-frame {
+  border: 1px solid color-mix(in srgb, var(--app-border) 86%, transparent);
+  border-radius: 1.75rem;
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--app-surface) 90%, #ffffff 10%) 0%,
+      color-mix(in srgb, var(--app-surface-soft) 28%, var(--app-surface) 72%) 100%
+    );
+  box-shadow: 0 22px 46px color-mix(in srgb, var(--app-frame-shadow) 86%, transparent);
+}
+
+.pc-shell-header {
+  border: 1px solid color-mix(in srgb, var(--app-border) 86%, transparent);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--app-surface) 94%, var(--app-surface-soft) 6%);
+  padding: 0.5rem 0.6rem;
+  box-shadow: 0 7px 16px color-mix(in srgb, var(--app-frame-shadow) 48%, transparent);
+}
+
+.pc-tabbar {
+  border: 1px solid color-mix(in srgb, var(--app-border) 86%, transparent);
+  border-radius: 1.4rem;
+  background: color-mix(in srgb, var(--app-surface) 92%, var(--app-surface-soft) 8%);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--app-frame-shadow) 66%, transparent);
+}
+
+.pc-tab-btn {
+  display: flex;
+  min-height: 3.2rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.05rem;
+  border: 1px solid color-mix(in srgb, var(--app-border) 82%, transparent);
+  border-radius: 0.95rem;
+  background: color-mix(in srgb, var(--app-surface) 97%, var(--app-surface-soft) 3%);
+  color: var(--app-text-muted);
+  transition:
+    border-color 140ms ease-out,
+    color 140ms ease-out,
+    background-color 140ms ease-out,
+    box-shadow 140ms ease-out,
+    transform 120ms ease-out;
+}
+
+.pc-tab-btn:hover {
+  border-color: color-mix(in srgb, var(--app-accent) 55%, var(--app-border) 45%);
+  color: var(--app-text);
+}
+
+.pc-tab-btn:active {
+  transform: translateY(1px);
+}
+
+.pc-tab-btn-active {
+  border-color: var(--app-accent);
+  background: color-mix(in srgb, var(--app-accent) 88%, #ffffff 12%);
+  color: #ffffff;
+  box-shadow: 0 10px 18px color-mix(in srgb, var(--app-accent) 38%, transparent);
+}
+
+.pc-tab-btn:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 2px;
+}
+
+.pc-popover {
+  border: 1px solid color-mix(in srgb, var(--app-border) 86%, transparent);
+  border-radius: 0.95rem;
+  background: color-mix(in srgb, var(--app-surface) 97%, var(--app-surface-soft) 3%);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--app-frame-shadow) 72%, transparent);
+}
+
+.pc-check-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--app-border);
+  border-radius: 0.82rem;
+  background: color-mix(in srgb, var(--app-surface) 96%, var(--app-surface-soft) 4%);
+  padding: 0.5rem 0.72rem;
+  font-size: 0.875rem;
+  color: var(--app-text);
+}
+
+.pc-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  border-radius: 999px;
+  border: 1px solid var(--app-border);
+  background: color-mix(in srgb, var(--app-surface) 96%, var(--app-surface-soft) 4%);
+  padding: 0.1rem 0.45rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--app-text-muted);
+}
+
+.pc-chip-strong {
+  color: var(--app-text);
 }
 
 :root[data-theme="dark"] .bg-white {
