@@ -1,7 +1,7 @@
-# Payment Control - Master Anchor After Phase 27A Audit/Roadmap Reset
+# Payment Control - Master Anchor (Active, Post-27H Final Release Sign-Off)
 
-- Date: 2026-04-03
-- Supersedes as active chat-migration anchor:
+- Date: 2026-04-04
+- Supersedes as active anchor:
   - `docs/anchors/payment_control_master_anchor_post_premium_removal.md`
 - Historical anchors (not active truth):
   - `docs/anchors/payment_control_master_anchor_post_soft_premium_reset.md`
@@ -12,7 +12,7 @@
 When documents conflict, use this order:
 1. latest explicit user instruction,
 2. this anchor,
-3. latest reports + `docs/reports/internal_version_history.md`,
+3. latest phase reports + `docs/reports/internal_version_history.md`,
 4. older anchors/reports as historical context only.
 
 ## 2) Current product truth (active)
@@ -20,7 +20,7 @@ When documents conflict, use this order:
 Payment Control is fully unrestricted:
 1. no Premium product model,
 2. no entitlement model,
-3. no claim/review path for unlocking access,
+3. no claim/review unlock path,
 4. no donor-only access restrictions.
 
 Support model:
@@ -30,27 +30,35 @@ Support model:
 2. donation does not unlock app functionality.
 
 Supporter recognition:
-1. supporter badge exists as cosmetic recognition only,
-2. assignment remains explicit owner-managed action by numeric Telegram user id,
-3. badge does not change feature access.
+1. supporter badge is cosmetic recognition only,
+2. owner-managed manually via numeric Telegram user id,
+3. badge never changes feature access.
 
-## 3) Completed history summary (condensed)
+## 3) Completed baseline summary (condensed)
 
-### 3.1 Stable utility baseline
-
-From earlier waves (19-25 core line), app retains stable utility foundations:
-1. reminders and recurring payment management,
-2. history and action traceability,
+Core utility baseline (stable):
+1. reminders + recurring payments management,
+2. history activity feed,
 3. family/workspace flows,
-4. onboarding replay and first-run foundations,
+4. onboarding replay + first-run foundation,
 5. bug-report flow.
 
-### 3.2 Major domain shift completed
+Domain reset and stabilization (completed):
+1. 26A - Premium removed end-to-end (runtime/API/schema direction reset).
+2. 26B - donation-only profile/support UX stabilization.
+3. 26C - supporter badge foundation.
+4. 26D - owner-side supporter badge management convenience.
+5. 27B - unified visual/system baseline.
+6. 27C - action-first cross-surface continuity.
+7. 27D - guided reminders/composer simplification.
+8. 27E - calm context memory + quiet help + richer bug-report runtime context.
+9. 27F - reliability hardening + low-risk legacy cleanup.
+10. 27G - release-candidate consolidation + final active-surface closure.
+11. 27H - final release sign-off + verified closure sync.
 
-1. 26A removed Premium runtime/API/service/schema domain and reset to donation-only.
-2. 26B stabilized donation-only Profile UX (calm, compact, secondary support block).
-3. 26C added supporter badge foundation (recognition-only).
-4. 26D improved owner-side supporter badge management convenience.
+Release-line verification state:
+1. 27B-27G are accepted as verified release-line baseline.
+2. Active documentation status is synchronized with that acceptance.
 
 ## 4) Historical/superseded branches (explicit)
 
@@ -60,94 +68,63 @@ Historical/superseded as active direction:
 3. subscription-first monetization branches,
 4. owner review as access gate.
 
-These may exist in old reports for audit trail but are not active product roadmap.
+These remain historical record only.
 
-## 5) Current stable baselines that must not be broken
+## 5) Stable invariants (must not be broken)
 
-Protect these baselines unless explicitly targeted:
+Protect unless explicitly targeted:
 1. unrestricted access for all users,
 2. reminders/history/payment/family/workspace core flows,
 3. `Mark paid` / `Undo paid` behavior,
 4. onboarding replay + first-run behavior,
 5. bug-report flow,
 6. donation rails as plain external links,
-7. supporter badge as cosmetic-only recognition.
+7. supporter badge as cosmetic-only recognition,
+8. 27C continuity model + 27E/27F reset safety paths.
 
-## 6) Active roadmap after 27A (major waves)
+## 6) Current release baseline state (post-27H)
 
-## Wave 1 (next) - Post-26C/26D Closure and Reliability Baseline
+Current status:
+1. active runtime surfaces (Home/Reminders/History/Profile) are consolidated to one donation-only product truth,
+2. continuity/reset/help/bug-report context layers are hardened and synchronized,
+3. user-facing premium-era residue is removed from active runtime surfaces,
+4. release-line closure documentation is synchronized (history + anchor + phase reports).
 
-Goals:
-1. complete manual verification closure for 26C and 26D,
-2. document closure status cleanly in reports/history,
-3. freeze supporter-management semantics after verification.
+What counts as 100% release baseline for this version:
+1. unrestricted app utility with no access gating,
+2. donation-only support rails (Boosty + CloudTips) as optional secondary surfaces,
+3. supporter badge remains cosmetic-only and owner-managed,
+4. core utility flows are preserved: reminders/history/family/workspace, add/edit/delete, mark paid/undo paid, onboarding replay, bug report.
 
-## Wave 2 - Small Supporter Gratitude Feature (non-gating)
+## 7) Frozen branches (do not reopen)
 
-Goals:
-1. implement one small gratitude/convenience feature,
-2. keep zero access gating and zero entitlement semantics,
-3. maintain calm profile hierarchy and RU/EN parity.
-
-## Wave 3 - Donation/Support Runtime Hardening and Legacy Cleanup
-
-Goals:
-1. narrow i18n usage audit and remove unreachable premium-era strings,
-2. add targeted tests around supporter owner flows and donation-support contracts,
-3. improve maintainability without changing product behavior.
-
-## Wave 4 - Operational Quality and Handoff Discipline
-
-Goals:
-1. standardize manual-check closure workflow,
-2. keep anchors/history synchronized to avoid truth drift,
-3. preserve practical validation routine for each pass.
-
-## 7) Ready vs blocked
-
-Ready now:
-1. Wave 1 closure work,
-2. Wave 4 process hardening work.
-
-Blocked (sequencing/policy):
-1. Wave 2 should start after Wave 1 verification closure.
-2. Wave 3 i18n cleanup should start only after key-usage mapping is prepared.
-
-## 8) Frozen branches (do not reopen)
-
-Do not schedule these as active work:
+Do not schedule as active roadmap:
 1. Premium comeback in any form,
 2. donor-to-premium automation or entitlement verification line,
 3. claim/review flows for access activation,
-4. CloudTips provider-verification automation for unlock decisions,
-5. new monetization system waves or storefront-style expansion.
+4. CloudTips/provider verification as unlock decision gate,
+5. storefront-style monetization expansion.
 
-## 9) Supporter badge and gratitude feature policy
+## 8) Post-release direction (outside current release closure)
 
-Supporter badge policy:
-1. recognition-only,
-2. manual owner assignment,
-3. numeric Telegram user id authoritative key,
-4. no access or capability unlock.
+**Phase 28A - Post-release monitoring + next-branch planning (non-blocking for current baseline closure).**
 
-Future gratitude feature policy:
-1. exactly small-scope convenience/appreciation addition,
-2. no hidden paywall semantics,
-3. no donor-only core-flow restrictions.
+Scope:
+1. monitor real-device/runtime stability after release decision,
+2. track only critical regressions/hotfix needs,
+3. evaluate next evolution branch separately from this closed release-line.
 
-## 10) Next logical major wave after 27A
+## 9) Post-release monitoring list (minimal)
 
-**Wave 1 - Post-26C/26D Closure and Reliability Baseline.**
+1. continuity/reset behavior in real Telegram mobile webview under long sessions,
+2. workspace switching continuity isolation,
+3. bug-report runtime context readability/utility in production incidents,
+4. owner-only supporter tooling visibility/permission correctness for non-owner accounts.
 
-Rationale:
-1. closes current verification debt first,
-2. strengthens migration confidence for next-chat execution,
-3. prevents roadmap drift back into historical monetization branches.
-
-## 11) Working agreement for new chats
+## 10) Working agreement for next chats
 
 In new chats:
-1. start from this anchor,
-2. keep scope narrow and practical per pass,
-3. avoid implementation of frozen branches,
-4. keep reports honest: what changed, what did not, what remains manual debt.
+1. start from this anchor and latest report/history entries,
+2. keep scope narrow and release-practical,
+3. avoid frozen branches,
+4. keep reports honest: what changed, what did not, what remains manual/device debt.

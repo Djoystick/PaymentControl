@@ -57,8 +57,9 @@ export type BugReportRuntimeContextPayload = {
   history: HistoryContextSnapshot | null;
 };
 
-const STORAGE_KEY = "payment_control_context_memory_v27e";
-const DEFAULT_CONTEXT_TTL_MS = 12 * 60 * 60 * 1000;
+export const CONTEXT_MEMORY_STORAGE_KEY = "payment_control_context_memory_v27e";
+export const DEFAULT_CONTEXT_TTL_MS = 12 * 60 * 60 * 1000;
+const MAX_REASON_LENGTH = 220;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => {
   return typeof value === "object" && value !== null;
@@ -98,6 +99,36 @@ const isFreshIsoTimestamp = (value: unknown, maxAgeMs: number): value is string 
   return ageMs >= 0 && ageMs <= maxAgeMs;
 };
 
+const normalizeOptionalText = (value: unknown, maxLength = MAX_REASON_LENGTH): string | undefined => {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  return normalized.slice(0, maxLength);
+};
+
+const normalizeWorkspaceId = (value: unknown): string | null | undefined => {
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  return normalized.slice(0, 120);
+};
+
 const defaultGuidanceFlags = (): RemindersGuidanceFlags => ({
   firstPayment: false,
   firstPaidCycle: false,
@@ -125,15 +156,13 @@ const normalizeRuntimeSnapshot = (
     return null;
   }
 
-  if (value.reason !== undefined && typeof value.reason !== "string") {
+  const reason = normalizeOptionalText(value.reason);
+  if (value.reason !== undefined && reason === undefined) {
     return null;
   }
 
-  if (
-    value.workspaceId !== undefined &&
-    value.workspaceId !== null &&
-    typeof value.workspaceId !== "string"
-  ) {
+  const workspaceId = normalizeWorkspaceId(value.workspaceId);
+  if (value.workspaceId !== undefined && workspaceId === undefined) {
     return null;
   }
 
@@ -141,8 +170,8 @@ const normalizeRuntimeSnapshot = (
     tab: value.tab,
     intent: value.intent,
     sourceTab: value.sourceTab,
-    reason: value.reason,
-    workspaceId: value.workspaceId,
+    reason,
+    workspaceId,
     updatedAt: value.updatedAt,
   };
 };
@@ -178,10 +207,9 @@ const normalizeRemindersSnapshot = (
   }
 
   const entryFlowContextReason =
-    value.entryFlowContextReason === null ||
-    typeof value.entryFlowContextReason === "string"
-      ? value.entryFlowContextReason
-      : null;
+    value.entryFlowContextReason === null
+      ? null
+      : normalizeOptionalText(value.entryFlowContextReason) ?? null;
 
   return {
     paymentListView,
@@ -211,10 +239,9 @@ const normalizeHistorySnapshot = (
   }
 
   const entryFlowContextReason =
-    value.entryFlowContextReason === null ||
-    typeof value.entryFlowContextReason === "string"
-      ? value.entryFlowContextReason
-      : null;
+    value.entryFlowContextReason === null
+      ? null
+      : normalizeOptionalText(value.entryFlowContextReason) ?? null;
 
   return {
     activityFocusFilter,
@@ -253,7 +280,7 @@ const readStore = (): ContextMemoryStore => {
   }
 
   try {
-    const rawValue = window.localStorage.getItem(STORAGE_KEY);
+    const rawValue = window.localStorage.getItem(CONTEXT_MEMORY_STORAGE_KEY);
     if (!rawValue) {
       return {};
     }
@@ -275,7 +302,7 @@ const writeStore = (value: ContextMemoryStore): void => {
   }
 
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+    window.localStorage.setItem(CONTEXT_MEMORY_STORAGE_KEY, JSON.stringify(value));
   } catch {
     // Ignore storage write failures.
   }
@@ -284,12 +311,37 @@ const writeStore = (value: ContextMemoryStore): void => {
 export const rememberRuntimeSnapshot = (
   value: Omit<RuntimeContextSnapshot, "updatedAt">,
 ): void => {
+  const reason = normalizeOptionalText(value.reason);
+  const workspaceId = normalizeWorkspaceId(value.workspaceId);
+
   const store = readStore();
   store.runtime = {
     ...value,
+    reason,
+    workspaceId: workspaceId ?? null,
     updatedAt: new Date().toISOString(),
   };
   writeStore(store);
+};
+
+export const isRuntimeSnapshotCompatibleWithWorkspace = (
+  runtime: RuntimeContextSnapshot,
+  workspaceId: string | null,
+): boolean => {
+  if (!workspaceId) {
+    return true;
+  }
+
+  if (runtime.workspaceId === workspaceId) {
+    return true;
+  }
+
+  // Profile is workspace-agnostic and remains safe to continue from Home.
+  if (runtime.tab === "profile") {
+    return true;
+  }
+
+  return false;
 };
 
 export const readRuntimeSnapshot = (params?: {
@@ -302,7 +354,10 @@ export const readRuntimeSnapshot = (params?: {
     return null;
   }
 
-  if (params?.workspaceId && runtime.workspaceId && runtime.workspaceId !== params.workspaceId) {
+  if (
+    params?.workspaceId !== undefined &&
+    !isRuntimeSnapshotCompatibleWithWorkspace(runtime, params.workspaceId ?? null)
+  ) {
     return null;
   }
 
@@ -331,8 +386,12 @@ export const writeRemindersContextSnapshot = (
   const remindersByWorkspace = {
     ...(store.remindersByWorkspace ?? {}),
   };
+  const entryFlowContextReason = value.entryFlowContextReason
+    ? normalizeOptionalText(value.entryFlowContextReason) ?? null
+    : null;
   remindersByWorkspace[workspaceId] = {
     ...value,
+    entryFlowContextReason,
     updatedAt: new Date().toISOString(),
   };
   store.remindersByWorkspace = remindersByWorkspace;
@@ -377,8 +436,12 @@ export const writeHistoryContextSnapshot = (
   const historyByWorkspace = {
     ...(store.historyByWorkspace ?? {}),
   };
+  const entryFlowContextReason = value.entryFlowContextReason
+    ? normalizeOptionalText(value.entryFlowContextReason) ?? null
+    : null;
   historyByWorkspace[workspaceId] = {
     ...value,
+    entryFlowContextReason,
     updatedAt: new Date().toISOString(),
   };
   store.historyByWorkspace = historyByWorkspace;
@@ -464,7 +527,7 @@ export const clearAllContextMemory = (): void => {
   }
 
   try {
-    window.localStorage.removeItem(STORAGE_KEY);
+    window.localStorage.removeItem(CONTEXT_MEMORY_STORAGE_KEY);
   } catch {
     // Ignore storage write failures.
   }

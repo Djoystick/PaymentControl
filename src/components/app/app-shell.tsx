@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocalization } from "@/lib/i18n/localization";
 import { AppIcon } from "@/components/app/app-icon";
-import { rememberRuntimeSnapshot } from "@/lib/app/context-memory";
+import { readRuntimeSnapshot, rememberRuntimeSnapshot } from "@/lib/app/context-memory";
 
 type AppShellProps = {
   screens: Record<AppTab, React.ReactNode>;
@@ -60,6 +60,8 @@ export const ONBOARDING_REPLAY_EVENT = "payment-control-replay-onboarding";
 export const APP_TAB_NAVIGATE_EVENT = "payment-control-navigate-tab";
 const APP_TAB_NAVIGATION_CONTEXT_STORAGE_KEY =
   "payment_control_tab_navigation_context_v27c";
+const TAB_NAVIGATION_CONTEXT_TTL_MS = 30 * 60 * 1000;
+const MAX_NAVIGATION_REASON_LENGTH = 240;
 
 const isAppTab = (value: string): value is AppTab => {
   return tabItems.some((item) => item.key === value);
@@ -74,6 +76,50 @@ const isAppNavigationIntent = (value: string): value is AppNavigationIntent => {
     "history_recent_updates",
     "history_recent_paid",
   ].includes(value);
+};
+
+const normalizeOptionalReason = (value: unknown): string | undefined => {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  return normalized.slice(0, MAX_NAVIGATION_REASON_LENGTH);
+};
+
+const normalizeWorkspaceId = (value: unknown): string | null | undefined => {
+  if (value === null || value === undefined) {
+    return value;
+  }
+
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value.trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  return normalized.slice(0, 120);
+};
+
+const isFreshNavigationTimestamp = (value: unknown): value is string => {
+  if (typeof value !== "string" || !value) {
+    return false;
+  }
+
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) {
+    return false;
+  }
+
+  const ageMs = Date.now() - parsed;
+  return ageMs >= 0 && ageMs <= TAB_NAVIGATION_CONTEXT_TTL_MS;
 };
 
 const readTabNavigationContextMap = (): Partial<Record<AppTab, AppTabNavigationContext>> => {
@@ -95,35 +141,58 @@ const readTabNavigationContextMap = (): Partial<Record<AppTab, AppTabNavigationC
     }
 
     const normalized: Partial<Record<AppTab, AppTabNavigationContext>> = {};
+    let shouldRewrite = false;
     for (const [rawTab, rawContext] of Object.entries(parsed)) {
       if (!isAppTab(rawTab) || !rawContext) {
+        shouldRewrite = true;
         continue;
       }
 
       if (
         !isAppNavigationIntent(rawContext.intent) ||
         !isAppTab(rawContext.tab) ||
-        rawContext.tab !== rawTab
+        rawContext.tab !== rawTab ||
+        !isFreshNavigationTimestamp(rawContext.createdAt)
       ) {
+        shouldRewrite = true;
         continue;
       }
 
-      if (
-        rawContext.workspaceId !== undefined &&
-        rawContext.workspaceId !== null &&
-        typeof rawContext.workspaceId !== "string"
-      ) {
+      const sourceTab =
+        rawContext.sourceTab === undefined
+          ? undefined
+          : isAppTab(rawContext.sourceTab)
+            ? rawContext.sourceTab
+            : undefined;
+      if (rawContext.sourceTab !== undefined && sourceTab === undefined) {
+        shouldRewrite = true;
+        continue;
+      }
+
+      const workspaceId = normalizeWorkspaceId(rawContext.workspaceId);
+      if (rawContext.workspaceId !== undefined && workspaceId === undefined) {
+        shouldRewrite = true;
+        continue;
+      }
+
+      const reason = normalizeOptionalReason(rawContext.reason);
+      if (rawContext.reason !== undefined && reason === undefined) {
+        shouldRewrite = true;
         continue;
       }
 
       normalized[rawTab] = {
         tab: rawContext.tab,
         intent: rawContext.intent,
-        sourceTab: rawContext.sourceTab,
-        reason: rawContext.reason,
-        workspaceId: rawContext.workspaceId,
-        createdAt: rawContext.createdAt ?? new Date().toISOString(),
+        sourceTab,
+        reason,
+        workspaceId,
+        createdAt: rawContext.createdAt,
       };
+    }
+
+    if (shouldRewrite) {
+      writeTabNavigationContextMap(normalized);
     }
 
     return normalized;
@@ -157,8 +226,12 @@ export const queueTabNavigationContext = (
   }
 
   const nextMap = readTabNavigationContextMap();
+  const reason = normalizeOptionalReason(value.reason);
+  const workspaceId = normalizeWorkspaceId(value.workspaceId);
   nextMap[value.tab] = {
     ...value,
+    reason,
+    workspaceId: workspaceId ?? null,
     createdAt: new Date().toISOString(),
   };
   writeTabNavigationContextMap(nextMap);
@@ -194,6 +267,18 @@ const clearTabNavigationContext = (tab: AppTab) => {
 
   delete nextMap[tab];
   writeTabNavigationContextMap(nextMap);
+};
+
+export const clearAllTabNavigationContexts = () => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(APP_TAB_NAVIGATION_CONTEXT_STORAGE_KEY);
+  } catch {
+    // Ignore localStorage write errors in restricted environments.
+  }
 };
 
 const onboardingSteps: OnboardingStep[] = [
@@ -247,18 +332,21 @@ export function AppShell({ screens }: AppShellProps) {
 
   const handleTabClick = useCallback((tab: AppTab) => {
     clearTabNavigationContext(tab);
+    const inferredWorkspaceId = readRuntimeSnapshot()?.workspaceId ?? null;
     setActiveTab((current) => {
       if (tab === "home" && current !== "home") {
         rememberRuntimeSnapshot({
           tab: current,
           sourceTab: "home",
           reason: "Continue from tab bar selection.",
+          workspaceId: inferredWorkspaceId,
         });
       } else {
         rememberRuntimeSnapshot({
           tab,
           sourceTab: current,
           reason: "Continue from tab bar selection.",
+          workspaceId: inferredWorkspaceId,
         });
       }
       return tab;

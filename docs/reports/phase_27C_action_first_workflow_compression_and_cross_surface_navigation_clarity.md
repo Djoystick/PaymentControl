@@ -1,7 +1,7 @@
 # Phase 27C - Action-First Workflow Compression + Cross-Surface Navigation Clarity
 
 - Date: 2026-04-03
-- Status: implemented (major action-first UX wave), pending manual verification
+- Status: implemented (major action-first UX wave), manual verification completed by user (release-line accepted)
 - Scope type: workflow/navigation UX wave on top of accepted 27B system baseline
 - Source-of-truth baseline:
   1. `docs/anchors/payment_control_master_anchor_post_phase27A.md`

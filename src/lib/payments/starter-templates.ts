@@ -219,7 +219,7 @@ export const personalStarterPaymentTemplates: StarterPaymentTemplate[] = [
     id: "insurance",
     label: "Insurance",
     scenario: "personal",
-    title: "Insurance Premium",
+    title: "Insurance payment",
     category: "Insurance",
     cadence: "monthly",
     dueDay: 25,

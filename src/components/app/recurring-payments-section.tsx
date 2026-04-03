@@ -33,6 +33,7 @@ import type {
   WorkspaceResponsiblePayerOptionPayload,
 } from "@/lib/payments/types";
 import {
+  clearAllTabNavigationContexts,
   consumeTabNavigationContext,
   type AppNavigationIntent,
 } from "@/components/app/app-shell";
@@ -1247,7 +1248,7 @@ export function RecurringPaymentsSection({
     const canApplyNavigationContext =
       context &&
       navigationIntent &&
-      (!context.workspaceId || context.workspaceId === activeWorkspaceId);
+      context.workspaceId === activeWorkspaceId;
 
     if (canApplyNavigationContext && context && navigationIntent) {
       applyReminderNavigationIntent(navigationIntent, context.reason);
@@ -1361,10 +1362,16 @@ export function RecurringPaymentsSection({
     setEntryFlowContextReason(null);
     setIsRestoredContext(false);
     setLastNavigationIntent(null);
+    clearFeedback();
     if (activeWorkspaceId) {
       clearRemindersContextSnapshot(activeWorkspaceId);
     }
-  }, [activeWorkspaceId]);
+    clearAllTabNavigationContexts();
+  }, [activeWorkspaceId, clearFeedback]);
+
+  const shouldShowGuidanceTip = Boolean(
+    activeGuidanceKind && !isComposerExpanded && !isLoading,
+  );
 
   useEffect(() => {
     if (!isComposerExpanded) {
@@ -2104,7 +2111,7 @@ export function RecurringPaymentsSection({
             </div>
           </div>
 
-          {activeGuidanceKind && (
+          {shouldShowGuidanceTip && activeGuidanceKind && (
             <div className="pc-state-card text-xs text-app-text-muted">
               <p className="inline-flex items-center gap-1 font-semibold text-app-text">
                 <AppIcon name="help" className="h-3.5 w-3.5" />

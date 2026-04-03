@@ -6,6 +6,7 @@ import { useLocalization } from "@/lib/i18n/localization";
 import { AppIcon } from "@/components/app/app-icon";
 import {
   APP_TAB_NAVIGATE_EVENT,
+  clearAllTabNavigationContexts,
   type AppTabNavigationEventDetail,
 } from "@/components/app/app-shell";
 import {
@@ -76,7 +77,11 @@ export function LandingScreen({ workspaceId = null }: LandingScreenProps) {
   const resumeSnapshot = useMemo(() => {
     void resumeRevision;
     const nextSnapshot = readRuntimeSnapshot({ workspaceId });
-    if (!nextSnapshot || nextSnapshot.tab === "home") {
+    if (
+      !nextSnapshot ||
+      nextSnapshot.tab === "home" ||
+      nextSnapshot.tab === "profile"
+    ) {
       return null;
     }
 
@@ -121,6 +126,7 @@ export function LandingScreen({ workspaceId = null }: LandingScreenProps) {
 
   const startCleanSession = () => {
     clearAllContextMemory();
+    clearAllTabNavigationContexts();
     setResumeRevision((current) => current + 1);
   };
 
@@ -188,12 +194,14 @@ export function LandingScreen({ workspaceId = null }: LandingScreenProps) {
         </div>
       )}
 
-      <div className="pc-state-inline">
-        <AppIcon name="workspace" className="h-3.5 w-3.5" />
-        <span>
-          {tr("Runtime stage")}: <span className="font-semibold">{clientEnv.appStage}</span>
-        </span>
-      </div>
+      {clientEnv.appStage !== "production" && clientEnv.appStage !== "prod" && (
+        <div className="pc-state-inline">
+          <AppIcon name="workspace" className="h-3.5 w-3.5" />
+          <span>
+            {tr("Runtime stage")}: <span className="font-semibold">{clientEnv.appStage}</span>
+          </span>
+        </div>
+      )}
     </section>
   );
 }

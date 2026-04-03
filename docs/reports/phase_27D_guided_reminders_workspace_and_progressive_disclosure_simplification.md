@@ -1,7 +1,7 @@
 ﻿# Phase 27D - Guided Reminders Workspace + Progressive Disclosure Simplification
 
 - Date: 2026-04-04
-- Status: implemented (major Reminders/composer UX wave), pending manual verification
+- Status: implemented (major Reminders/composer UX wave), manual verification completed by user (release-line accepted)
 - Scope type: focused core-utility UX wave on top of accepted 27B visual baseline and 27C action-first continuity
 - Source-of-truth baseline:
   1. `docs/anchors/payment_control_master_anchor_post_phase27A.md`

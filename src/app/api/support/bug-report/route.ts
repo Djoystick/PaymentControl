@@ -6,6 +6,7 @@ import type {
 } from "@/lib/auth/types";
 import { isSupabaseServerConfigured, serverEnv } from "@/lib/config/server-env";
 import { sendTelegramMessageWithPreflight } from "@/lib/payments/telegram-delivery";
+import { formatBugReportRuntimeContextLines } from "@/lib/support/bug-report-runtime-context";
 
 type BugReportBody = {
   initData?: string;
@@ -89,95 +90,6 @@ const normalizeCurrentScreen = (value: string | undefined): string => {
   }
 
   return "unknown";
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> => {
-  return typeof value === "object" && value !== null;
-};
-
-const formatRuntimeContextLines = (value: unknown): string[] => {
-  if (!isRecord(value)) {
-    return [];
-  }
-
-  const lines: string[] = [];
-
-  const runtime = isRecord(value.runtime) ? value.runtime : null;
-  if (runtime) {
-    if (typeof runtime.tab === "string") {
-      lines.push(`Runtime tab: ${runtime.tab}`);
-    }
-    if (typeof runtime.intent === "string") {
-      lines.push(`Last intent: ${runtime.intent}`);
-    }
-    if (typeof runtime.reason === "string" && runtime.reason.trim()) {
-      lines.push(`Last transition reason: ${runtime.reason.trim().slice(0, 240)}`);
-    }
-    if (typeof runtime.workspaceId === "string" && runtime.workspaceId.trim()) {
-      lines.push(`Runtime workspace id: ${runtime.workspaceId.trim()}`);
-    }
-    if (typeof runtime.updatedAt === "string" && runtime.updatedAt.trim()) {
-      lines.push(`Runtime updated at: ${runtime.updatedAt.trim()}`);
-    }
-  }
-
-  const reminders = isRecord(value.reminders) ? value.reminders : null;
-  if (reminders) {
-    if (typeof reminders.paymentListView === "string") {
-      lines.push(`Reminders view: ${reminders.paymentListView}`);
-    }
-    if (typeof reminders.reminderFocusFilter === "string") {
-      lines.push(`Reminders focus: ${reminders.reminderFocusFilter}`);
-    }
-    if (typeof reminders.showPausedSubscriptionsOnly === "boolean") {
-      lines.push(
-        `Reminders paused-only filter: ${
-          reminders.showPausedSubscriptionsOnly ? "on" : "off"
-        }`,
-      );
-    }
-    if (
-      typeof reminders.entryFlowContextReason === "string" &&
-      reminders.entryFlowContextReason.trim()
-    ) {
-      lines.push(
-        `Reminders flow reason: ${reminders.entryFlowContextReason
-          .trim()
-          .slice(0, 240)}`,
-      );
-    }
-    if (typeof reminders.updatedAt === "string" && reminders.updatedAt.trim()) {
-      lines.push(`Reminders context updated at: ${reminders.updatedAt.trim()}`);
-    }
-  }
-
-  const history = isRecord(value.history) ? value.history : null;
-  if (history) {
-    if (typeof history.activityFocusFilter === "string") {
-      lines.push(`History focus: ${history.activityFocusFilter}`);
-    }
-    if (
-      typeof history.entryFlowContextReason === "string" &&
-      history.entryFlowContextReason.trim()
-    ) {
-      lines.push(
-        `History flow reason: ${history.entryFlowContextReason.trim().slice(0, 240)}`,
-      );
-    }
-    if (typeof history.updatedAt === "string" && history.updatedAt.trim()) {
-      lines.push(`History context updated at: ${history.updatedAt.trim()}`);
-    }
-  }
-
-  const generatedAt =
-    typeof value.generatedAt === "string" && value.generatedAt.trim()
-      ? value.generatedAt.trim()
-      : null;
-  if (generatedAt) {
-    lines.push(`Client context generated at: ${generatedAt}`);
-  }
-
-  return lines;
 };
 
 const toDisplayName = (firstName: string, lastName: string | null): string => {
@@ -297,7 +209,7 @@ export async function POST(request: Request) {
   const language = normalizeLanguage(body.language);
   const currentScreen = normalizeCurrentScreen(body.currentScreen);
   const theme = normalizeTheme(body.theme);
-  const runtimeContextLines = formatRuntimeContextLines(body.runtimeContext);
+  const runtimeContextLines = formatBugReportRuntimeContextLines(body.runtimeContext);
 
   if (title.length < 3 || description.length < 10) {
     return NextResponse.json<BugReportSubmitResponse>(

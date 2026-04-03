@@ -1,7 +1,7 @@
 # Phase 27E - Calm Context Memory + Helpful Micro-Automation
 
 - Date: 2026-04-04
-- Status: implemented (major UX utility wave), pending manual verification
+- Status: implemented (major UX utility wave), manual verification completed by user (release-line accepted)
 - Scope type: one cohesive runtime continuity/automation pass on top of accepted 27B/27C/27D baselines
 - Source-of-truth baseline:
   1. `docs/anchors/payment_control_master_anchor_post_phase27A.md`

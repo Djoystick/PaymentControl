@@ -1,7 +1,7 @@
 # Phase 27B - Core Design System Hardening + Primary Surface Recomposition
 
 - Date: 2026-04-03
-- Status: implemented (major UI/UX system wave), pending manual verification
+- Status: implemented (major UI/UX system wave), manual verification completed by user (release-line accepted)
 - Scope type: one cohesive runtime UI/UX recomposition wave (no product-model change)
 - Source-of-truth baseline used:
   - `docs/anchors/payment_control_master_anchor_post_phase27A.md`

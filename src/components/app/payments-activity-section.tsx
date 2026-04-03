@@ -13,6 +13,9 @@ import {
 import { useLocalization } from "@/lib/i18n/localization";
 import { AppIcon } from "@/components/app/app-icon";
 import {
+  APP_TAB_NAVIGATE_EVENT,
+  type AppTabNavigationEventDetail,
+  clearAllTabNavigationContexts,
   consumeTabNavigationContext,
   type AppNavigationIntent,
 } from "@/components/app/app-shell";
@@ -364,7 +367,7 @@ export function PaymentsActivitySection({
     const canApplyNavigationContext =
       context &&
       navigationIntent &&
-      (!context.workspaceId || context.workspaceId === workspaceId);
+      context.workspaceId === workspaceId;
 
     if (canApplyNavigationContext && context && navigationIntent) {
       applyHistoryNavigationIntent(navigationIntent, context.reason);
@@ -438,9 +441,29 @@ export function PaymentsActivitySection({
     setActivityFocusFilter("all");
     setEntryFlowContextReason(null);
     setIsRestoredContext(false);
+    setFeedback(null);
     if (workspaceId) {
       clearHistoryContextSnapshot(workspaceId);
     }
+    clearAllTabNavigationContexts();
+  }, [workspaceId]);
+
+  const openRemindersAddPayment = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.dispatchEvent(
+      new CustomEvent<AppTabNavigationEventDetail>(APP_TAB_NAVIGATE_EVENT, {
+        detail: {
+          tab: "reminders",
+          intent: "reminders_add_payment",
+          sourceTab: "history",
+          reason: "Continue from History and add first payment.",
+          workspaceId,
+        },
+      }),
+    );
   }, [workspaceId]);
 
   return (
@@ -583,6 +606,14 @@ export function PaymentsActivitySection({
                         "Add your first payment in Reminders. Events will appear here after updates.",
                       )}
                 </p>
+                <button
+                  type="button"
+                  onClick={openRemindersAddPayment}
+                  className="pc-btn-quiet mt-2"
+                >
+                  <AppIcon name="add" className="h-3.5 w-3.5" />
+                  {tr("Open Reminders and add payment")}
+                </button>
               </div>
             ) : activityItems.length === 0 ? (
               <div className="pc-empty-state space-y-1">
@@ -590,6 +621,14 @@ export function PaymentsActivitySection({
                 <p className="text-sm text-app-text-muted">
                   {tr("Mark paid or edit a payment in Reminders to populate History.")}
                 </p>
+                <button
+                  type="button"
+                  onClick={openRemindersAddPayment}
+                  className="pc-btn-quiet mt-2"
+                >
+                  <AppIcon name="add" className="h-3.5 w-3.5" />
+                  {tr("Open Reminders and add payment")}
+                </button>
               </div>
             ) : focusedActivityItems.length === 0 ? (
               <div className="pc-empty-state space-y-1">
