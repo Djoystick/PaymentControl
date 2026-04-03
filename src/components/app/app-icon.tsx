@@ -10,7 +10,6 @@ type AppIconName =
   | "sun"
   | "moon"
   | "language"
-  | "premium"
   | "workspace"
   | "support"
   | "payments"
@@ -137,14 +136,6 @@ export function AppIcon({
         <path d="M12 20l4 -9l4 9" />
         <path d="M19.1 18h-6.2" />
         <path d="M6.694 3l.793 .582" />
-      </svg>
-    );
-  }
-
-  if (name === "premium") {
-    return (
-      <svg {...baseProps}>
-        <path d="M12 6l4 6l5 -4l-2 10h-14l-2 -10l5 4l4 -6" />
       </svg>
     );
   }

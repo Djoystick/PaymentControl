@@ -3,12 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   acceptFamilyInvite as acceptFamilyInviteRequest,
-  claimGiftPremiumCampaign as claimGiftPremiumCampaignRequest,
   bootstrapTelegramAuth,
   createFamilyInvite as createFamilyInviteRequest,
   createFamilyWorkspace as createFamilyWorkspaceRequest,
   getCurrentAppContext,
-  readPremiumEntitlement as readPremiumEntitlementRequest,
   switchActiveWorkspace as switchActiveWorkspaceRequest,
   updateScenario,
 } from "@/lib/auth/client";
@@ -16,8 +14,6 @@ import type {
   FamilyInviteAcceptResponse,
   FamilyWorkspaceInvitePayload,
   FamilyWorkspaceInviteStatus,
-  GiftPremiumClaimResultPayload,
-  PremiumEntitlementStatePayload,
   ProfilePayload,
   SelectedScenario,
   TelegramIdentity,
@@ -83,8 +79,6 @@ type UseCurrentAppContextResult = {
   source: TelegramIdentity["source"] | null;
   stateLabel: string;
   isLoading: boolean;
-  isLoadingPremium: boolean;
-  isClaimingGiftPremium: boolean;
   isSavingScenario: boolean;
   isSavingWorkspace: boolean;
   isSavingInvite: boolean;
@@ -92,15 +86,12 @@ type UseCurrentAppContextResult = {
   isTelegramContext: boolean;
   initData: string;
   workspaces: WorkspaceSummaryPayload[];
-  premiumEntitlement: PremiumEntitlementStatePayload | null;
-  giftPremiumClaimResult: GiftPremiumClaimResultPayload | null;
   inviteAcceptDiagnostic: InviteAcceptDiagnostic | null;
   refreshContext: () => Promise<void>;
   changeScenario: (scenario: SelectedScenario) => Promise<void>;
   createFamilyWorkspace: (title: string) => Promise<void>;
   switchWorkspace: (workspaceId: string) => Promise<void>;
   createInvite: () => Promise<FamilyWorkspaceInvitePayload | null>;
-  claimGiftPremium: (campaignCode: string) => Promise<boolean>;
   acceptInvite: (inviteToken: string) => Promise<boolean>;
   clearInviteAcceptDiagnostic: () => void;
 };
@@ -110,10 +101,6 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
   const [workspace, setWorkspace] = useState<WorkspaceSummaryPayload | null>(null);
   const [source, setSource] = useState<TelegramIdentity["source"] | null>(null);
   const [workspaces, setWorkspaces] = useState<WorkspaceSummaryPayload[]>([]);
-  const [premiumEntitlement, setPremiumEntitlement] =
-    useState<PremiumEntitlementStatePayload | null>(null);
-  const [giftPremiumClaimResult, setGiftPremiumClaimResult] =
-    useState<GiftPremiumClaimResultPayload | null>(null);
   const [inviteAcceptDiagnostic, setInviteAcceptDiagnostic] =
     useState<InviteAcceptDiagnostic | null>(null);
   const [stateLabel, setStateLabel] = useState("Loading current context...");
@@ -121,8 +108,6 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
   const [isSavingScenario, setIsSavingScenario] = useState(false);
   const [isSavingWorkspace, setIsSavingWorkspace] = useState(false);
   const [isSavingInvite, setIsSavingInvite] = useState(false);
-  const [isLoadingPremium, setIsLoadingPremium] = useState(false);
-  const [isClaimingGiftPremium, setIsClaimingGiftPremium] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [initData, setInitData] = useState("");
 
@@ -141,108 +126,80 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
     setStateLabel("Current app context loaded.");
   };
 
-  const loadPremiumEntitlement = useCallback(async (telegramInitData: string) => {
-    setIsLoadingPremium(true);
+  const loadCurrentContext = useCallback(async (allowBootstrapFallback: boolean) => {
+    setIsLoading(true);
+    setActionMessage(null);
+
+    const telegramInitData = getTelegramInitData();
+    setInitData(telegramInitData);
+
     try {
-      const result = await readPremiumEntitlementRequest(telegramInitData);
-      if (!result.ok) {
-        setPremiumEntitlement(null);
+      const contextResult = await getCurrentAppContext(telegramInitData);
+      if (contextResult.ok) {
+        setContextState(
+          contextResult.profile,
+          contextResult.workspace,
+          contextResult.source,
+          contextResult.workspaces,
+        );
         return;
       }
 
-      setPremiumEntitlement(result.entitlement);
+      if (
+        allowBootstrapFallback &&
+        (contextResult.error.code === "APP_CONTEXT_NOT_INITIALIZED" ||
+          contextResult.error.code === "WORKSPACE_NOT_FOUND")
+      ) {
+        const bootstrapResult = await bootstrapTelegramAuth(telegramInitData);
+        if (!bootstrapResult.ok) {
+          setProfile(null);
+          setWorkspace(null);
+          setSource(null);
+          setWorkspaces([]);
+          setStateLabel(bootstrapResult.error.message);
+          return;
+        }
+
+        const refreshedContext = await getCurrentAppContext(telegramInitData);
+        if (refreshedContext.ok) {
+          setContextState(
+            refreshedContext.profile,
+            refreshedContext.workspace,
+            refreshedContext.source,
+            refreshedContext.workspaces,
+          );
+        } else {
+          setContextState(
+            bootstrapResult.profile,
+            bootstrapResult.workspace,
+            bootstrapResult.source,
+            bootstrapResult.workspaces,
+          );
+        }
+        return;
+      }
+
+      setProfile(null);
+      setWorkspace(null);
+      setSource(null);
+      setWorkspaces([]);
+      setStateLabel(contextResult.error.message);
     } catch {
-      setPremiumEntitlement(null);
+      setProfile(null);
+      setWorkspace(null);
+      setSource(null);
+      setWorkspaces([]);
+      setStateLabel("Current context request failed.");
     } finally {
-      setIsLoadingPremium(false);
+      setIsLoading(false);
     }
   }, []);
 
-  const loadCurrentContext = useCallback(
-    async (allowBootstrapFallback: boolean) => {
-      setIsLoading(true);
-      setIsLoadingPremium(true);
-      setActionMessage(null);
-
-      const telegramInitData = getTelegramInitData();
-      setInitData(telegramInitData);
-
-      try {
-        const contextResult = await getCurrentAppContext(telegramInitData);
-        if (contextResult.ok) {
-          setContextState(
-            contextResult.profile,
-            contextResult.workspace,
-            contextResult.source,
-            contextResult.workspaces,
-          );
-          await loadPremiumEntitlement(telegramInitData);
-          return;
-        }
-
-        if (
-          allowBootstrapFallback &&
-          (contextResult.error.code === "APP_CONTEXT_NOT_INITIALIZED" ||
-            contextResult.error.code === "WORKSPACE_NOT_FOUND")
-        ) {
-          const bootstrapResult = await bootstrapTelegramAuth(telegramInitData);
-          if (!bootstrapResult.ok) {
-            setProfile(null);
-            setWorkspace(null);
-            setSource(null);
-            setStateLabel(bootstrapResult.error.message);
-            return;
-          }
-
-          const refreshedContext = await getCurrentAppContext(telegramInitData);
-          if (refreshedContext.ok) {
-            setContextState(
-              refreshedContext.profile,
-              refreshedContext.workspace,
-              refreshedContext.source,
-              refreshedContext.workspaces,
-            );
-            await loadPremiumEntitlement(telegramInitData);
-          } else {
-            setContextState(
-              bootstrapResult.profile,
-              bootstrapResult.workspace,
-              bootstrapResult.source,
-              bootstrapResult.workspaces,
-            );
-            await loadPremiumEntitlement(telegramInitData);
-          }
-
-          return;
-        }
-
-        setProfile(null);
-        setWorkspace(null);
-        setSource(null);
-        setWorkspaces([]);
-        setPremiumEntitlement(null);
-        setIsLoadingPremium(false);
-        setStateLabel(contextResult.error.message);
-      } catch {
-        setProfile(null);
-        setWorkspace(null);
-        setSource(null);
-        setWorkspaces([]);
-        setPremiumEntitlement(null);
-        setIsLoadingPremium(false);
-        setStateLabel("Current context request failed.");
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [loadPremiumEntitlement],
-  );
-
   useEffect(() => {
-    loadCurrentContext(true);
+    void loadCurrentContext(true);
 
     const handleTelegramReady = () => {
-      loadCurrentContext(true);
+      void loadCurrentContext(true);
     };
 
     window.addEventListener("telegram-webapp-ready", handleTelegramReady);
@@ -416,48 +373,6 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
     }
   }, [initData, isSavingInvite, profile, workspace]);
 
-  const claimGiftPremium = useCallback(
-    async (campaignCode: string) => {
-      if (!profile || isClaimingGiftPremium) {
-        return false;
-      }
-
-      const normalizedCode = campaignCode.trim();
-      if (!normalizedCode) {
-        setActionMessage("Gift campaign code is required.");
-        return false;
-      }
-
-      setIsClaimingGiftPremium(true);
-      setActionMessage(null);
-      try {
-        const claimResult = await claimGiftPremiumCampaignRequest(
-          initData,
-          normalizedCode,
-        );
-        if (!claimResult.ok) {
-          setActionMessage(claimResult.error.message);
-          return false;
-        }
-
-        setGiftPremiumClaimResult(claimResult.result);
-        setActionMessage(claimResult.result.message);
-
-        if (claimResult.result.entitlementGranted) {
-          await loadPremiumEntitlement(initData);
-        }
-
-        return claimResult.result.entitlementGranted;
-      } catch {
-        setActionMessage("Gift premium claim request failed.");
-        return false;
-      } finally {
-        setIsClaimingGiftPremium(false);
-      }
-    },
-    [initData, isClaimingGiftPremium, loadPremiumEntitlement, profile],
-  );
-
   const acceptInvite = useCallback(
     async (inviteToken: string) => {
       if (!profile || isSavingInvite) {
@@ -538,8 +453,6 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
           acceptResult.workspace.kind,
         );
 
-        await loadPremiumEntitlement(initData);
-
         const workspaceAdded = acceptResult.workspaces.some(
           (workspaceOption) => workspaceOption.id === acceptResult.workspace.id,
         );
@@ -585,7 +498,6 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
       initData,
       isSavingInvite,
       isTelegramContext,
-      loadPremiumEntitlement,
       profile,
       source,
       syncScenarioWithWorkspaceKind,
@@ -601,13 +513,9 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
     workspace,
     source,
     workspaces,
-    premiumEntitlement,
-    giftPremiumClaimResult,
     inviteAcceptDiagnostic,
     stateLabel,
     isLoading,
-    isLoadingPremium,
-    isClaimingGiftPremium,
     isSavingScenario,
     isSavingWorkspace,
     isSavingInvite,
@@ -619,7 +527,6 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
     createFamilyWorkspace,
     switchWorkspace,
     createInvite,
-    claimGiftPremium,
     acceptInvite,
     clearInviteAcceptDiagnostic,
   };

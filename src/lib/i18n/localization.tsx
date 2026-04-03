@@ -1013,6 +1013,9 @@ const ruTranslations: Record<string, string> = {
   "Subscriptions": "Подписки",
 
   "Support and Premium": "Поддержка и Premium",
+  "Support and donations": "Поддержка и донаты",
+  "Payment Control is fully unlimited. Support is voluntary and helps development.": "Payment Control полностью без ограничений. Поддержка добровольная и помогает развитию проекта.",
+  "Donations do not unlock features. Thank you for supporting the project.": "Донаты не открывают функции. Спасибо за поддержку проекта.",
   "Core app stays fully useful for free. Premium is a calm donor perk after validated support.": "Базовые функции полностью полезны бесплатно. Premium — спокойный бонус после подтвержденной поддержки.",
   "Current baseline: from {amount} RUB support -> up to {days} days Premium after validation.": "Текущий ориентир: поддержка от {amount} RUB -> до {days} дней Premium после проверки.",
   "Rail snapshot": "Снимок по каналам",

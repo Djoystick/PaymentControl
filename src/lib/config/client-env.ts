@@ -6,21 +6,14 @@ export type SupportRailId = "boosty" | "cloudtips";
 export type SupportRailPendingReason =
   | "missing_or_invalid_url"
   | "duplicates_primary";
-export type SupportRailOperationalMode =
-  | "continuity_claim_manual"
-  | "automation_candidate";
 
 export type SupportRailConfig = {
   id: SupportRailId;
   title: string;
-  subtitle: string;
-  guidanceLabel: string;
-  nextStepHint: string;
   ctaLabel: string;
   url: string;
   isConfigured: boolean;
   isPrimary: boolean;
-  operationalMode: SupportRailOperationalMode;
   pendingReason: SupportRailPendingReason | null;
 };
 
@@ -52,34 +45,6 @@ const isBoostySupportUrl = (url: string): boolean => {
   } catch {
     return false;
   }
-};
-
-const isLegacySubscriptionPremiumBuyUrl = (url: string): boolean => {
-  const normalized = url.toLowerCase();
-  return (
-    normalized.includes("share=subscription_link") ||
-    normalized.includes("ssource=direct&share=subscription_link") ||
-    normalized.includes("subscription_link")
-  );
-};
-
-const resolvePremiumOneTimeBuyUrl = (): string => {
-  const explicitOneTime = normalizeExternalUrl(
-    readEnvValue(process.env.NEXT_PUBLIC_PREMIUM_ONE_TIME_BUY_URL),
-  );
-  if (explicitOneTime && !isLegacySubscriptionPremiumBuyUrl(explicitOneTime)) {
-    return explicitOneTime;
-  }
-
-  // Backward-compatible key for old environments. Legacy subscription URLs are blocked.
-  const legacyEnvKey = normalizeExternalUrl(
-    readEnvValue(process.env.NEXT_PUBLIC_PREMIUM_BUY_URL),
-  );
-  if (legacyEnvKey && !isLegacySubscriptionPremiumBuyUrl(legacyEnvKey)) {
-    return legacyEnvKey;
-  }
-
-  return "";
 };
 
 const resolveSupportProjectUrl = (): string => {
@@ -143,29 +108,19 @@ const resolveSupportRails = (): SupportRailConfig[] => {
     {
       id: "boosty",
       title: "Boosty",
-      subtitle: "Primary support rail",
-      guidanceLabel: "Claim-first continuity rail",
-      nextStepHint:
-        "Use support reference code, return to app, then submit claim for owner review.",
       ctaLabel: "Open Boosty",
       url: boostyUrl,
       isConfigured: Boolean(boostyUrl),
       isPrimary: true,
-      operationalMode: "continuity_claim_manual",
       pendingReason: null,
     },
     {
       id: "cloudtips",
       title: "CloudTips",
-      subtitle: "Secondary support rail",
-      guidanceLabel: "Automation-candidate rail",
-      nextStepHint:
-        "Closer candidate for future direct matching, but owner review is still the active path.",
       ctaLabel: "Open CloudTips",
       url: cloudTipsRail.url,
       isConfigured: Boolean(cloudTipsRail.url),
       isPrimary: false,
-      operationalMode: "automation_candidate",
       pendingReason: cloudTipsRail.pendingReason,
     },
   ];
@@ -201,7 +156,6 @@ export const clientEnv = {
   telegramBotUsername: normalizeTelegramBotUsername(
     readEnvValue(process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME),
   ),
-  premiumBuyUrl: resolvePremiumOneTimeBuyUrl(),
   supportRails: resolveSupportRails(),
   supportProjectUrl: resolveSupportProjectUrl(),
   supabaseUrl: readEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL),
