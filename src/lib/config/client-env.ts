@@ -157,7 +157,6 @@ export const clientEnv = {
     readEnvValue(process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME),
   ),
   supportRails: resolveSupportRails(),
-  supportProjectUrl: resolveSupportProjectUrl(),
   supabaseUrl: readEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL),
   supabaseAnonKey: readEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
 } as const;

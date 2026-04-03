@@ -406,15 +406,98 @@ function ProfileScenariosContent() {
           </HelpPopover>
         </div>
       </div>
+      <details className="pc-surface pc-surface-soft">
+        <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          <AppIcon name="support" className="h-3.5 w-3.5" />
+          {tr("Report a bug")}
+        </summary>
+        <p className="mt-2 text-xs text-app-text-muted">
+          {tr("Help us fix issues quickly.")}
+        </p>
+        <form className="mt-2 space-y-2" onSubmit={submitBugReportFromProfile}>
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-app-text">{tr("Issue title")}</p>
+            <input
+              type="text"
+              value={bugReportTitle}
+              onChange={(event) => {
+                setBugReportTitle(event.target.value);
+                setBugReportFeedback(null);
+              }}
+              maxLength={120}
+              placeholder={tr("Short subject")}
+              className="pc-input"
+            />
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-app-text">{tr("What happened?")}</p>
+            <textarea
+              value={bugReportDescription}
+              onChange={(event) => {
+                setBugReportDescription(event.target.value);
+                setBugReportFeedback(null);
+              }}
+              rows={4}
+              maxLength={1800}
+              placeholder={tr("Describe what you expected and what happened.")}
+              className="pc-textarea resize-y"
+            />
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-semibold text-app-text">
+              {tr("Steps to reproduce (optional)")}
+            </p>
+            <textarea
+              value={bugReportSteps}
+              onChange={(event) => {
+                setBugReportSteps(event.target.value);
+                setBugReportFeedback(null);
+              }}
+              rows={3}
+              maxLength={1200}
+              placeholder={tr("Optional steps, device details, or timing notes.")}
+              className="pc-textarea resize-y"
+            />
+          </div>
+          <p className="text-[11px] text-app-text-muted">
+            {tr(
+              "Context from your profile, workspace, and language is attached automatically.",
+            )}
+          </p>
+          <button
+            type="submit"
+            disabled={isSubmittingBugReport}
+            className="pc-btn-secondary"
+          >
+            <AppIcon name="support" className="h-3.5 w-3.5" />
+            {isSubmittingBugReport ? tr("Sending...") : tr("Send bug report")}
+          </button>
+          {bugReportFeedback && (
+            <p
+              className={`pc-feedback ${
+                bugReportFeedback.kind === "success"
+                  ? "pc-feedback-success"
+                  : "pc-feedback-error"
+              }`}
+            >
+              <AppIcon
+                name={bugReportFeedback.kind === "success" ? "check" : "alert"}
+                className="mt-0.5 h-3.5 w-3.5 shrink-0"
+              />
+              <span>{bugReportFeedback.message}</span>
+            </p>
+          )}
+        </form>
+      </details>
       <details className="pc-surface pc-surface-soft order-last">
         <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="support" className="h-3.5 w-3.5" />
-          {tr("Support and donations")}
+          {tr("Support the project")}
           <span className="pc-status-pill">{tr("Optional")}</span>
         </summary>
         <div className="mt-2 space-y-2">
           <p className="text-xs text-app-text-muted">
-            {tr("Payment Control is fully unlimited. Support is voluntary and helps development.")}
+            {tr("Payment Control is fully usable without donation.")}
           </p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {supportRails.map((rail) =>
@@ -424,22 +507,11 @@ function ProfileScenariosContent() {
                   href={rail.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`pc-action-card block ${
-                    rail.isPrimary
-                      ? "border-app-accent/65 bg-white shadow-[0_10px_22px_var(--app-frame-shadow)]"
-                      : "bg-app-surface-soft"
-                  }`}
+                  className="pc-action-card block bg-app-surface-soft"
                 >
                   <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-app-text">
                     <AppIcon name="support" className="h-4 w-4" />
                     {tr(rail.title)}
-                    <span
-                      className={`pc-status-pill ${
-                        rail.isPrimary ? "pc-status-pill-success" : ""
-                      }`}
-                    >
-                      {rail.isPrimary ? tr("Primary") : tr("Secondary")}
-                    </span>
                   </p>
                   <span className="pc-btn-secondary mt-2 w-full justify-center text-xs">
                     {tr(rail.ctaLabel)}
@@ -449,9 +521,7 @@ function ProfileScenariosContent() {
                 <div
                   key={rail.id}
                   aria-disabled
-                  className={`pc-action-card ${
-                    rail.isPrimary ? "border-app-border bg-app-surface" : "bg-app-surface-soft"
-                  }`}
+                  className="pc-action-card bg-app-surface-soft"
                 >
                   <p className="inline-flex items-center gap-1.5 text-sm font-semibold">
                     <AppIcon name="support" className="h-4 w-4" />
@@ -460,110 +530,18 @@ function ProfileScenariosContent() {
                   <p className="mt-1 text-xs text-app-text-muted">
                     {rail.id === "cloudtips" && rail.pendingReason === "duplicates_primary"
                       ? tr("CloudTips URL duplicates primary rail and stays disabled until changed.")
-                      : tr("Support rail slot prepared. URL is not configured yet.")}
+                      : tr("Support link is not configured yet.")}
                   </p>
-                  <span className="pc-status-pill pc-status-pill-warning mt-2">
-                    <AppIcon name="clock" className="h-3 w-3" />
-                    {tr("Pending setup")}
-                  </span>
                 </div>
               ),
             )}
           </div>
           {configuredSupportRails.length === 0 && (
-            <p className="pc-feedback pc-feedback-warning mt-2">
-              <AppIcon name="alert" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              <span>{tr("No support rails are configured yet.")}</span>
-            </p>
+            <p className="text-xs text-app-text-muted">{tr("No donation links are configured yet.")}</p>
           )}
           <p className="text-[11px] text-app-text-muted">
-            {tr("Donations do not unlock features. Thank you for supporting the project.")}
+            {tr("Donations are optional and never unlock access.")}
           </p>
-        <details className="pc-detail-surface bg-app-surface">
-          <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-            <AppIcon name="support" className="h-3.5 w-3.5" />
-            {tr("Report a bug")}
-          </summary>
-          <p className="mt-2 text-xs text-app-text-muted">
-            {tr("Help us fix issues quickly.")}
-          </p>
-          <form className="mt-2 space-y-2" onSubmit={submitBugReportFromProfile}>
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-app-text">{tr("Issue title")}</p>
-              <input
-                type="text"
-                value={bugReportTitle}
-                onChange={(event) => {
-                  setBugReportTitle(event.target.value);
-                  setBugReportFeedback(null);
-                }}
-                maxLength={120}
-                placeholder={tr("Short subject")}
-                className="pc-input"
-              />
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-app-text">{tr("What happened?")}</p>
-              <textarea
-                value={bugReportDescription}
-                onChange={(event) => {
-                  setBugReportDescription(event.target.value);
-                  setBugReportFeedback(null);
-                }}
-                rows={4}
-                maxLength={1800}
-                placeholder={tr("Describe what you expected and what happened.")}
-                className="pc-textarea resize-y"
-              />
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-app-text">
-                {tr("Steps to reproduce (optional)")}
-              </p>
-              <textarea
-                value={bugReportSteps}
-                onChange={(event) => {
-                  setBugReportSteps(event.target.value);
-                  setBugReportFeedback(null);
-                }}
-                rows={3}
-                maxLength={1200}
-                placeholder={tr("Optional steps, device details, or timing notes.")}
-                className="pc-textarea resize-y"
-              />
-            </div>
-            <p className="text-[11px] text-app-text-muted">
-              {tr(
-                "Context from your profile, workspace, and language is attached automatically.",
-              )}
-            </p>
-            <button
-              type="submit"
-              disabled={isSubmittingBugReport}
-              className="pc-btn-secondary"
-            >
-              <AppIcon name="support" className="h-3.5 w-3.5" />
-              {isSubmittingBugReport ? tr("Sending...") : tr("Send bug report")}
-            </button>
-            {bugReportFeedback && (
-              <p
-                className={`pc-feedback ${
-                  bugReportFeedback.kind === "success"
-                    ? "pc-feedback-success"
-                    : "pc-feedback-error"
-                }`}
-              >
-                <AppIcon
-                  name={bugReportFeedback.kind === "success" ? "check" : "alert"}
-                  className="mt-0.5 h-3.5 w-3.5 shrink-0"
-                />
-                <span>
-                  {bugReportFeedback.message}
-                </span>
-              </p>
-            )}
-          </form>
-        </details>
         </div>
       </details>
       <div className="pc-surface pc-surface-soft">
