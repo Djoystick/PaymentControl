@@ -1,7 +1,7 @@
 ﻿# Phase 26A - Premium Removal + Donation-Only Reset
 
 - Date: 2026-04-03
-- Status: implemented (major domain removal), pending manual verification
+- Status: implemented (major domain removal), manual verification completed by user
 - Priority truth: latest explicit user instruction (Premium removed, app unrestricted, donation-only)
 
 ## 1) Scope completed

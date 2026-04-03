@@ -8,6 +8,20 @@ const readServerBool = (name: string): boolean => {
   return readServerEnv(name).toLowerCase() === "true";
 };
 
+const readTelegramUserIdList = (name: string): string[] => {
+  const raw = readServerEnv(name);
+  if (!raw) {
+    return [];
+  }
+
+  return [...new Set(
+    raw
+      .split(",")
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0 && /^[0-9]{5,20}$/.test(item)),
+  )];
+};
+
 export const serverEnv = {
   supabaseUrl: readServerEnv("SUPABASE_URL"),
   supabaseServiceRoleKey: readServerEnv("SUPABASE_SERVICE_ROLE_KEY"),
@@ -29,6 +43,9 @@ export const serverEnv = {
   devTelegramFirstName: readServerEnv("DEV_TELEGRAM_FIRST_NAME"),
   devTelegramLastName: readServerEnv("DEV_TELEGRAM_LAST_NAME"),
   devTelegramPhotoUrl: readServerEnv("DEV_TELEGRAM_PHOTO_URL"),
+  supporterBadgeOwnerTelegramUserIds: readTelegramUserIdList(
+    "SUPPORTER_BADGE_OWNER_TELEGRAM_USER_IDS",
+  ),
 } as const;
 
 export const isSupabaseServerConfigured = Boolean(

@@ -4,8 +4,10 @@ import { type FormEvent, useEffect, useMemo, useState } from "react";
 import type {
   FamilyWorkspaceInvitePayload,
   FamilyWorkspaceInviteStatus,
+  SupporterBadgeAdminTargetPayload,
 } from "@/lib/auth/types";
 import {
+  manageSupporterBadge,
   submitBugReport,
 } from "@/lib/auth/client";
 import { useCurrentAppContext } from "@/hooks/use-current-app-context";
@@ -73,6 +75,7 @@ function ProfileScenariosContent() {
     profile,
     workspace,
     source,
+    canManageSupporters,
     isLoading,
     isSavingWorkspace,
     isSavingInvite,
@@ -102,6 +105,17 @@ function ProfileScenariosContent() {
     kind: "success" | "error";
     message: string;
   } | null>(null);
+  const [supporterTargetTelegramUserId, setSupporterTargetTelegramUserId] =
+    useState("");
+  const [supporterBadgeNote, setSupporterBadgeNote] = useState("");
+  const [isSubmittingSupporterBadgeAction, setIsSubmittingSupporterBadgeAction] =
+    useState(false);
+  const [supporterBadgeFeedback, setSupporterBadgeFeedback] = useState<{
+    kind: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [supporterBadgeTarget, setSupporterBadgeTarget] =
+    useState<SupporterBadgeAdminTargetPayload | null>(null);
   const [isOnboardingFlagCompleted, setIsOnboardingFlagCompleted] = useState<
     boolean | null
   >(() => readOnboardingFlagState());
@@ -252,6 +266,85 @@ function ProfileScenariosContent() {
     }
   };
 
+  const runSupporterBadgeAction = async (action: "grant" | "revoke") => {
+    if (isSubmittingSupporterBadgeAction) {
+      return;
+    }
+
+    if (!canManageSupporters) {
+      setSupporterBadgeFeedback({
+        kind: "error",
+        message: tr("Current account is not allowed to manage supporter badges."),
+      });
+      return;
+    }
+
+    const targetTelegramUserId = supporterTargetTelegramUserId.trim();
+    if (!/^[0-9]{5,20}$/.test(targetTelegramUserId)) {
+      setSupporterBadgeFeedback({
+        kind: "error",
+        message: tr("Target Telegram user id is invalid."),
+      });
+      return;
+    }
+
+    const note = supporterBadgeNote.trim();
+    if (note.length > 280) {
+      setSupporterBadgeFeedback({
+        kind: "error",
+        message: tr("Supporter badge note is too long."),
+      });
+      return;
+    }
+
+    if (!initData) {
+      setSupporterBadgeFeedback({
+        kind: "error",
+        message: tr("Init context is not ready yet. Please refresh and retry."),
+      });
+      return;
+    }
+
+    setIsSubmittingSupporterBadgeAction(true);
+    setSupporterBadgeFeedback(null);
+    try {
+      const result = await manageSupporterBadge({
+        initData,
+        action,
+        targetTelegramUserId,
+        note,
+      });
+
+      if (!result.ok) {
+        setSupporterBadgeFeedback({
+          kind: "error",
+          message: tr(result.error.message),
+        });
+        return;
+      }
+
+      setSupporterBadgeTarget(result.target);
+      setSupporterBadgeFeedback({
+        kind: "success",
+        message:
+          action === "grant"
+            ? tr("Supporter badge granted.")
+            : tr("Supporter badge removed."),
+      });
+
+      if (profile && result.target.telegramUserId === profile.telegramUserId) {
+        await refreshContext();
+      }
+    } catch {
+      setSupporterBadgeFeedback({
+        kind: "error",
+        message: tr("Supporter badge request failed."),
+      });
+    } finally {
+      setIsSubmittingSupporterBadgeAction(false);
+    }
+  };
+
   const homeScreen = (
     <div className="space-y-2">
       <LandingScreen />
@@ -366,10 +459,30 @@ function ProfileScenariosContent() {
           </button>
         </div>
         {profile && (
-          <p className="mt-1.5 text-sm text-app-text">
-            {profile.firstName} {profile.lastName ?? ""}
-            {profile.username ? ` (@${profile.username})` : ""}
-          </p>
+          <>
+            <p className="mt-1.5 text-sm text-app-text">
+              {profile.firstName} {profile.lastName ?? ""}
+              {profile.username ? ` (@${profile.username})` : ""}
+            </p>
+            {profile.supporterBadgeActive && (
+              <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold text-app-text">
+                <AppIcon name="check" className="h-3.5 w-3.5" />
+                {tr("Supporter badge")}
+                {profile.supporterBadgeGrantedAt && (
+                  <span className="pc-status-pill">
+                    {tr("Since {date}", {
+                      date: formatDateTime(profile.supporterBadgeGrantedAt),
+                    })}
+                  </span>
+                )}
+              </p>
+            )}
+            {profile.supporterBadgeActive && (
+              <p className="mt-1 text-xs text-app-text-muted">
+                {tr("Thanks for supporting the project.")}
+              </p>
+            )}
+          </>
         )}
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <button
@@ -489,6 +602,122 @@ function ProfileScenariosContent() {
           )}
         </form>
       </details>
+      {canManageSupporters && (
+        <details className="pc-surface pc-surface-soft">
+          <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+            <AppIcon name="support" className="h-3.5 w-3.5" />
+            {tr("Supporter badge management")}
+          </summary>
+          <p className="mt-2 text-xs text-app-text-muted">
+            {tr(
+              "Owner-only manual recognition. Badge is cosmetic and does not unlock features.",
+            )}
+          </p>
+          <div className="mt-2 space-y-2">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-app-text">
+                {tr("Target Telegram user id")}
+              </p>
+              <input
+                type="text"
+                value={supporterTargetTelegramUserId}
+                onChange={(event) => {
+                  setSupporterTargetTelegramUserId(event.target.value);
+                  setSupporterBadgeFeedback(null);
+                }}
+                placeholder={tr("Numeric Telegram user id")}
+                inputMode="numeric"
+                className="pc-input"
+              />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-app-text">
+                {tr("Owner note (optional)")}
+              </p>
+              <textarea
+                value={supporterBadgeNote}
+                onChange={(event) => {
+                  setSupporterBadgeNote(event.target.value);
+                  setSupporterBadgeFeedback(null);
+                }}
+                rows={2}
+                maxLength={280}
+                placeholder={tr("Short internal reason for badge assignment.")}
+                className="pc-textarea resize-y"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void runSupporterBadgeAction("grant")}
+                disabled={isSubmittingSupporterBadgeAction}
+                className="pc-btn-secondary disabled:opacity-60"
+              >
+                <AppIcon name="check" className="h-3.5 w-3.5" />
+                {isSubmittingSupporterBadgeAction
+                  ? tr("Saving...")
+                  : tr("Mark as supporter")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void runSupporterBadgeAction("revoke")}
+                disabled={isSubmittingSupporterBadgeAction}
+                className="pc-btn-quiet disabled:opacity-60"
+              >
+                <AppIcon name="undo" className="h-3.5 w-3.5" />
+                {tr("Remove supporter badge")}
+              </button>
+            </div>
+            {supporterBadgeTarget && (
+              <div className="rounded-xl border border-app-border bg-white px-3 py-2 text-xs text-app-text">
+                <p className="font-semibold">
+                  {supporterBadgeTarget.firstName}{" "}
+                  {supporterBadgeTarget.lastName ?? ""}
+                  {supporterBadgeTarget.username
+                    ? ` (@${supporterBadgeTarget.username})`
+                    : ""}
+                </p>
+                <p className="mt-1 text-app-text-muted">
+                  {tr("Telegram user id")}: {supporterBadgeTarget.telegramUserId}
+                </p>
+                <p className="mt-1 text-app-text-muted">
+                  {tr("Badge status")}:{" "}
+                  {supporterBadgeTarget.supporterBadgeActive
+                    ? tr("Active")
+                    : tr("Inactive")}
+                </p>
+                {supporterBadgeTarget.supporterBadgeGrantedAt && (
+                  <p className="mt-1 text-app-text-muted">
+                    {tr("Granted at")}:{" "}
+                    {formatDateTime(supporterBadgeTarget.supporterBadgeGrantedAt)}
+                  </p>
+                )}
+                {supporterBadgeTarget.supporterBadgeRevokedAt && (
+                  <p className="mt-1 text-app-text-muted">
+                    {tr("Revoked at")}:{" "}
+                    {formatDateTime(supporterBadgeTarget.supporterBadgeRevokedAt)}
+                  </p>
+                )}
+              </div>
+            )}
+            {supporterBadgeFeedback && (
+              <p
+                className={`pc-feedback ${
+                  supporterBadgeFeedback.kind === "success"
+                    ? "pc-feedback-success"
+                    : "pc-feedback-error"
+                }`}
+              >
+                <AppIcon
+                  name={supporterBadgeFeedback.kind === "success" ? "check" : "alert"}
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0"
+                />
+                <span>{supporterBadgeFeedback.message}</span>
+              </p>
+            )}
+          </div>
+        </details>
+      )}
       <details className="pc-surface pc-surface-soft order-last">
         <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="support" className="h-3.5 w-3.5" />

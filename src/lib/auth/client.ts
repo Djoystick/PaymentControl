@@ -10,6 +10,8 @@ import type {
   FamilyWorkspaceCreateResponse,
   ScenarioUpdateResponse,
   SelectedScenario,
+  SupporterBadgeManageAction,
+  SupporterBadgeManageResponse,
   WorkspaceSwitchResponse,
 } from "@/lib/auth/types";
 
@@ -134,5 +136,19 @@ export const submitBugReport = async (params: {
     steps: params.steps ?? "",
     currentScreen: params.currentScreen ?? "",
     language: params.language ?? "",
+  });
+};
+
+export const manageSupporterBadge = async (params: {
+  initData: string;
+  action: SupporterBadgeManageAction;
+  targetTelegramUserId: string;
+  note?: string;
+}): Promise<SupporterBadgeManageResponse> => {
+  return postJson<SupporterBadgeManageResponse>("/api/supporters/badge", "POST", {
+    initData: params.initData,
+    action: params.action,
+    targetTelegramUserId: params.targetTelegramUserId,
+    note: params.note ?? "",
   });
 };

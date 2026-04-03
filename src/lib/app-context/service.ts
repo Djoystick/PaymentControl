@@ -18,6 +18,7 @@ import {
   getProfileByTelegramUserId,
   upsertProfileFromTelegramIdentity,
 } from "@/lib/profile/repository";
+import { canManageSupporterBadges } from "@/lib/supporter/access";
 import {
   acceptFamilyWorkspaceInviteForProfile,
   createFamilyWorkspaceInviteForProfile,
@@ -57,6 +58,7 @@ const toBootstrapErrorResponse = (
 
 const toSuccessResponse = (
   source: TelegramIdentity["source"],
+  canManageSupporters: boolean,
   profile: CurrentAppContextSuccess["profile"],
   workspace: CurrentAppContextSuccess["workspace"],
   workspaces: WorkspaceSummaryPayload[],
@@ -65,6 +67,7 @@ const toSuccessResponse = (
     ok: true,
     authState: "identified",
     source,
+    canManageSupporters,
     profile,
     workspace,
     workspaces,
@@ -132,6 +135,7 @@ export const readCurrentAppContext = async (
 
   return toSuccessResponse(
     identityResult.identity.source,
+    canManageSupporterBadges(identityResult.identity.telegramUserId),
     { ...profile, activeWorkspaceId: workspace.id },
     workspace,
     workspaces,
@@ -176,6 +180,9 @@ export const bootstrapAppContext = async (
   return {
     ok: true,
     source: identityResult.identity.source,
+    canManageSupporters: canManageSupporterBadges(
+      identityResult.identity.telegramUserId,
+    ),
     profile: {
       ...profile,
       activeWorkspaceId: workspace.id,

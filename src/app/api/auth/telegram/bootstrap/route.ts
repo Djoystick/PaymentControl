@@ -65,5 +65,6 @@ export async function POST(request: Request) {
     workspace: bootstrapResult.workspace,
     workspaces: bootstrapResult.workspaces,
     source: bootstrapResult.source,
+    canManageSupporters: bootstrapResult.canManageSupporters,
   });
 }

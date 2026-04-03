@@ -20,6 +20,7 @@ Payment Control is fully unrestricted:
 - no support-claim-to-premium model
 - no owner review gate for paid activation
 - no donor-to-premium automation direction in active runtime
+- supporter badge is recognition-only and does not affect access
 
 All core flows remain free and operational:
 - reminders
@@ -32,6 +33,7 @@ All core flows remain free and operational:
 Support is donation-only and voluntary:
 - Boosty donation rail
 - CloudTips donation rail
+- optional supporter badge recognition can be assigned manually by owner
 
 Support does not unlock functionality.
 No paywall or feature activation path exists.
@@ -58,7 +60,6 @@ Do not reintroduce hidden Premium paths, fallback claims, or dormant entitlement
 ## 6) Roadmap (optional, not in active runtime)
 
 Allowed future gratitude scope:
-- supporter/donor badge in user profile
 - one small gratitude/convenience feature for supporters
 
 These are optional future items and must not recreate Premium/paywall semantics.

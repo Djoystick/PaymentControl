@@ -21,6 +21,8 @@ export type ProfilePayload = {
   photoUrl: string | null;
   selectedScenario: SelectedScenario;
   activeWorkspaceId: string | null;
+  supporterBadgeActive: boolean;
+  supporterBadgeGrantedAt: string | null;
   createdAt: string;
   updatedAt: string;
   lastSeenAt: string;
@@ -41,6 +43,7 @@ export type AuthBootstrapSuccess = {
   workspace: WorkspaceSummaryPayload;
   workspaces: WorkspaceSummaryPayload[];
   source: TelegramIdentity["source"];
+  canManageSupporters: boolean;
 };
 
 export type AuthBootstrapErrorCode =
@@ -67,6 +70,7 @@ export type CurrentAppContextSuccess = {
   ok: true;
   authState: "identified";
   source: TelegramIdentity["source"];
+  canManageSupporters: boolean;
   profile: ProfilePayload;
   workspace: WorkspaceSummaryPayload;
   workspaces: WorkspaceSummaryPayload[];
@@ -283,3 +287,49 @@ export type BugReportSubmitError = {
 export type BugReportSubmitResponse =
   | BugReportSubmitSuccess
   | BugReportSubmitError;
+
+export type SupporterBadgeManageAction = "grant" | "revoke";
+
+export type SupporterBadgeAdminTargetPayload = {
+  profileId: string;
+  telegramUserId: string;
+  username: string | null;
+  firstName: string;
+  lastName: string | null;
+  supporterBadgeActive: boolean;
+  supporterBadgeGrantedAt: string | null;
+  supporterBadgeRevokedAt: string | null;
+  supporterBadgeNote: string | null;
+  supporterBadgeSource: string | null;
+  supporterBadgeGrantedByTelegramUserId: string | null;
+  supporterBadgeRevokedByTelegramUserId: string | null;
+  updatedAt: string;
+};
+
+export type SupporterBadgeManageSuccess = {
+  ok: true;
+  action: SupporterBadgeManageAction;
+  target: SupporterBadgeAdminTargetPayload;
+};
+
+export type SupporterBadgeManageErrorCode =
+  | CurrentAppContextErrorCode
+  | "SUPPORTER_BADGE_FORBIDDEN"
+  | "SUPPORTER_BADGE_ACTION_INVALID"
+  | "SUPPORTER_BADGE_TARGET_INVALID"
+  | "SUPPORTER_BADGE_NOTE_INVALID"
+  | "SUPPORTER_BADGE_FOUNDATION_NOT_READY"
+  | "SUPPORTER_BADGE_TARGET_NOT_FOUND"
+  | "SUPPORTER_BADGE_UPDATE_FAILED";
+
+export type SupporterBadgeManageError = {
+  ok: false;
+  error: {
+    code: SupporterBadgeManageErrorCode;
+    message: string;
+  };
+};
+
+export type SupporterBadgeManageResponse =
+  | SupporterBadgeManageSuccess
+  | SupporterBadgeManageError;

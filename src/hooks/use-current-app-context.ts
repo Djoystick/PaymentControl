@@ -77,6 +77,7 @@ type UseCurrentAppContextResult = {
   profile: ProfilePayload | null;
   workspace: WorkspaceSummaryPayload | null;
   source: TelegramIdentity["source"] | null;
+  canManageSupporters: boolean;
   stateLabel: string;
   isLoading: boolean;
   isSavingScenario: boolean;
@@ -100,6 +101,7 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
   const [profile, setProfile] = useState<ProfilePayload | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceSummaryPayload | null>(null);
   const [source, setSource] = useState<TelegramIdentity["source"] | null>(null);
+  const [canManageSupporters, setCanManageSupporters] = useState(false);
   const [workspaces, setWorkspaces] = useState<WorkspaceSummaryPayload[]>([]);
   const [inviteAcceptDiagnostic, setInviteAcceptDiagnostic] =
     useState<InviteAcceptDiagnostic | null>(null);
@@ -118,11 +120,13 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
     nextWorkspace: WorkspaceSummaryPayload,
     nextSource: TelegramIdentity["source"],
     nextWorkspaces: WorkspaceSummaryPayload[],
+    nextCanManageSupporters: boolean,
   ) => {
     setProfile(nextProfile);
     setWorkspace(nextWorkspace);
     setSource(nextSource);
     setWorkspaces(nextWorkspaces);
+    setCanManageSupporters(nextCanManageSupporters);
     setStateLabel("Current app context loaded.");
   };
 
@@ -141,6 +145,7 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
           contextResult.workspace,
           contextResult.source,
           contextResult.workspaces,
+          contextResult.canManageSupporters,
         );
         return;
       }
@@ -155,6 +160,7 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
           setProfile(null);
           setWorkspace(null);
           setSource(null);
+          setCanManageSupporters(false);
           setWorkspaces([]);
           setStateLabel(bootstrapResult.error.message);
           return;
@@ -167,6 +173,7 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
             refreshedContext.workspace,
             refreshedContext.source,
             refreshedContext.workspaces,
+            refreshedContext.canManageSupporters,
           );
         } else {
           setContextState(
@@ -174,6 +181,7 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
             bootstrapResult.workspace,
             bootstrapResult.source,
             bootstrapResult.workspaces,
+            bootstrapResult.canManageSupporters,
           );
         }
         return;
@@ -182,12 +190,14 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
       setProfile(null);
       setWorkspace(null);
       setSource(null);
+      setCanManageSupporters(false);
       setWorkspaces([]);
       setStateLabel(contextResult.error.message);
     } catch {
       setProfile(null);
       setWorkspace(null);
       setSource(null);
+      setCanManageSupporters(false);
       setWorkspaces([]);
       setStateLabel("Current context request failed.");
     } finally {
@@ -447,6 +457,7 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
           acceptResult.workspace,
           nextSource,
           acceptResult.workspaces,
+          canManageSupporters,
         );
 
         const scenarioSynced = await syncScenarioWithWorkspaceKind(
@@ -495,6 +506,7 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
       }
     },
     [
+      canManageSupporters,
       initData,
       isSavingInvite,
       isTelegramContext,
@@ -512,6 +524,7 @@ export const useCurrentAppContext = (): UseCurrentAppContextResult => {
     profile,
     workspace,
     source,
+    canManageSupporters,
     workspaces,
     inviteAcceptDiagnostic,
     stateLabel,
