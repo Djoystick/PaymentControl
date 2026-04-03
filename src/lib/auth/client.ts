@@ -129,6 +129,8 @@ export const submitBugReport = async (params: {
   steps?: string;
   currentScreen?: string;
   language?: "ru" | "en";
+  theme?: "light" | "dark";
+  runtimeContext?: Record<string, unknown>;
 }): Promise<BugReportSubmitResponse> => {
   return postJson<BugReportSubmitResponse>("/api/support/bug-report", "POST", {
     initData: params.initData,
@@ -137,6 +139,8 @@ export const submitBugReport = async (params: {
     steps: params.steps ?? "",
     currentScreen: params.currentScreen ?? "",
     language: params.language ?? "",
+    theme: params.theme ?? "",
+    runtimeContext: params.runtimeContext ?? null,
   });
 };
 

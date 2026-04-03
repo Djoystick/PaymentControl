@@ -38,6 +38,15 @@ import {
 } from "@/components/app/app-shell";
 import { HelpPopover } from "@/components/app/help-popover";
 import { AppIcon } from "@/components/app/app-icon";
+import {
+  clearRemindersContextSnapshot,
+  rememberRuntimeSnapshot,
+  markRemindersGuidanceSeen,
+  readRemindersContextSnapshot,
+  readRemindersGuidanceFlags,
+  type RemindersGuidanceFlags,
+  writeRemindersContextSnapshot,
+} from "@/lib/app/context-memory";
 
 type RecurringPaymentsSectionProps = {
   workspace: WorkspaceSummaryPayload | null;
@@ -65,6 +74,11 @@ type TemplateScenario = "personal" | "family";
 type PaymentListView = "payments" | "subscriptions";
 type ReminderFocusFilter = "all" | "action_now" | "upcoming" | "paid";
 type FeedbackTone = "info" | "success" | "error";
+type RemindersGuidanceKind =
+  | "first_payment"
+  | "first_paid_cycle"
+  | "focused_entry"
+  | "family_shared";
 type ReminderNavigationIntent = Extract<
   AppNavigationIntent,
   "reminders_add_payment" | "reminders_action_now" | "reminders_upcoming" | "reminders_all"
@@ -307,6 +321,16 @@ export function RecurringPaymentsSection({
   const [entryFlowContextReason, setEntryFlowContextReason] = useState<string | null>(
     null,
   );
+  const [isRestoredContext, setIsRestoredContext] = useState(false);
+  const [isContextHydrated, setIsContextHydrated] = useState(false);
+  const [lastNavigationIntent, setLastNavigationIntent] =
+    useState<ReminderNavigationIntent | null>(null);
+  const [guidanceFlags, setGuidanceFlags] = useState<RemindersGuidanceFlags>({
+    firstPayment: false,
+    firstPaidCycle: false,
+    focusedEntry: false,
+    familyShared: false,
+  });
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [pendingDeletePaymentId, setPendingDeletePaymentId] = useState<string | null>(null);
   const [paymentListView, setPaymentListView] = useState<PaymentListView>("payments");
@@ -639,6 +663,55 @@ export function RecurringPaymentsSection({
   }, [payments, todayDateKey]);
   const actionNowCount =
     remindersActSummary.dueTodayCount + remindersActSummary.overdueCount;
+  const hasAnyPaidCycle = useMemo(
+    () => activePayments.some((payment) => payment.currentCycle.state === "paid"),
+    [activePayments],
+  );
+  const hasFamilySharedSignals = useMemo(() => {
+    if (!isFamilyWorkspace) {
+      return false;
+    }
+
+    return activePayments.some(
+      (payment) =>
+        payment.paymentScope === "shared" &&
+        (Boolean(payment.responsibleProfileId) ||
+          Boolean(payment.currentCycle.paidByProfileId)),
+    );
+  }, [activePayments, isFamilyWorkspace]);
+
+  const activeGuidanceKind = useMemo<RemindersGuidanceKind | null>(() => {
+    if (
+      (lastNavigationIntent === "reminders_action_now" ||
+        lastNavigationIntent === "reminders_upcoming") &&
+      !guidanceFlags.focusedEntry
+    ) {
+      return "focused_entry";
+    }
+
+    if (hasAnyPaidCycle && !guidanceFlags.firstPaidCycle) {
+      return "first_paid_cycle";
+    }
+
+    if (hasFamilySharedSignals && !guidanceFlags.familyShared) {
+      return "family_shared";
+    }
+
+    if (activePayments.length > 0 && !guidanceFlags.firstPayment) {
+      return "first_payment";
+    }
+
+    return null;
+  }, [
+    activePayments.length,
+    guidanceFlags.familyShared,
+    guidanceFlags.firstPaidCycle,
+    guidanceFlags.firstPayment,
+    guidanceFlags.focusedEntry,
+    hasAnyPaidCycle,
+    hasFamilySharedSignals,
+    lastNavigationIntent,
+  ]);
 
   const clearFeedback = useCallback(() => {
     setFeedback(null);
@@ -649,6 +722,25 @@ export function RecurringPaymentsSection({
     setFeedback(message);
     setFeedbackTone(tone);
   }, []);
+
+  const markGuidanceAsSeen = useCallback(
+    (kind: RemindersGuidanceKind) => {
+      const workspaceId = workspace?.id ?? null;
+      if (!workspaceId) {
+        return;
+      }
+
+      const keyByKind: Record<RemindersGuidanceKind, keyof RemindersGuidanceFlags> = {
+        first_payment: "firstPayment",
+        first_paid_cycle: "firstPaidCycle",
+        focused_entry: "focusedEntry",
+        family_shared: "familyShared",
+      };
+
+      setGuidanceFlags(markRemindersGuidanceSeen(workspaceId, keyByKind[kind]));
+    },
+    [workspace?.id],
+  );
 
   const activeWorkspaceId = workspace?.id ?? null;
 
@@ -756,10 +848,6 @@ export function RecurringPaymentsSection({
   useEffect(() => {
     setShowPausedSubscriptionsOnly(false);
   }, [paymentListView]);
-
-  useEffect(() => {
-    setReminderFocusFilter("all");
-  }, [paymentListView, showPausedSubscriptionsOnly]);
 
   const resetFormDraft = useCallback(() => {
     const defaultForm = createDefaultForm();
@@ -1096,11 +1184,15 @@ export function RecurringPaymentsSection({
     setIsTemplateQuickLaneDismissed(false);
     setIsComposerExpanded(true);
     setIsTemplateSuggestionsOpen(true);
+    setIsRestoredContext(false);
+    setLastNavigationIntent(null);
     clearFeedback();
   }, [clearFeedback]);
 
   const applyReminderNavigationIntent = useCallback(
     (intent: ReminderNavigationIntent, reason?: string) => {
+      setLastNavigationIntent(intent);
+      setIsRestoredContext(false);
       setPaymentListView("payments");
       setShowPausedSubscriptionsOnly(false);
 
@@ -1136,22 +1228,92 @@ export function RecurringPaymentsSection({
   );
 
   useEffect(() => {
+    if (!activeWorkspaceId || workspaceUnavailable) {
+      setIsContextHydrated(false);
+      setIsRestoredContext(false);
+      return;
+    }
+
+    setGuidanceFlags(readRemindersGuidanceFlags(activeWorkspaceId));
+
     const context = consumeTabNavigationContext("reminders");
-    if (!context) {
+    const navigationIntent: ReminderNavigationIntent | null =
+      context?.intent === "reminders_add_payment" ||
+      context?.intent === "reminders_action_now" ||
+      context?.intent === "reminders_upcoming" ||
+      context?.intent === "reminders_all"
+        ? context.intent
+        : null;
+    const canApplyNavigationContext =
+      context &&
+      navigationIntent &&
+      (!context.workspaceId || context.workspaceId === activeWorkspaceId);
+
+    if (canApplyNavigationContext && context && navigationIntent) {
+      applyReminderNavigationIntent(navigationIntent, context.reason);
+      setIsContextHydrated(true);
       return;
     }
 
-    if (
-      context.intent !== "reminders_add_payment" &&
-      context.intent !== "reminders_action_now" &&
-      context.intent !== "reminders_upcoming" &&
-      context.intent !== "reminders_all"
-    ) {
+    const restoredContext = readRemindersContextSnapshot(activeWorkspaceId);
+    if (restoredContext) {
+      setPaymentListView(restoredContext.paymentListView);
+      setShowPausedSubscriptionsOnly(restoredContext.showPausedSubscriptionsOnly);
+      setReminderFocusFilter(restoredContext.reminderFocusFilter);
+      setEntryFlowContextReason(
+        restoredContext.entryFlowContextReason ??
+          "Restored your last Reminders context.",
+      );
+      setIsRestoredContext(true);
+      setLastNavigationIntent(null);
+    } else {
+      setIsRestoredContext(false);
+      setLastNavigationIntent(null);
+    }
+
+    setIsContextHydrated(true);
+  }, [
+    activeWorkspaceId,
+    applyReminderNavigationIntent,
+    workspaceUnavailable,
+  ]);
+
+  useEffect(() => {
+    if (!activeWorkspaceId || workspaceUnavailable || !isContextHydrated) {
       return;
     }
 
-    applyReminderNavigationIntent(context.intent, context.reason);
-  }, [applyReminderNavigationIntent]);
+    writeRemindersContextSnapshot(activeWorkspaceId, {
+      paymentListView,
+      reminderFocusFilter,
+      showPausedSubscriptionsOnly,
+      entryFlowContextReason,
+    });
+
+    const rememberedIntent: ReminderNavigationIntent = isComposerExpanded
+      ? "reminders_add_payment"
+      : reminderFocusFilter === "action_now"
+        ? "reminders_action_now"
+        : reminderFocusFilter === "upcoming"
+          ? "reminders_upcoming"
+          : "reminders_all";
+
+    rememberRuntimeSnapshot({
+      tab: "reminders",
+      intent: rememberedIntent,
+      reason: entryFlowContextReason ?? "Continue in Reminders from your last session.",
+      workspaceId: activeWorkspaceId,
+    });
+  }, [
+    activeWorkspaceId,
+    entryFlowContextReason,
+    isComposerExpanded,
+    isContextHydrated,
+    paymentListView,
+    reminderFocusFilter,
+    showPausedSubscriptionsOnly,
+    workspaceUnavailable,
+  ]);
 
   const continueManualEntry = useCallback(() => {
     setIsTemplateQuickLaneDismissed(true);
@@ -1191,6 +1353,18 @@ export function RecurringPaymentsSection({
   const discardComposerChanges = useCallback(() => {
     closeComposerImmediately();
   }, [closeComposerImmediately]);
+
+  const startCleanRemindersSession = useCallback(() => {
+    setPaymentListView("payments");
+    setShowPausedSubscriptionsOnly(false);
+    setReminderFocusFilter("all");
+    setEntryFlowContextReason(null);
+    setIsRestoredContext(false);
+    setLastNavigationIntent(null);
+    if (activeWorkspaceId) {
+      clearRemindersContextSnapshot(activeWorkspaceId);
+    }
+  }, [activeWorkspaceId]);
 
   useEffect(() => {
     if (!isComposerExpanded) {
@@ -1814,14 +1988,30 @@ export function RecurringPaymentsSection({
                 <span className="truncate">
                   {tr("Continue flow")}: {tr(entryFlowContextReason)}
                 </span>
+                {isRestoredContext && (
+                  <span className="pc-status-pill">{tr("Restored context")}</span>
+                )}
               </p>
-              <button
-                type="button"
-                onClick={() => setEntryFlowContextReason(null)}
-                className="pc-btn-quiet min-h-8 px-2 py-1 text-[11px]"
-              >
-                {tr("Clear focus")}
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEntryFlowContextReason(null);
+                    setIsRestoredContext(false);
+                    setLastNavigationIntent(null);
+                  }}
+                  className="pc-btn-quiet min-h-8 px-2 py-1 text-[11px]"
+                >
+                  {tr("Clear focus")}
+                </button>
+                <button
+                  type="button"
+                  onClick={startCleanRemindersSession}
+                  className="pc-btn-quiet min-h-8 px-2 py-1 text-[11px]"
+                >
+                  {tr("Start clean")}
+                </button>
+              </div>
             </div>
           )}
 
@@ -1882,6 +2072,8 @@ export function RecurringPaymentsSection({
                   setEntryFlowContextReason(
                     "Focused on action-now cards for this session.",
                   );
+                  setIsRestoredContext(false);
+                  setLastNavigationIntent(null);
                 }}
                 aria-pressed={reminderFocusFilter === "action_now"}
                 className="pc-btn-secondary"
@@ -1900,6 +2092,8 @@ export function RecurringPaymentsSection({
                     current === "upcoming" ? "all" : "upcoming",
                   );
                   setEntryFlowContextReason("Continue from Home with upcoming focus.");
+                  setIsRestoredContext(false);
+                  setLastNavigationIntent(null);
                 }}
                 aria-pressed={reminderFocusFilter === "upcoming"}
                 className="pc-btn-quiet"
@@ -1909,6 +2103,42 @@ export function RecurringPaymentsSection({
               </button>
             </div>
           </div>
+
+          {activeGuidanceKind && (
+            <div className="pc-state-card text-xs text-app-text-muted">
+              <p className="inline-flex items-center gap-1 font-semibold text-app-text">
+                <AppIcon name="help" className="h-3.5 w-3.5" />
+                {tr("Quick tip")}
+              </p>
+              <p className="mt-1">
+                {activeGuidanceKind === "focused_entry" &&
+                  tr(
+                    "You opened a focused lane from Home. Clear focus anytime to return to the full list.",
+                  )}
+                {activeGuidanceKind === "first_paid_cycle" &&
+                  tr(
+                    "Nice first paid cycle. Open History to quickly confirm recent updates.",
+                  )}
+                {activeGuidanceKind === "family_shared" &&
+                  tr(
+                    "Family tip: keep Who pays and Paid by clear on shared cards for cleaner coordination.",
+                  )}
+                {activeGuidanceKind === "first_payment" &&
+                  tr(
+                    "Great start. Your first payment is ready - use Mark paid when the cycle is completed.",
+                  )}
+              </p>
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => markGuidanceAsSeen(activeGuidanceKind)}
+                  className="pc-btn-quiet min-h-8 px-2 py-1 text-[11px]"
+                >
+                  {tr("Got it")}
+                </button>
+              </div>
+            </div>
+          )}
 
           {!isLoading && activePayments.length === 0 && (
             <div className="pc-empty-state mb-2">
@@ -2006,6 +2236,9 @@ export function RecurringPaymentsSection({
                   onClick={() => {
                     setPaymentListView("payments");
                     setEntryFlowContextReason(null);
+                    setReminderFocusFilter("all");
+                    setIsRestoredContext(false);
+                    setLastNavigationIntent(null);
                   }}
                   aria-pressed={paymentListView === "payments"}
                   className={`pc-segment-btn min-h-9 ${
@@ -2022,6 +2255,9 @@ export function RecurringPaymentsSection({
                   onClick={() => {
                     setPaymentListView("subscriptions");
                     setEntryFlowContextReason(null);
+                    setReminderFocusFilter("all");
+                    setIsRestoredContext(false);
+                    setLastNavigationIntent(null);
                   }}
                   aria-pressed={paymentListView === "subscriptions"}
                   className={`pc-segment-btn min-h-9 ${
@@ -2051,6 +2287,8 @@ export function RecurringPaymentsSection({
                     onClick={() => {
                       setReminderFocusFilter("all");
                       setEntryFlowContextReason(null);
+                      setIsRestoredContext(false);
+                      setLastNavigationIntent(null);
                     }}
                     aria-pressed={reminderFocusFilter === "all"}
                     className={`pc-segment-btn min-h-9 ${
@@ -2064,6 +2302,8 @@ export function RecurringPaymentsSection({
                     onClick={() => {
                       setReminderFocusFilter("action_now");
                       setEntryFlowContextReason(null);
+                      setIsRestoredContext(false);
+                      setLastNavigationIntent(null);
                     }}
                     aria-pressed={reminderFocusFilter === "action_now"}
                     className={`pc-segment-btn min-h-9 ${
@@ -2077,6 +2317,8 @@ export function RecurringPaymentsSection({
                     onClick={() => {
                       setReminderFocusFilter("upcoming");
                       setEntryFlowContextReason(null);
+                      setIsRestoredContext(false);
+                      setLastNavigationIntent(null);
                     }}
                     aria-pressed={reminderFocusFilter === "upcoming"}
                     className={`pc-segment-btn min-h-9 ${
@@ -2090,6 +2332,8 @@ export function RecurringPaymentsSection({
                     onClick={() => {
                       setReminderFocusFilter("paid");
                       setEntryFlowContextReason(null);
+                      setIsRestoredContext(false);
+                      setLastNavigationIntent(null);
                     }}
                     aria-pressed={reminderFocusFilter === "paid"}
                     className={`pc-segment-btn min-h-9 ${
@@ -2129,6 +2373,8 @@ export function RecurringPaymentsSection({
                   onClick={() => {
                     setReminderFocusFilter("all");
                     setEntryFlowContextReason(null);
+                    setIsRestoredContext(false);
+                    setLastNavigationIntent(null);
                   }}
                   className="pc-btn-quiet mt-2"
                 >

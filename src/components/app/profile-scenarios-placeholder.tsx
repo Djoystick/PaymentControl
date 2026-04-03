@@ -30,6 +30,7 @@ import { HelpPopover } from "@/components/app/help-popover";
 import { AppIcon } from "@/components/app/app-icon";
 import { clientEnv } from "@/lib/config/client-env";
 import { ThemeProvider, useTheme } from "@/lib/theme/theme-context";
+import { buildBugReportRuntimeContextPayload } from "@/lib/app/context-memory";
 
 const inviteStatusLabels: Record<FamilyWorkspaceInviteStatus, string> = {
   active: "Active",
@@ -205,6 +206,8 @@ function ProfileScenariosContent() {
         steps,
         currentScreen: "profile",
         language,
+        theme,
+        runtimeContext: buildBugReportRuntimeContextPayload(workspace?.id ?? null),
       });
 
       if (!result.ok) {
@@ -463,7 +466,7 @@ function ProfileScenariosContent() {
 
   const homeScreen = (
     <div className="pc-screen-stack">
-      <LandingScreen />
+      <LandingScreen workspaceId={workspace?.id ?? null} />
       <PaymentsDashboardSection
         workspace={workspace}
         initData={initData}
@@ -685,7 +688,7 @@ function ProfileScenariosContent() {
           </div>
           <p className="text-[11px] text-app-text-muted">
             {tr(
-              "Context from your profile, workspace, and language is attached automatically.",
+              "Context from your profile, workspace, language, theme, and last workflow state is attached automatically.",
             )}
           </p>
           <button

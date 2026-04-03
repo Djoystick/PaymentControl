@@ -94,6 +94,7 @@ export function PaymentsDashboardSection({
   const isFamilyWorkspace = workspace?.kind === "family";
   const isCompact = variant === "compact";
   const workspaceId = workspace?.id ?? null;
+  const navigationWorkspaceId = workspace?.id ?? null;
 
   const workspaceUnavailable = useMemo(() => {
     if (!workspace) {
@@ -278,6 +279,7 @@ export function PaymentsDashboardSection({
                           intent: "reminders_all",
                           sourceTab: "home",
                           reason: "Open full reminders list from Home snapshot.",
+                          workspaceId: navigationWorkspaceId,
                         })
                       }
                       className="pc-kpi-card min-h-[64px] text-left"
@@ -298,6 +300,7 @@ export function PaymentsDashboardSection({
                           intent: "reminders_upcoming",
                           sourceTab: "home",
                           reason: "Continue in Reminders: upcoming unpaid cards.",
+                          workspaceId: navigationWorkspaceId,
                         })
                       }
                       className="pc-kpi-card min-h-[64px] text-left"
@@ -318,6 +321,7 @@ export function PaymentsDashboardSection({
                           intent: "reminders_action_now",
                           sourceTab: "home",
                           reason: "Continue in Reminders: action-now cards.",
+                          workspaceId: navigationWorkspaceId,
                         })
                       }
                       className={`pc-kpi-card min-h-[64px] text-left ${
@@ -360,6 +364,7 @@ export function PaymentsDashboardSection({
                             dashboard.summary.dueTodayCount > 0
                               ? "Open Reminders with action-now focus."
                               : "Open Reminders for daily routine.",
+                          workspaceId: navigationWorkspaceId,
                         })
                       }
                       className="pc-btn-primary w-full"
@@ -377,6 +382,7 @@ export function PaymentsDashboardSection({
                           intent: "history_recent_updates",
                           sourceTab: "home",
                           reason: "Review recent changes in History.",
+                          workspaceId: navigationWorkspaceId,
                         })
                       }
                       className="pc-btn-secondary w-full"
@@ -402,6 +408,7 @@ export function PaymentsDashboardSection({
                         intent: "reminders_add_payment",
                         sourceTab: "home",
                         reason: "Start first recurring payment from Home empty state.",
+                        workspaceId: navigationWorkspaceId,
                       })
                     }
                     className="pc-btn-secondary mt-2"

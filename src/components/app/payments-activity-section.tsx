@@ -20,6 +20,12 @@ import type {
   RecurringPaymentPayload,
   WorkspaceResponsiblePayerOptionPayload,
 } from "@/lib/payments/types";
+import {
+  clearHistoryContextSnapshot,
+  rememberRuntimeSnapshot,
+  readHistoryContextSnapshot,
+  writeHistoryContextSnapshot,
+} from "@/lib/app/context-memory";
 
 type PaymentsActivitySectionProps = {
   workspace: WorkspaceSummaryPayload | null;
@@ -187,6 +193,8 @@ export function PaymentsActivitySection({
   const [entryFlowContextReason, setEntryFlowContextReason] = useState<string | null>(
     null,
   );
+  const [isRestoredContext, setIsRestoredContext] = useState(false);
+  const [isContextHydrated, setIsContextHydrated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -341,15 +349,75 @@ export function PaymentsActivitySection({
   );
 
   useEffect(() => {
-    const context = consumeTabNavigationContext("history");
-    if (
-      context &&
-      (context.intent === "history_recent_updates" ||
-        context.intent === "history_recent_paid")
-    ) {
-      applyHistoryNavigationIntent(context.intent, context.reason);
+    if (!workspaceId || workspaceUnavailable) {
+      setIsContextHydrated(false);
+      setIsRestoredContext(false);
+      return;
     }
-  }, [applyHistoryNavigationIntent]);
+
+    const context = consumeTabNavigationContext("history");
+    const navigationIntent: HistoryNavigationIntent | null =
+      context?.intent === "history_recent_updates" ||
+      context?.intent === "history_recent_paid"
+        ? context.intent
+        : null;
+    const canApplyNavigationContext =
+      context &&
+      navigationIntent &&
+      (!context.workspaceId || context.workspaceId === workspaceId);
+
+    if (canApplyNavigationContext && context && navigationIntent) {
+      applyHistoryNavigationIntent(navigationIntent, context.reason);
+      setIsRestoredContext(false);
+      setIsContextHydrated(true);
+      return;
+    }
+
+    const restoredContext = readHistoryContextSnapshot(workspaceId);
+    if (restoredContext) {
+      setActivityFocusFilter(restoredContext.activityFocusFilter);
+      setEntryFlowContextReason(
+        restoredContext.entryFlowContextReason ?? "Restored your last History context.",
+      );
+      setIsRestoredContext(true);
+    } else {
+      setIsRestoredContext(false);
+    }
+
+    setIsContextHydrated(true);
+  }, [
+    applyHistoryNavigationIntent,
+    workspaceId,
+    workspaceUnavailable,
+  ]);
+
+  useEffect(() => {
+    if (!workspaceId || workspaceUnavailable || !isContextHydrated) {
+      return;
+    }
+
+    writeHistoryContextSnapshot(workspaceId, {
+      activityFocusFilter,
+      entryFlowContextReason,
+    });
+
+    const rememberedIntent: HistoryNavigationIntent =
+      activityFocusFilter === "paid"
+        ? "history_recent_paid"
+        : "history_recent_updates";
+    rememberRuntimeSnapshot({
+      tab: "history",
+      intent: rememberedIntent,
+      reason: entryFlowContextReason ?? "Continue in History from your last session.",
+      workspaceId,
+    });
+  }, [
+    activityFocusFilter,
+    entryFlowContextReason,
+    isContextHydrated,
+    workspaceId,
+    workspaceUnavailable,
+  ]);
 
   useEffect(() => {
     loadActivity();
@@ -365,6 +433,15 @@ export function PaymentsActivitySection({
       window.removeEventListener(PAYMENTS_CHANGED_EVENT, refresh);
     };
   }, [loadActivity]);
+
+  const startCleanHistorySession = useCallback(() => {
+    setActivityFocusFilter("all");
+    setEntryFlowContextReason(null);
+    setIsRestoredContext(false);
+    if (workspaceId) {
+      clearHistoryContextSnapshot(workspaceId);
+    }
+  }, [workspaceId]);
 
   return (
     <section className="pc-surface pc-screen-stack">
@@ -391,14 +468,29 @@ export function PaymentsActivitySection({
                 <span className="truncate">
                   {tr("Continue flow")}: {tr(entryFlowContextReason)}
                 </span>
+                {isRestoredContext && (
+                  <span className="pc-status-pill">{tr("Restored context")}</span>
+                )}
               </p>
-              <button
-                type="button"
-                onClick={() => setEntryFlowContextReason(null)}
-                className="pc-btn-quiet min-h-8 px-2 py-1 text-[11px]"
-              >
-                {tr("Clear focus")}
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEntryFlowContextReason(null);
+                    setIsRestoredContext(false);
+                  }}
+                  className="pc-btn-quiet min-h-8 px-2 py-1 text-[11px]"
+                >
+                  {tr("Clear focus")}
+                </button>
+                <button
+                  type="button"
+                  onClick={startCleanHistorySession}
+                  className="pc-btn-quiet min-h-8 px-2 py-1 text-[11px]"
+                >
+                  {tr("Start clean")}
+                </button>
+              </div>
             </div>
           )}
 
@@ -439,6 +531,7 @@ export function PaymentsActivitySection({
                   onClick={() => {
                     setActivityFocusFilter("all");
                     setEntryFlowContextReason(null);
+                    setIsRestoredContext(false);
                   }}
                   aria-pressed={activityFocusFilter === "all"}
                   className={`pc-segment-btn min-h-8 ${
@@ -452,6 +545,7 @@ export function PaymentsActivitySection({
                   onClick={() => {
                     setActivityFocusFilter("changes");
                     setEntryFlowContextReason(null);
+                    setIsRestoredContext(false);
                   }}
                   aria-pressed={activityFocusFilter === "changes"}
                   className={`pc-segment-btn min-h-8 ${
@@ -465,6 +559,7 @@ export function PaymentsActivitySection({
                   onClick={() => {
                     setActivityFocusFilter("paid");
                     setEntryFlowContextReason(null);
+                    setIsRestoredContext(false);
                   }}
                   aria-pressed={activityFocusFilter === "paid"}
                   className={`pc-segment-btn min-h-8 ${
@@ -506,6 +601,7 @@ export function PaymentsActivitySection({
                   onClick={() => {
                     setActivityFocusFilter("all");
                     setEntryFlowContextReason(null);
+                    setIsRestoredContext(false);
                   }}
                   className="pc-btn-quiet mt-2"
                 >

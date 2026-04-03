@@ -14,6 +14,8 @@ type BugReportBody = {
   steps?: string;
   currentScreen?: string;
   language?: string;
+  theme?: string;
+  runtimeContext?: unknown;
 };
 
 const codeToStatus: Record<BugReportSubmitErrorCode, number> = {
@@ -67,6 +69,14 @@ const normalizeLanguage = (value: string | undefined): "ru" | "en" | "unknown" =
   return "unknown";
 };
 
+const normalizeTheme = (value: string | undefined): "light" | "dark" | "unknown" => {
+  if (value === "light" || value === "dark") {
+    return value;
+  }
+
+  return "unknown";
+};
+
 const normalizeCurrentScreen = (value: string | undefined): string => {
   const normalized = normalizeSingleLine(value, MAX_NOTE_LENGTH).toLowerCase();
   if (
@@ -79,6 +89,95 @@ const normalizeCurrentScreen = (value: string | undefined): string => {
   }
 
   return "unknown";
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> => {
+  return typeof value === "object" && value !== null;
+};
+
+const formatRuntimeContextLines = (value: unknown): string[] => {
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  const lines: string[] = [];
+
+  const runtime = isRecord(value.runtime) ? value.runtime : null;
+  if (runtime) {
+    if (typeof runtime.tab === "string") {
+      lines.push(`Runtime tab: ${runtime.tab}`);
+    }
+    if (typeof runtime.intent === "string") {
+      lines.push(`Last intent: ${runtime.intent}`);
+    }
+    if (typeof runtime.reason === "string" && runtime.reason.trim()) {
+      lines.push(`Last transition reason: ${runtime.reason.trim().slice(0, 240)}`);
+    }
+    if (typeof runtime.workspaceId === "string" && runtime.workspaceId.trim()) {
+      lines.push(`Runtime workspace id: ${runtime.workspaceId.trim()}`);
+    }
+    if (typeof runtime.updatedAt === "string" && runtime.updatedAt.trim()) {
+      lines.push(`Runtime updated at: ${runtime.updatedAt.trim()}`);
+    }
+  }
+
+  const reminders = isRecord(value.reminders) ? value.reminders : null;
+  if (reminders) {
+    if (typeof reminders.paymentListView === "string") {
+      lines.push(`Reminders view: ${reminders.paymentListView}`);
+    }
+    if (typeof reminders.reminderFocusFilter === "string") {
+      lines.push(`Reminders focus: ${reminders.reminderFocusFilter}`);
+    }
+    if (typeof reminders.showPausedSubscriptionsOnly === "boolean") {
+      lines.push(
+        `Reminders paused-only filter: ${
+          reminders.showPausedSubscriptionsOnly ? "on" : "off"
+        }`,
+      );
+    }
+    if (
+      typeof reminders.entryFlowContextReason === "string" &&
+      reminders.entryFlowContextReason.trim()
+    ) {
+      lines.push(
+        `Reminders flow reason: ${reminders.entryFlowContextReason
+          .trim()
+          .slice(0, 240)}`,
+      );
+    }
+    if (typeof reminders.updatedAt === "string" && reminders.updatedAt.trim()) {
+      lines.push(`Reminders context updated at: ${reminders.updatedAt.trim()}`);
+    }
+  }
+
+  const history = isRecord(value.history) ? value.history : null;
+  if (history) {
+    if (typeof history.activityFocusFilter === "string") {
+      lines.push(`History focus: ${history.activityFocusFilter}`);
+    }
+    if (
+      typeof history.entryFlowContextReason === "string" &&
+      history.entryFlowContextReason.trim()
+    ) {
+      lines.push(
+        `History flow reason: ${history.entryFlowContextReason.trim().slice(0, 240)}`,
+      );
+    }
+    if (typeof history.updatedAt === "string" && history.updatedAt.trim()) {
+      lines.push(`History context updated at: ${history.updatedAt.trim()}`);
+    }
+  }
+
+  const generatedAt =
+    typeof value.generatedAt === "string" && value.generatedAt.trim()
+      ? value.generatedAt.trim()
+      : null;
+  if (generatedAt) {
+    lines.push(`Client context generated at: ${generatedAt}`);
+  }
+
+  return lines;
 };
 
 const toDisplayName = (firstName: string, lastName: string | null): string => {
@@ -94,6 +193,8 @@ const buildBugReportMessage = (params: {
   steps: string | null;
   language: "ru" | "en" | "unknown";
   currentScreen: string;
+  theme: "light" | "dark" | "unknown";
+  runtimeContextLines: string[];
   contextSource: "telegram" | "dev_fallback";
   reporter: {
     telegramUserId: string;
@@ -131,6 +232,7 @@ const buildBugReportMessage = (params: {
     `- Auth source: ${params.contextSource}`,
     `- Language: ${params.language}`,
     `- Screen: ${params.currentScreen}`,
+    `- Theme: ${params.theme}`,
     `- Scenario: ${params.reporter.selectedScenario}`,
     `- Workspace: ${params.workspace.title}`,
     `- Workspace kind: ${params.workspace.kind}`,
@@ -143,6 +245,13 @@ const buildBugReportMessage = (params: {
     "Description:",
     params.description,
   ];
+
+  if (params.runtimeContextLines.length > 0) {
+    lines.push("", "Runtime UI context");
+    for (const line of params.runtimeContextLines) {
+      lines.push(`- ${line}`);
+    }
+  }
 
   if (params.steps) {
     lines.push("", "Steps / details:", params.steps);
@@ -187,6 +296,8 @@ export async function POST(request: Request) {
   const steps = normalizeMultiline(body.steps, MAX_STEPS_LENGTH);
   const language = normalizeLanguage(body.language);
   const currentScreen = normalizeCurrentScreen(body.currentScreen);
+  const theme = normalizeTheme(body.theme);
+  const runtimeContextLines = formatRuntimeContextLines(body.runtimeContext);
 
   if (title.length < 3 || description.length < 10) {
     return NextResponse.json<BugReportSubmitResponse>(
@@ -242,6 +353,8 @@ export async function POST(request: Request) {
       steps: steps || null,
       language,
       currentScreen,
+      theme,
+      runtimeContextLines,
       contextSource: contextResult.source,
       reporter: {
         telegramUserId: contextResult.profile.telegramUserId,

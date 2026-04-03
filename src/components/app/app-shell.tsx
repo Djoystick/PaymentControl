@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocalization } from "@/lib/i18n/localization";
 import { AppIcon } from "@/components/app/app-icon";
+import { rememberRuntimeSnapshot } from "@/lib/app/context-memory";
 
 type AppShellProps = {
   screens: Record<AppTab, React.ReactNode>;
@@ -23,6 +24,7 @@ export type AppTabNavigationEventDetail = {
   intent?: AppNavigationIntent;
   sourceTab?: AppTab;
   reason?: string;
+  workspaceId?: string | null;
 };
 
 export type AppTabNavigationContext = {
@@ -30,6 +32,7 @@ export type AppTabNavigationContext = {
   intent: AppNavigationIntent;
   sourceTab?: AppTab;
   reason?: string;
+  workspaceId?: string | null;
   createdAt: string;
 };
 
@@ -105,11 +108,20 @@ const readTabNavigationContextMap = (): Partial<Record<AppTab, AppTabNavigationC
         continue;
       }
 
+      if (
+        rawContext.workspaceId !== undefined &&
+        rawContext.workspaceId !== null &&
+        typeof rawContext.workspaceId !== "string"
+      ) {
+        continue;
+      }
+
       normalized[rawTab] = {
         tab: rawContext.tab,
         intent: rawContext.intent,
         sourceTab: rawContext.sourceTab,
         reason: rawContext.reason,
+        workspaceId: rawContext.workspaceId,
         createdAt: rawContext.createdAt ?? new Date().toISOString(),
       };
     }
@@ -235,7 +247,22 @@ export function AppShell({ screens }: AppShellProps) {
 
   const handleTabClick = useCallback((tab: AppTab) => {
     clearTabNavigationContext(tab);
-    setActiveTab(tab);
+    setActiveTab((current) => {
+      if (tab === "home" && current !== "home") {
+        rememberRuntimeSnapshot({
+          tab: current,
+          sourceTab: "home",
+          reason: "Continue from tab bar selection.",
+        });
+      } else {
+        rememberRuntimeSnapshot({
+          tab,
+          sourceTab: current,
+          reason: "Continue from tab bar selection.",
+        });
+      }
+      return tab;
+    });
   }, []);
 
   const activeTabItem = useMemo(() => {
@@ -299,11 +326,23 @@ export function AppShell({ screens }: AppShellProps) {
           intent: customEvent.detail.intent,
           sourceTab: customEvent.detail.sourceTab,
           reason: customEvent.detail.reason,
+          workspaceId: customEvent.detail.workspaceId,
         });
       } else {
         clearTabNavigationContext(targetTab);
       }
 
+      rememberRuntimeSnapshot({
+        tab: targetTab,
+        intent: customEvent.detail?.intent,
+        sourceTab: customEvent.detail?.sourceTab,
+        reason:
+          customEvent.detail?.reason ??
+          (customEvent.detail?.intent
+            ? "Continue from previous flow."
+            : "Continue from tab navigation."),
+        workspaceId: customEvent.detail?.workspaceId,
+      });
       setActiveTab(targetTab);
     };
 
