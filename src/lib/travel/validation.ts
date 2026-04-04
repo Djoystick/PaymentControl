@@ -1,9 +1,13 @@
 ﻿import type {
   TravelCreateExpenseInput,
   TravelCreateReceiptDraftInput,
+  TravelCreateTripMemberInput,
   TravelCreateTripInput,
   TravelManualSplitInput,
   TravelSplitMode,
+  TravelTripMemberRole,
+  TravelTripMemberStatus,
+  TravelUpdateTripMemberInput,
 } from "@/lib/travel/types";
 
 type ValidationOk<T> = {
@@ -122,6 +126,24 @@ const normalizeSplitMode = (value: unknown): TravelSplitMode | null => {
   return null;
 };
 
+const normalizeMemberRole = (value: unknown): TravelTripMemberRole | null => {
+  if (value === "organizer" || value === "participant") {
+    return value;
+  }
+
+  return null;
+};
+
+const normalizeMemberStatus = (
+  value: unknown,
+): TravelTripMemberStatus | null => {
+  if (value === "active" || value === "inactive") {
+    return value;
+  }
+
+  return null;
+};
+
 const normalizeSpentAt = (value: unknown): string | null => {
   if (value === null || value === undefined || value === "") {
     return null;
@@ -203,6 +225,91 @@ export const validateTravelCreateTripInput = (
       baseCurrency,
       description,
       memberNames,
+    },
+  };
+};
+
+export const validateTravelCreateTripMemberInput = (
+  body: Record<string, unknown>,
+): ValidationOk<TravelCreateTripMemberInput> | ValidationError => {
+  const displayName = normalizeText(body.displayName).slice(0, 80);
+  if (!displayName) {
+    return {
+      ok: false,
+      message: "Participant name is required and must be 80 characters or less.",
+    };
+  }
+
+  const role = normalizeMemberRole(body.role) ?? "participant";
+  const status = normalizeMemberStatus(body.status) ?? "active";
+  const linkToCurrentProfile = body.linkToCurrentProfile === true;
+
+  return {
+    ok: true,
+    data: {
+      displayName,
+      role,
+      status,
+      linkToCurrentProfile,
+    },
+  };
+};
+
+export const validateTravelUpdateTripMemberInput = (
+  body: Record<string, unknown>,
+): ValidationOk<TravelUpdateTripMemberInput> | ValidationError => {
+  const hasDisplayName = body.displayName !== undefined;
+  const hasRole = body.role !== undefined;
+  const hasStatus = body.status !== undefined;
+
+  if (!hasDisplayName && !hasRole && !hasStatus) {
+    return {
+      ok: false,
+      message: "Provide at least one participant field to update.",
+    };
+  }
+
+  let displayName: string | null = null;
+  if (hasDisplayName) {
+    const normalized = normalizeText(body.displayName).slice(0, 80);
+    if (!normalized) {
+      return {
+        ok: false,
+        message: "Participant name must be 80 characters or less.",
+      };
+    }
+
+    displayName = normalized;
+  }
+
+  let role: TravelTripMemberRole | null = null;
+  if (hasRole) {
+    role = normalizeMemberRole(body.role);
+    if (!role) {
+      return {
+        ok: false,
+        message: "Participant role is invalid.",
+      };
+    }
+  }
+
+  let status: TravelTripMemberStatus | null = null;
+  if (hasStatus) {
+    status = normalizeMemberStatus(body.status);
+    if (!status) {
+      return {
+        ok: false,
+        message: "Participant status is invalid.",
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    data: {
+      displayName,
+      role,
+      status,
     },
   };
 };

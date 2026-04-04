@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
 import { isSupabaseServerConfigured } from "@/lib/config/server-env";
 import { resolveTravelScope } from "@/lib/travel/context";
-import { createTravelReceiptDraftForTrip } from "@/lib/travel/repository";
-import { validateTravelCreateReceiptDraftInput } from "@/lib/travel/validation";
+import { createTravelTripMemberForTrip } from "@/lib/travel/repository";
+import { validateTravelCreateTripMemberInput } from "@/lib/travel/validation";
 import type {
   TravelApiError,
-  TravelReceiptDraftMutateResponse,
+  TravelTripMemberMutateResponse,
 } from "@/lib/travel/types";
+
+type CreateTravelTripMemberBody = {
+  initData?: string;
+  displayName?: unknown;
+  role?: unknown;
+  status?: unknown;
+  linkToCurrentProfile?: unknown;
+};
 
 type RouteContext = {
   params: Promise<{ tripId: string }>;
@@ -37,14 +45,10 @@ const codeToStatus: Partial<Record<TravelApiError["error"]["code"], number>> = {
   TRAVEL_EXPENSE_CREATE_FAILED: 500,
   TRAVEL_EXPENSE_UPDATE_FAILED: 500,
   TRAVEL_EXPENSE_DELETE_FAILED: 500,
-  TRAVEL_RECEIPT_VALIDATION_FAILED: 400,
-  TRAVEL_RECEIPT_CREATE_FAILED: 500,
-  TRAVEL_RECEIPT_NOT_FOUND: 404,
-  TRAVEL_RECEIPT_PARSE_FAILED: 500,
-  TRAVEL_RECEIPT_RESET_FAILED: 500,
-  TRAVEL_RECEIPT_REPLACE_FAILED: 500,
-  TRAVEL_RECEIPT_DELETE_FAILED: 500,
-  TRAVEL_OCR_UNAVAILABLE: 409,
+  TRAVEL_MEMBER_VALIDATION_FAILED: 400,
+  TRAVEL_MEMBER_NOT_FOUND: 404,
+  TRAVEL_MEMBER_CREATE_FAILED: 500,
+  TRAVEL_MEMBER_UPDATE_FAILED: 500,
   TRAVEL_SETTLEMENT_NOT_FOUND: 404,
   TRAVEL_SETTLEMENT_UPDATE_FAILED: 500,
 };
@@ -53,7 +57,7 @@ const jsonError = (
   code: TravelApiError["error"]["code"],
   message: string,
 ) => {
-  return NextResponse.json<TravelReceiptDraftMutateResponse>(
+  return NextResponse.json<TravelTripMemberMutateResponse>(
     {
       ok: false,
       error: {
@@ -63,21 +67,6 @@ const jsonError = (
     },
     { status: codeToStatus[code] ?? 400 },
   );
-};
-
-const fileToDataUrl = async (file: File): Promise<string | null> => {
-  const mimeType = file.type?.trim().toLowerCase();
-  if (!mimeType || !mimeType.startsWith("image/")) {
-    return null;
-  }
-
-  const arrayBuffer = await file.arrayBuffer();
-  const base64 = Buffer.from(arrayBuffer).toString("base64");
-  if (!base64) {
-    return null;
-  }
-
-  return `data:${mimeType};base64,${base64}`;
 };
 
 export async function POST(request: Request, context: RouteContext) {
@@ -93,51 +82,30 @@ export async function POST(request: Request, context: RouteContext) {
     return jsonError("TRAVEL_TRIP_NOT_FOUND", "Trip id is required.");
   }
 
-  let formData: FormData;
+  let body: CreateTravelTripMemberBody = {};
   try {
-    formData = await request.formData();
+    body = (await request.json()) as CreateTravelTripMemberBody;
   } catch {
-    return jsonError(
-      "TRAVEL_RECEIPT_VALIDATION_FAILED",
-      "Receipt form payload is invalid.",
-    );
+    body = {};
   }
 
-  const initData = formData.get("initData");
-  const receiptImage = formData.get("receiptImage");
-
-  if (!(receiptImage instanceof File)) {
-    return jsonError(
-      "TRAVEL_RECEIPT_VALIDATION_FAILED",
-      "Receipt image is missing or invalid.",
-    );
-  }
-
-  const imageDataUrl = await fileToDataUrl(receiptImage);
-  if (!imageDataUrl) {
-    return jsonError(
-      "TRAVEL_RECEIPT_VALIDATION_FAILED",
-      "Receipt image is missing or invalid.",
-    );
-  }
-
-  const scopeResult = await resolveTravelScope(
-    typeof initData === "string" ? initData : undefined,
-  );
+  const scopeResult = await resolveTravelScope(body.initData);
   if (!scopeResult.ok) {
     return jsonError(scopeResult.error.code, scopeResult.error.message);
   }
 
-  const validationResult = validateTravelCreateReceiptDraftInput({
-    imageDataUrl,
-    imageMimeType: receiptImage.type,
-    imageFileName: receiptImage.name,
+  const validationResult = validateTravelCreateTripMemberInput({
+    displayName: body.displayName,
+    role: body.role,
+    status: body.status,
+    linkToCurrentProfile: body.linkToCurrentProfile,
   });
+
   if (!validationResult.ok) {
-    return jsonError("TRAVEL_RECEIPT_VALIDATION_FAILED", validationResult.message);
+    return jsonError("TRAVEL_MEMBER_VALIDATION_FAILED", validationResult.message);
   }
 
-  const createResult = await createTravelReceiptDraftForTrip({
+  const createResult = await createTravelTripMemberForTrip({
     workspaceId: scopeResult.workspace.id,
     profileId: scopeResult.profileId,
     tripId,
@@ -154,16 +122,16 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     if (createResult.reason === "VALIDATION_FAILED") {
-      return jsonError("TRAVEL_RECEIPT_VALIDATION_FAILED", createResult.message);
+      return jsonError("TRAVEL_MEMBER_VALIDATION_FAILED", createResult.message);
     }
 
-    return jsonError("TRAVEL_RECEIPT_CREATE_FAILED", createResult.message);
+    return jsonError("TRAVEL_MEMBER_CREATE_FAILED", createResult.message);
   }
 
-  return NextResponse.json<TravelReceiptDraftMutateResponse>({
+  return NextResponse.json<TravelTripMemberMutateResponse>({
     ok: true,
     workspace: scopeResult.workspace,
     trip: createResult.trip,
-    receiptDraft: createResult.receiptDraft,
+    member: createResult.member,
   });
 }

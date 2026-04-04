@@ -1,6 +1,6 @@
 "use client";
 
-export type ContextAppTab = "home" | "reminders" | "history" | "profile";
+export type ContextAppTab = "home" | "reminders" | "travel" | "history" | "profile";
 export type ContextAppNavigationIntent =
   | "reminders_add_payment"
   | "reminders_action_now"
@@ -67,6 +67,7 @@ const isContextTab = (value: unknown): value is ContextAppTab => {
   return (
     value === "home" ||
     value === "reminders" ||
+    value === "travel" ||
     value === "history" ||
     value === "profile"
   );

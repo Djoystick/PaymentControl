@@ -25,18 +25,18 @@ const resolveResumeLabel = (
 ): string => {
   if (snapshot.tab === "reminders") {
     if (snapshot.intent === "reminders_add_payment") {
-      return tr("Resume Reminders add-payment flow");
+      return tr("Resume Recurring add-payment flow");
     }
 
     if (snapshot.intent === "reminders_action_now") {
-      return tr("Resume action-now Reminders");
+      return tr("Resume action-now Recurring");
     }
 
     if (snapshot.intent === "reminders_upcoming") {
-      return tr("Resume upcoming Reminders");
+      return tr("Resume upcoming Recurring");
     }
 
-    return tr("Resume Reminders");
+    return tr("Resume Recurring");
   }
 
   if (snapshot.tab === "history") {
@@ -49,6 +49,10 @@ const resolveResumeLabel = (
     }
 
     return tr("Resume History");
+  }
+
+  if (snapshot.tab === "travel") {
+    return tr("Resume Travel workspace");
   }
 
   return tr("Resume last tab");
@@ -88,7 +92,7 @@ export function LandingScreen({ workspaceId = null }: LandingScreenProps) {
     return nextSnapshot;
   }, [resumeRevision, workspaceId]);
 
-  const openReminders = () => {
+  const openRecurring = () => {
     if (typeof window === "undefined") {
       return;
     }
@@ -149,7 +153,7 @@ export function LandingScreen({ workspaceId = null }: LandingScreenProps) {
             {tr("Payment Control")}
           </h1>
           <p className="pc-section-subtitle">
-            {tr("One short routine: Reminders for actions, History for proof.")}
+            {tr("One short routine: Recurring for actions, History for proof.")}
           </p>
         </div>
         <span className="pc-state-card inline-flex h-9 w-9 items-center justify-center p-0 text-app-accent">
@@ -160,11 +164,11 @@ export function LandingScreen({ workspaceId = null }: LandingScreenProps) {
       <div className="grid grid-cols-1 gap-2">
         <button
           type="button"
-          onClick={openReminders}
+          onClick={openRecurring}
           className="pc-btn-primary w-full gap-2"
         >
           <AppIcon name="add" className="h-4 w-4" />
-          {tr("Open Reminders and add payment")}
+          {tr("Open Recurring and add payment")}
         </button>
       </div>
 

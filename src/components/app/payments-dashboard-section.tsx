@@ -347,7 +347,7 @@ export function PaymentsDashboardSection({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                     <button
                       type="button"
                       onClick={() =>
@@ -371,8 +371,23 @@ export function PaymentsDashboardSection({
                     >
                       <AppIcon name="reminders" className="h-3.5 w-3.5" />
                       {dashboard.summary.overdueCount > 0 || dashboard.summary.dueTodayCount > 0
-                        ? tr("Open action-now Reminders")
-                        : tr("Open Reminders for actions")}
+                        ? tr("Open action-now Recurring")
+                        : tr("Open Recurring for actions")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigateToTab({
+                          tab: "travel",
+                          sourceTab: "home",
+                          reason: "Open Travel workspace from Home.",
+                          workspaceId: navigationWorkspaceId,
+                        })
+                      }
+                      className="pc-btn-secondary w-full"
+                    >
+                      <AppIcon name="travel" className="h-3.5 w-3.5" />
+                      {tr("Open Travel workspace")}
                     </button>
                     <button
                       type="button"
@@ -426,11 +441,11 @@ export function PaymentsDashboardSection({
                   </p>
                   <button
                     type="button"
-                    onClick={() =>
-                      navigateToTab({
-                        tab: "reminders",
-                        intent: "reminders_add_payment",
-                        sourceTab: "home",
+                      onClick={() =>
+                        navigateToTab({
+                          tab: "reminders",
+                          intent: "reminders_add_payment",
+                          sourceTab: "home",
                         reason: "Start first recurring payment from Home empty state.",
                         workspaceId: navigationWorkspaceId,
                       })
@@ -438,7 +453,7 @@ export function PaymentsDashboardSection({
                     className="pc-btn-secondary mt-2"
                   >
                     <AppIcon name="add" className="h-3.5 w-3.5" />
-                    {tr("Add first payment")}
+                    {tr("Add first recurring payment")}
                   </button>
                 </div>
               )}

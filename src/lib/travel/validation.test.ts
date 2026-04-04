@@ -3,6 +3,8 @@ import test from "node:test";
 import {
   validateTravelCreateExpenseInput,
   validateTravelCreateReceiptDraftInput,
+  validateTravelCreateTripMemberInput,
+  validateTravelUpdateTripMemberInput,
 } from "./validation.ts";
 
 test("validateTravelCreateExpenseInput keeps optional receiptDraftId", () => {
@@ -53,4 +55,40 @@ test("validateTravelCreateReceiptDraftInput rejects invalid image type", () => {
   });
 
   assert.equal(result.ok, false);
+});
+
+test("validateTravelCreateTripMemberInput accepts participant defaults", () => {
+  const result = validateTravelCreateTripMemberInput({
+    displayName: "Anna",
+    linkToCurrentProfile: true,
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) {
+    return;
+  }
+
+  assert.equal(result.data.role, "participant");
+  assert.equal(result.data.status, "active");
+  assert.equal(result.data.linkToCurrentProfile, true);
+});
+
+test("validateTravelUpdateTripMemberInput rejects empty patch", () => {
+  const result = validateTravelUpdateTripMemberInput({});
+  assert.equal(result.ok, false);
+});
+
+test("validateTravelUpdateTripMemberInput accepts status update", () => {
+  const result = validateTravelUpdateTripMemberInput({
+    status: "inactive",
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) {
+    return;
+  }
+
+  assert.equal(result.data.status, "inactive");
+  assert.equal(result.data.displayName, null);
+  assert.equal(result.data.role, null);
 });

@@ -3,20 +3,27 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normalizeTravelExpenseAmount } from "@/lib/travel/currency";
 import { buildTravelSettlementOverview } from "@/lib/travel/finalization";
 import { runTravelReceiptOcr } from "@/lib/travel/receipt-ocr";
+import { createDefaultTravelReceiptOcrFieldQuality } from "@/lib/travel/receipt-ocr-normalization";
 import {
   buildTravelTripSummary,
   resolveTravelExpenseSplits,
   type TravelSplitEngineMember,
 } from "@/lib/travel/split";
 import type {
+  TravelCreateTripMemberInput,
   TravelCreateReceiptDraftInput,
+  TravelReplaceReceiptDraftImageInput,
   TravelCreateExpenseInput,
+  TravelReceiptOcrFieldQualityMap,
   TravelReceiptDraftPayload,
   TravelReceiptDraftStatus,
   TravelCreateTripInput,
   TravelSettlementItemStatus,
   TravelTripExpensePayload,
   TravelTripClosureAction,
+  TravelTripMemberRole,
+  TravelTripMemberStatus,
+  TravelUpdateTripMemberInput,
   TravelTripListItemPayload,
   TravelTripMemberPayload,
   TravelTripPayload,
@@ -33,6 +40,7 @@ type TravelTripRow = {
   created_by_profile_id: string | null;
   status: TravelTripStatus;
   closed_at: string | null;
+  archived_at: string | null;
   closure_updated_at: string;
   created_at: string;
   updated_at: string;
@@ -55,8 +63,12 @@ type TravelReceiptDraftRow = {
   ocr_suggested_description: string | null;
   ocr_suggested_category: string | null;
   ocr_suggested_conversion_rate: number | string | null;
+  ocr_field_quality: unknown;
+  ocr_parse_attempts: number | string | null;
+  ocr_last_attempt_at: string | null;
   ocr_last_error: string | null;
   parsed_at: string | null;
+  source_image_updated_at: string;
   finalized_at: string | null;
   finalized_expense_id: string | null;
   created_at: string;
@@ -69,6 +81,9 @@ type TravelTripMemberRow = {
   profile_id: string | null;
   telegram_user_id: string | number | null;
   display_name: string;
+  role: TravelTripMemberRole;
+  status: TravelTripMemberStatus;
+  inactive_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -121,9 +136,9 @@ type TravelTripExpenseTotalRow = {
 };
 
 const tripSelection =
-  "id, workspace_id, title, base_currency, description, created_by_profile_id, status, closed_at, closure_updated_at, created_at, updated_at";
+  "id, workspace_id, title, base_currency, description, created_by_profile_id, status, closed_at, archived_at, closure_updated_at, created_at, updated_at";
 const memberSelection =
-  "id, trip_id, profile_id, telegram_user_id, display_name, created_at, updated_at";
+  "id, trip_id, profile_id, telegram_user_id, display_name, role, status, inactive_at, created_at, updated_at";
 const expenseSelection =
   "id, trip_id, paid_by_member_id, source_amount, source_currency, conversion_rate, amount, currency, description, category, split_mode, spent_at, created_at, updated_at";
 const splitSelection =
@@ -131,7 +146,7 @@ const splitSelection =
 const settlementSelection =
   "id, trip_id, from_member_id, to_member_id, amount, status, settled_at, created_at, updated_at";
 const receiptSelection =
-  "id, trip_id, workspace_id, created_by_profile_id, status, image_data_url, image_mime_type, image_file_name, ocr_raw_text, ocr_suggested_amount, ocr_suggested_currency, ocr_suggested_spent_at, ocr_suggested_merchant, ocr_suggested_description, ocr_suggested_category, ocr_suggested_conversion_rate, ocr_last_error, parsed_at, finalized_at, finalized_expense_id, created_at, updated_at";
+  "id, trip_id, workspace_id, created_by_profile_id, status, image_data_url, image_mime_type, image_file_name, ocr_raw_text, ocr_suggested_amount, ocr_suggested_currency, ocr_suggested_spent_at, ocr_suggested_merchant, ocr_suggested_description, ocr_suggested_category, ocr_suggested_conversion_rate, ocr_field_quality, ocr_parse_attempts, ocr_last_attempt_at, ocr_last_error, parsed_at, source_image_updated_at, finalized_at, finalized_expense_id, created_at, updated_at";
 
 const toAmount = (value: number | string): number => {
   const numeric = Number(value);
@@ -164,6 +179,9 @@ const toTripMemberPayload = (
     profileId: row.profile_id,
     telegramUserId: normalizeTelegramUserId(row.telegram_user_id),
     displayName: row.display_name,
+    role: row.role,
+    status: row.status,
+    inactiveAt: row.inactive_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -240,6 +258,30 @@ const toSettlementItemPayload = (params: {
   };
 };
 
+const normalizeReceiptFieldQualityMap = (
+  value: unknown,
+): TravelReceiptOcrFieldQualityMap => {
+  const next = createDefaultTravelReceiptOcrFieldQuality();
+  if (!value || typeof value !== "object") {
+    return next;
+  }
+
+  const map = value as Partial<TravelReceiptOcrFieldQualityMap>;
+  for (const key of Object.keys(next) as Array<keyof TravelReceiptOcrFieldQualityMap>) {
+    const fieldValue = map[key];
+    if (
+      fieldValue === "high" ||
+      fieldValue === "medium" ||
+      fieldValue === "low" ||
+      fieldValue === "missing"
+    ) {
+      next[key] = fieldValue;
+    }
+  }
+
+  return next;
+};
+
 const toReceiptDraftPayload = (
   row: TravelReceiptDraftRow,
 ): TravelReceiptDraftPayload => {
@@ -269,8 +311,17 @@ const toReceiptDraftPayload = (
       parsedRate !== null && Number.isFinite(parsedRate) && parsedRate > 0
         ? Number(parsedRate.toFixed(6))
         : null,
+    ocrFieldQuality: normalizeReceiptFieldQualityMap(row.ocr_field_quality),
     ocrLastError: row.ocr_last_error,
     parsedAt: row.parsed_at,
+    ocrParseAttempts: Math.max(
+      0,
+      Number.isFinite(Number(row.ocr_parse_attempts))
+        ? Number(row.ocr_parse_attempts)
+        : 0,
+    ),
+    ocrLastAttemptAt: row.ocr_last_attempt_at,
+    sourceImageUpdatedAt: row.source_image_updated_at,
     finalizedAt: row.finalized_at,
     finalizedExpenseId: row.finalized_expense_id,
     createdAt: row.created_at,
@@ -491,6 +542,10 @@ const buildTripPayload = async (
   }
 
   const memberPayloads = members.map(toTripMemberPayload);
+  const activeMembers = memberPayloads.filter((member) => member.status === "active");
+  const inactiveMembers = memberPayloads.filter(
+    (member) => member.status === "inactive",
+  );
   const memberNameById = new Map(
     memberPayloads.map((member) => [member.id, member.displayName]),
   );
@@ -550,6 +605,7 @@ const buildTripPayload = async (
     createdByProfileId: tripRow.created_by_profile_id,
     status: tripRow.status,
     closedAt: tripRow.closed_at,
+    archivedAt: tripRow.archived_at,
     closureUpdatedAt: tripRow.closure_updated_at,
     createdAt: tripRow.created_at,
     updatedAt: tripRow.updated_at,
@@ -559,9 +615,17 @@ const buildTripPayload = async (
     summary: {
       totalExpensesCount: calculatedSummary.totalExpensesCount,
       totalSpent: calculatedSummary.totalSpent,
+      activeMemberCount: activeMembers.length,
+      inactiveMemberCount: inactiveMembers.length,
       balances: calculatedSummary.balances,
       settlements: settlementOverview.unsettledSettlements,
       recommendedSettlements: calculatedSummary.settlements,
+      settlementBaselineTransferCount:
+        calculatedSummary.settlementPlanStats.baselineTransferCount,
+      settlementOptimizedTransferCount:
+        calculatedSummary.settlementPlanStats.optimizedTransferCount,
+      settlementReducedTransferCount:
+        calculatedSummary.settlementPlanStats.reducedTransferCount,
       settledSettlements: settlementOverview.settledSettlements,
       unsettledSettlementCount: settlementOverview.unsettledCount,
       settledSettlementCount: settlementOverview.settledCount,
@@ -689,6 +753,7 @@ export const listTravelTripsByWorkspace = async (
     totalSpent: Number((expenseTotalByTripId.get(trip.id) ?? 0).toFixed(2)),
     status: trip.status,
     closedAt: trip.closed_at,
+    archivedAt: trip.archived_at,
     updatedAt: trip.updated_at,
   }));
 };
@@ -734,9 +799,15 @@ export const createTravelTripForWorkspace = async (params: {
     return null;
   }
 
-  const memberRows = params.input.memberNames.map((displayName) => ({
+  const memberRows = params.input.memberNames.map((displayName, index) => ({
     trip_id: createdTrip.id,
+    profile_id: index === 0 ? params.profileId : null,
     display_name: displayName,
+    role: (index === 0
+      ? "organizer"
+      : "participant") satisfies TravelTripMemberRole,
+    status: "active" satisfies TravelTripMemberStatus,
+    inactive_at: null,
     updated_at: now,
   }));
 
@@ -790,6 +861,34 @@ export type TravelReceiptDraftDeleteResult =
   | {
       ok: false;
       reason: "TRIP_NOT_FOUND" | "TRIP_NOT_ACTIVE" | "RECEIPT_NOT_FOUND" | "DELETE_FAILED";
+      message: string;
+    };
+
+export type TravelReceiptDraftResetResult =
+  | {
+      ok: true;
+      receiptDraft: TravelReceiptDraftPayload;
+      trip: TravelTripPayload;
+    }
+  | {
+      ok: false;
+      reason: "TRIP_NOT_FOUND" | "TRIP_NOT_ACTIVE" | "RECEIPT_NOT_FOUND" | "RESET_FAILED";
+      message: string;
+    };
+
+export type TravelReceiptDraftReplaceImageResult =
+  | {
+      ok: true;
+      receiptDraft: TravelReceiptDraftPayload;
+      trip: TravelTripPayload;
+    }
+  | {
+      ok: false;
+      reason:
+        | "TRIP_NOT_FOUND"
+        | "TRIP_NOT_ACTIVE"
+        | "RECEIPT_NOT_FOUND"
+        | "REPLACE_FAILED";
       message: string;
     };
 
@@ -867,6 +966,47 @@ export type TravelSettlementItemStatusResult =
       message: string;
     };
 
+export type CreateTravelTripMemberResult =
+  | {
+      ok: true;
+      trip: TravelTripPayload;
+      member: TravelTripMemberPayload;
+    }
+  | {
+      ok: false;
+      reason: "TRIP_NOT_FOUND" | "TRIP_NOT_ACTIVE" | "VALIDATION_FAILED" | "FAILED";
+      message: string;
+    };
+
+export type UpdateTravelTripMemberResult =
+  | {
+      ok: true;
+      trip: TravelTripPayload;
+      member: TravelTripMemberPayload;
+    }
+  | {
+      ok: false;
+      reason:
+        | "TRIP_NOT_FOUND"
+        | "TRIP_NOT_ACTIVE"
+        | "MEMBER_NOT_FOUND"
+        | "VALIDATION_FAILED"
+        | "FAILED";
+      message: string;
+    };
+
+const findOrganizerMember = (
+  members: TravelTripMemberPayload[],
+): TravelTripMemberPayload | null => {
+  return members.find((member) => member.role === "organizer") ?? null;
+};
+
+const getActiveTripMembers = (
+  members: TravelTripMemberPayload[],
+): TravelTripMemberPayload[] => {
+  return members.filter((member) => member.status === "active");
+};
+
 const finalizeTravelReceiptDraftForTripExpense = async (params: {
   tripId: string;
   receiptDraftId: string;
@@ -891,6 +1031,39 @@ const finalizeTravelReceiptDraftForTripExpense = async (params: {
     .neq("status", "finalized");
 
   return !error;
+};
+
+const buildReceiptOcrResetPatch = (params?: {
+  resetAttempts?: boolean;
+  resetLastAttemptAt?: boolean;
+  now?: string;
+}) => {
+  const now = params?.now ?? new Date().toISOString();
+  const patch: Record<string, unknown> = {
+    status: "draft" satisfies TravelReceiptDraftStatus,
+    ocr_raw_text: null,
+    ocr_suggested_amount: null,
+    ocr_suggested_currency: null,
+    ocr_suggested_spent_at: null,
+    ocr_suggested_merchant: null,
+    ocr_suggested_description: null,
+    ocr_suggested_category: null,
+    ocr_suggested_conversion_rate: null,
+    ocr_field_quality: createDefaultTravelReceiptOcrFieldQuality(),
+    ocr_last_error: null,
+    parsed_at: null,
+    updated_at: now,
+  };
+
+  if (params?.resetAttempts ?? true) {
+    patch.ocr_parse_attempts = 0;
+  }
+
+  if (params?.resetLastAttemptAt ?? true) {
+    patch.ocr_last_attempt_at = null;
+  }
+
+  return patch;
 };
 
 export const createTravelReceiptDraftForTrip = async (params: {
@@ -936,6 +1109,9 @@ export const createTravelReceiptDraftForTrip = async (params: {
       image_data_url: params.input.imageDataUrl,
       image_mime_type: params.input.imageMimeType,
       image_file_name: params.input.imageFileName,
+      ocr_field_quality: createDefaultTravelReceiptOcrFieldQuality(),
+      ocr_parse_attempts: 0,
+      source_image_updated_at: now,
       updated_at: now,
     })
     .select(receiptSelection)
@@ -1015,21 +1191,29 @@ export const parseTravelReceiptDraftForTrip = async (params: {
     imageDataUrl: receiptRow.image_data_url,
     tripCurrency: tripRow.base_currency,
   });
+  const now = new Date().toISOString();
+  const parseAttempts = Math.max(
+    0,
+    Number.isFinite(Number(receiptRow.ocr_parse_attempts))
+      ? Number(receiptRow.ocr_parse_attempts)
+      : 0,
+  );
+  const nextParseAttempts = parseAttempts + 1;
 
   if (!ocrResult.ok) {
-    if (!ocrResult.unavailable) {
-      const now = new Date().toISOString();
-      await supabase
-        .from("travel_receipt_drafts")
-        .update({
-          status: "ocr_failed" satisfies TravelReceiptDraftStatus,
-          ocr_last_error: ocrResult.message,
-          parsed_at: now,
-          updated_at: now,
-        })
-        .eq("trip_id", params.tripId)
-        .eq("id", params.receiptDraftId);
-    }
+    await supabase
+      .from("travel_receipt_drafts")
+      .update({
+        status: "ocr_failed" satisfies TravelReceiptDraftStatus,
+        ocr_last_error: ocrResult.message,
+        ocr_field_quality: createDefaultTravelReceiptOcrFieldQuality(),
+        ocr_parse_attempts: nextParseAttempts,
+        ocr_last_attempt_at: now,
+        parsed_at: now,
+        updated_at: now,
+      })
+      .eq("trip_id", params.tripId)
+      .eq("id", params.receiptDraftId);
 
     return {
       ok: false,
@@ -1038,7 +1222,6 @@ export const parseTravelReceiptDraftForTrip = async (params: {
     };
   }
 
-  const now = new Date().toISOString();
   const descriptionFromOcr =
     ocrResult.data.description ?? ocrResult.data.merchant ?? null;
   const { data, error } = await supabase
@@ -1053,6 +1236,9 @@ export const parseTravelReceiptDraftForTrip = async (params: {
       ocr_suggested_description: descriptionFromOcr,
       ocr_suggested_category: ocrResult.data.category,
       ocr_suggested_conversion_rate: ocrResult.data.conversionRate,
+      ocr_field_quality: ocrResult.data.fieldQuality,
+      ocr_parse_attempts: nextParseAttempts,
+      ocr_last_attempt_at: now,
       ocr_last_error: null,
       parsed_at: now,
       updated_at: now,
@@ -1078,6 +1264,194 @@ export const parseTravelReceiptDraftForTrip = async (params: {
       ok: false,
       reason: "PARSE_FAILED",
       message: "Receipt draft parsed but failed to refresh trip snapshot.",
+    };
+  }
+
+  return {
+    ok: true,
+    receiptDraft: toReceiptDraftPayload(data),
+    trip,
+  };
+};
+
+export const resetTravelReceiptDraftForTrip = async (params: {
+  workspaceId: string;
+  tripId: string;
+  receiptDraftId: string;
+}): Promise<TravelReceiptDraftResetResult> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return {
+      ok: false,
+      reason: "RESET_FAILED",
+      message: "Supabase server configuration is missing.",
+    };
+  }
+
+  const tripRow = await readTripRowByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!tripRow) {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_FOUND",
+      message: "Trip was not found in current workspace.",
+    };
+  }
+
+  if (tripRow.status !== "active") {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_ACTIVE",
+      message: "Trip is not active. Reopen trip editing to manage receipt drafts.",
+    };
+  }
+
+  const receiptRow = await readTripReceiptDraftById({
+    tripId: params.tripId,
+    receiptDraftId: params.receiptDraftId,
+  });
+
+  if (!receiptRow) {
+    return {
+      ok: false,
+      reason: "RECEIPT_NOT_FOUND",
+      message: "Receipt draft was not found.",
+    };
+  }
+
+  if (receiptRow.status === "finalized") {
+    return {
+      ok: false,
+      reason: "RESET_FAILED",
+      message: "Finalized receipt draft is linked to saved expense and cannot be reset.",
+    };
+  }
+
+  const now = new Date().toISOString();
+  const resetPatch = buildReceiptOcrResetPatch({
+    resetAttempts: false,
+    resetLastAttemptAt: false,
+    now,
+  });
+
+  const { data, error } = await supabase
+    .from("travel_receipt_drafts")
+    .update(resetPatch)
+    .eq("trip_id", params.tripId)
+    .eq("id", params.receiptDraftId)
+    .select(receiptSelection)
+    .single<TravelReceiptDraftRow>();
+
+  if (error || !data) {
+    return {
+      ok: false,
+      reason: "RESET_FAILED",
+      message: "Failed to reset OCR hints for receipt draft.",
+    };
+  }
+
+  await touchTripUpdatedAt(params.tripId);
+
+  const trip = await getTravelTripByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!trip) {
+    return {
+      ok: false,
+      reason: "RESET_FAILED",
+      message: "Receipt draft reset but failed to refresh trip snapshot.",
+    };
+  }
+
+  return {
+    ok: true,
+    receiptDraft: toReceiptDraftPayload(data),
+    trip,
+  };
+};
+
+export const replaceTravelReceiptDraftImageForTrip = async (params: {
+  workspaceId: string;
+  tripId: string;
+  receiptDraftId: string;
+  input: TravelReplaceReceiptDraftImageInput;
+}): Promise<TravelReceiptDraftReplaceImageResult> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return {
+      ok: false,
+      reason: "REPLACE_FAILED",
+      message: "Supabase server configuration is missing.",
+    };
+  }
+
+  const tripRow = await readTripRowByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!tripRow) {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_FOUND",
+      message: "Trip was not found in current workspace.",
+    };
+  }
+
+  if (tripRow.status !== "active") {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_ACTIVE",
+      message: "Trip is not active. Reopen trip editing to manage receipt drafts.",
+    };
+  }
+
+  const receiptRow = await readTripReceiptDraftById({
+    tripId: params.tripId,
+    receiptDraftId: params.receiptDraftId,
+  });
+
+  if (!receiptRow) {
+    return {
+      ok: false,
+      reason: "RECEIPT_NOT_FOUND",
+      message: "Receipt draft was not found.",
+    };
+  }
+
+  if (receiptRow.status === "finalized") {
+    return {
+      ok: false,
+      reason: "REPLACE_FAILED",
+      message: "Finalized receipt draft is linked to saved expense and cannot replace image.",
+    };
+  }
+
+  const now = new Date().toISOString();
+  const resetPatch = buildReceiptOcrResetPatch({ now });
+  const { data, error } = await supabase
+    .from("travel_receipt_drafts")
+    .update({
+      ...resetPatch,
+      image_data_url: params.input.imageDataUrl,
+      image_mime_type: params.input.imageMimeType,
+      image_file_name: params.input.imageFileName,
+      source_image_updated_at: now,
+    })
+    .eq("trip_id", params.tripId)
+    .eq("id", params.receiptDraftId)
+    .select(receiptSelection)
+    .single<TravelReceiptDraftRow>();
+
+  if (error || !data) {
+    return {
+      ok: false,
+      reason: "REPLACE_FAILED",
+      message: "Failed to replace receipt draft photo.",
+    };
+  }
+
+  await touchTripUpdatedAt(params.tripId);
+
+  const trip = await getTravelTripByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!trip) {
+    return {
+      ok: false,
+      reason: "REPLACE_FAILED",
+      message: "Receipt draft photo replaced but failed to refresh trip snapshot.",
     };
   }
 
@@ -1214,14 +1588,24 @@ export const createTravelExpenseForTrip = async (params: {
   }
 
   const memberPayloads = members.map(toTripMemberPayload);
-  const memberNameById = new Map(
-    memberPayloads.map((member) => [member.id, member.displayName]),
-  );
-  if (!memberNameById.has(params.input.paidByMemberId)) {
+  const activeMemberPayloads = getActiveTripMembers(memberPayloads);
+  if (activeMemberPayloads.length === 0) {
     return {
       ok: false,
       reason: "VALIDATION_FAILED",
-      message: "Expense payer must be a trip member.",
+      message: "At least one active participant is required to add new expenses.",
+    };
+  }
+
+  const activeMemberIds = new Set(activeMemberPayloads.map((member) => member.id));
+  const memberNameById = new Map(
+    memberPayloads.map((member) => [member.id, member.displayName]),
+  );
+  if (!activeMemberIds.has(params.input.paidByMemberId)) {
+    return {
+      ok: false,
+      reason: "VALIDATION_FAILED",
+      message: "Expense payer must be an active participant.",
     };
   }
 
@@ -1274,7 +1658,7 @@ export const createTravelExpenseForTrip = async (params: {
   const splitResult = resolveTravelExpenseSplits({
     totalAmount: normalizedAmount.data.tripAmount,
     splitMode: params.input.splitMode,
-    members: memberPayloads.map((member): TravelSplitEngineMember => ({
+    members: activeMemberPayloads.map((member): TravelSplitEngineMember => ({
       id: member.id,
       displayName: member.displayName,
     })),
@@ -1445,14 +1829,45 @@ export const updateTravelExpenseForTrip = async (params: {
   }
 
   const memberPayloads = members.map(toTripMemberPayload);
-  const memberNameById = new Map(
-    memberPayloads.map((member) => [member.id, member.displayName]),
-  );
-  if (!memberNameById.has(params.input.paidByMemberId)) {
+  const activeMemberPayloads = getActiveTripMembers(memberPayloads);
+  if (activeMemberPayloads.length === 0) {
     return {
       ok: false,
       reason: "VALIDATION_FAILED",
-      message: "Expense payer must be a trip member.",
+      message: "At least one active participant is required to update expenses.",
+    };
+  }
+
+  const existingSplits = await readExpenseSplits([params.expenseId]);
+  if (!existingSplits) {
+    return {
+      ok: false,
+      reason: "CREATE_FAILED",
+      message: "Failed to read existing expense split rows.",
+    };
+  }
+
+  const existingExpenseMemberIds = new Set<string>([
+    existingExpense.paid_by_member_id,
+    ...existingSplits.map((split) => split.member_id),
+  ]);
+  const activeMemberIds = new Set(activeMemberPayloads.map((member) => member.id));
+  const allowedMemberIds = new Set<string>([
+    ...activeMemberIds,
+    ...existingExpenseMemberIds,
+  ]);
+
+  const allowedMemberPayloads = memberPayloads.filter((member) =>
+    allowedMemberIds.has(member.id),
+  );
+  const memberNameById = new Map(
+    memberPayloads.map((member) => [member.id, member.displayName]),
+  );
+  if (!allowedMemberIds.has(params.input.paidByMemberId)) {
+    return {
+      ok: false,
+      reason: "VALIDATION_FAILED",
+      message: "Expense payer must be active or already present in this expense history.",
     };
   }
 
@@ -1473,7 +1888,7 @@ export const updateTravelExpenseForTrip = async (params: {
   const splitResult = resolveTravelExpenseSplits({
     totalAmount: normalizedAmount.data.tripAmount,
     splitMode: params.input.splitMode,
-    members: memberPayloads.map((member): TravelSplitEngineMember => ({
+    members: allowedMemberPayloads.map((member): TravelSplitEngineMember => ({
       id: member.id,
       displayName: member.displayName,
     })),
@@ -1492,15 +1907,6 @@ export const updateTravelExpenseForTrip = async (params: {
 
   const now = new Date().toISOString();
   const spentAt = params.input.spentAt ?? now;
-
-  const existingSplits = await readExpenseSplits([params.expenseId]);
-  if (!existingSplits) {
-    return {
-      ok: false,
-      reason: "CREATE_FAILED",
-      message: "Failed to read existing expense split rows.",
-    };
-  }
 
   const { data: updatedExpense, error: updateExpenseError } = await supabase
     .from("travel_trip_expenses")
@@ -1681,6 +2087,330 @@ export const deleteTravelExpenseForTrip = async (params: {
   };
 };
 
+export const createTravelTripMemberForTrip = async (params: {
+  workspaceId: string;
+  profileId: string;
+  tripId: string;
+  input: TravelCreateTripMemberInput;
+}): Promise<CreateTravelTripMemberResult> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return {
+      ok: false,
+      reason: "FAILED",
+      message: "Supabase server configuration is missing.",
+    };
+  }
+
+  const tripRow = await readTripRowByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!tripRow) {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_FOUND",
+      message: "Trip was not found in current workspace.",
+    };
+  }
+
+  if (tripRow.status !== "active") {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_ACTIVE",
+      message: "Trip is not active. Reopen trip editing to change participants.",
+    };
+  }
+
+  const existingMembers = await readTripMembers(params.tripId);
+  if (!existingMembers) {
+    return {
+      ok: false,
+      reason: "FAILED",
+      message: "Failed to read trip participants.",
+    };
+  }
+
+  const existingMemberPayloads = existingMembers.map(toTripMemberPayload);
+  const existingOrganizer = findOrganizerMember(existingMemberPayloads);
+  if (
+    params.input.linkToCurrentProfile &&
+    existingMemberPayloads.some((member) => member.profileId === params.profileId)
+  ) {
+    return {
+      ok: false,
+      reason: "VALIDATION_FAILED",
+      message: "Current profile is already linked to another participant in this trip.",
+    };
+  }
+
+  if (params.input.role === "organizer" && params.input.status !== "active") {
+    return {
+      ok: false,
+      reason: "VALIDATION_FAILED",
+      message: "Organizer must stay active.",
+    };
+  }
+
+  const now = new Date().toISOString();
+  let demotedOrganizer = false;
+  if (params.input.role === "organizer" && existingOrganizer) {
+    const { error: demoteError } = await supabase
+      .from("travel_trip_members")
+      .update({
+        role: "participant" satisfies TravelTripMemberRole,
+        updated_at: now,
+      })
+      .eq("trip_id", params.tripId)
+      .eq("id", existingOrganizer.id);
+
+    if (demoteError) {
+      return {
+        ok: false,
+        reason: "FAILED",
+        message: "Failed to assign organizer for trip participant workflow.",
+      };
+    }
+
+    demotedOrganizer = true;
+  }
+
+  const { data: createdMember, error: createError } = await supabase
+    .from("travel_trip_members")
+    .insert({
+      trip_id: params.tripId,
+      profile_id: params.input.linkToCurrentProfile ? params.profileId : null,
+      display_name: params.input.displayName,
+      role: params.input.role,
+      status: params.input.status,
+      inactive_at: params.input.status === "inactive" ? now : null,
+      updated_at: now,
+    })
+    .select(memberSelection)
+    .single<TravelTripMemberRow>();
+
+  if (createError || !createdMember) {
+    if (demotedOrganizer && existingOrganizer) {
+      await supabase
+        .from("travel_trip_members")
+        .update({
+          role: "organizer" satisfies TravelTripMemberRole,
+          updated_at: now,
+        })
+        .eq("trip_id", params.tripId)
+        .eq("id", existingOrganizer.id);
+    }
+
+    return {
+      ok: false,
+      reason: "FAILED",
+      message:
+        createError?.code === "23505"
+          ? "Participant with this profile is already linked to this trip."
+          : "Failed to add participant to trip.",
+    };
+  }
+
+  await touchTripUpdatedAt(params.tripId);
+
+  const trip = await getTravelTripByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!trip) {
+    return {
+      ok: false,
+      reason: "FAILED",
+      message: "Participant was added but trip refresh failed.",
+    };
+  }
+
+  const memberPayload =
+    trip.members.find((member) => member.id === createdMember.id) ??
+    toTripMemberPayload(createdMember);
+
+  return {
+    ok: true,
+    trip,
+    member: memberPayload,
+  };
+};
+
+export const updateTravelTripMemberForTrip = async (params: {
+  workspaceId: string;
+  tripId: string;
+  memberId: string;
+  input: TravelUpdateTripMemberInput;
+}): Promise<UpdateTravelTripMemberResult> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return {
+      ok: false,
+      reason: "FAILED",
+      message: "Supabase server configuration is missing.",
+    };
+  }
+
+  const tripRow = await readTripRowByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!tripRow) {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_FOUND",
+      message: "Trip was not found in current workspace.",
+    };
+  }
+
+  if (tripRow.status !== "active") {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_ACTIVE",
+      message: "Trip is not active. Reopen trip editing to change participants.",
+    };
+  }
+
+  const members = await readTripMembers(params.tripId);
+  if (!members) {
+    return {
+      ok: false,
+      reason: "FAILED",
+      message: "Failed to read trip participants.",
+    };
+  }
+
+  const memberPayloads = members.map(toTripMemberPayload);
+  const targetMember = memberPayloads.find((member) => member.id === params.memberId);
+  if (!targetMember) {
+    return {
+      ok: false,
+      reason: "MEMBER_NOT_FOUND",
+      message: "Trip participant was not found.",
+    };
+  }
+
+  const nextRole = params.input.role ?? targetMember.role;
+  const nextStatus = params.input.status ?? targetMember.status;
+  const nextDisplayName = params.input.displayName ?? targetMember.displayName;
+
+  if (nextRole === "organizer" && nextStatus !== "active") {
+    return {
+      ok: false,
+      reason: "VALIDATION_FAILED",
+      message: "Organizer must stay active.",
+    };
+  }
+
+  if (targetMember.role === "organizer" && nextRole !== "organizer") {
+    return {
+      ok: false,
+      reason: "VALIDATION_FAILED",
+      message: "Promote another organizer instead of demoting current one directly.",
+    };
+  }
+
+  if (targetMember.role === "organizer" && nextStatus === "inactive") {
+    return {
+      ok: false,
+      reason: "VALIDATION_FAILED",
+      message: "Assign another organizer before marking current organizer inactive.",
+    };
+  }
+
+  const activeCountAfterPatch = memberPayloads.filter((member) => {
+    if (member.id === targetMember.id) {
+      return nextStatus === "active";
+    }
+
+    return member.status === "active";
+  }).length;
+
+  if (activeCountAfterPatch === 0) {
+    return {
+      ok: false,
+      reason: "VALIDATION_FAILED",
+      message: "At least one active participant must remain in trip.",
+    };
+  }
+
+  const now = new Date().toISOString();
+  let demotedOrganizer = false;
+  let previousOrganizerId: string | null = null;
+  if (nextRole === "organizer") {
+    const organizer = findOrganizerMember(memberPayloads);
+    if (organizer && organizer.id !== targetMember.id) {
+      const { error: demoteError } = await supabase
+        .from("travel_trip_members")
+        .update({
+          role: "participant" satisfies TravelTripMemberRole,
+          updated_at: now,
+        })
+        .eq("trip_id", params.tripId)
+        .eq("id", organizer.id);
+
+      if (demoteError) {
+        return {
+          ok: false,
+          reason: "FAILED",
+          message: "Failed to rotate organizer role for trip participants.",
+        };
+      }
+
+      demotedOrganizer = true;
+      previousOrganizerId = organizer.id;
+    }
+  }
+
+  const { data: updatedMemberRow, error: updateError } = await supabase
+    .from("travel_trip_members")
+    .update({
+      display_name: nextDisplayName,
+      role: nextRole,
+      status: nextStatus,
+      inactive_at: nextStatus === "inactive" ? targetMember.inactiveAt ?? now : null,
+      updated_at: now,
+    })
+    .eq("trip_id", params.tripId)
+    .eq("id", params.memberId)
+    .select(memberSelection)
+    .single<TravelTripMemberRow>();
+
+  if (updateError || !updatedMemberRow) {
+    if (demotedOrganizer && previousOrganizerId) {
+      await supabase
+        .from("travel_trip_members")
+        .update({
+          role: "organizer" satisfies TravelTripMemberRole,
+          updated_at: now,
+        })
+        .eq("trip_id", params.tripId)
+        .eq("id", previousOrganizerId);
+    }
+
+    return {
+      ok: false,
+      reason: "FAILED",
+      message:
+        updateError?.code === "23505"
+          ? "Participant with this profile is already linked to this trip."
+          : "Failed to update trip participant.",
+    };
+  }
+
+  await touchTripUpdatedAt(params.tripId);
+
+  const trip = await getTravelTripByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!trip) {
+    return {
+      ok: false,
+      reason: "FAILED",
+      message: "Participant updated but trip refresh failed.",
+    };
+  }
+
+  const memberPayload =
+    trip.members.find((member) => member.id === updatedMemberRow.id) ??
+    toTripMemberPayload(updatedMemberRow);
+
+  return {
+    ok: true,
+    trip,
+    member: memberPayload,
+  };
+};
+
 const replaceTripSettlementItems = async (params: {
   tripId: string;
   recommendedSettlements: TravelTripPayload["summary"]["recommendedSettlements"];
@@ -1782,6 +2512,7 @@ export const mutateTravelTripClosureForTrip = async (params: {
       .update({
         status: "closing" satisfies TravelTripStatus,
         closed_at: null,
+        archived_at: null,
         closure_updated_at: now,
         updated_at: now,
       })
@@ -1848,6 +2579,7 @@ export const mutateTravelTripClosureForTrip = async (params: {
       .update({
         status: "closed" satisfies TravelTripStatus,
         closed_at: now,
+        archived_at: null,
         closure_updated_at: now,
         updated_at: now,
       })
@@ -1878,11 +2610,108 @@ export const mutateTravelTripClosureForTrip = async (params: {
     };
   }
 
+  if (params.action === "archive") {
+    if (tripRow.status !== "closed") {
+      return {
+        ok: false,
+        reason: "INVALID_STATE",
+        message: "Only completed trips can be moved to archive.",
+      };
+    }
+
+    const { error: statusError } = await supabase
+      .from("travel_trips")
+      .update({
+        status: "archived" satisfies TravelTripStatus,
+        archived_at: now,
+        closure_updated_at: now,
+        updated_at: now,
+      })
+      .eq("id", params.tripId)
+      .eq("workspace_id", params.workspaceId);
+
+    if (statusError) {
+      return {
+        ok: false,
+        reason: "FAILED",
+        message: "Failed to archive trip.",
+      };
+    }
+
+    const trip = await getTravelTripByWorkspaceAndId(params.workspaceId, params.tripId);
+    if (!trip) {
+      return {
+        ok: false,
+        reason: "FAILED",
+        message: "Trip archived but refresh failed.",
+      };
+    }
+
+    return {
+      ok: true,
+      action: "archive",
+      trip,
+    };
+  }
+
+  if (params.action === "unarchive") {
+    if (tripRow.status !== "archived") {
+      return {
+        ok: false,
+        reason: "INVALID_STATE",
+        message: "Trip is not in archive.",
+      };
+    }
+
+    const { error: statusError } = await supabase
+      .from("travel_trips")
+      .update({
+        status: "closed" satisfies TravelTripStatus,
+        closed_at: tripRow.closed_at ?? now,
+        archived_at: null,
+        closure_updated_at: now,
+        updated_at: now,
+      })
+      .eq("id", params.tripId)
+      .eq("workspace_id", params.workspaceId);
+
+    if (statusError) {
+      return {
+        ok: false,
+        reason: "FAILED",
+        message: "Failed to restore trip from archive.",
+      };
+    }
+
+    const trip = await getTravelTripByWorkspaceAndId(params.workspaceId, params.tripId);
+    if (!trip) {
+      return {
+        ok: false,
+        reason: "FAILED",
+        message: "Trip restored from archive but refresh failed.",
+      };
+    }
+
+    return {
+      ok: true,
+      action: "unarchive",
+      trip,
+    };
+  }
+
   if (tripRow.status === "active") {
     return {
       ok: false,
       reason: "INVALID_STATE",
       message: "Trip is already active.",
+    };
+  }
+
+  if (tripRow.status === "archived") {
+    return {
+      ok: false,
+      reason: "INVALID_STATE",
+      message: "Restore trip from archive before reopening it for edits.",
     };
   }
 
@@ -1904,6 +2733,7 @@ export const mutateTravelTripClosureForTrip = async (params: {
     .update({
       status: "active" satisfies TravelTripStatus,
       closed_at: null,
+      archived_at: null,
       closure_updated_at: now,
       updated_at: now,
     })

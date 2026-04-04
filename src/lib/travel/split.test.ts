@@ -1,6 +1,7 @@
 ﻿import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildTravelSettlementPlan,
   buildTravelTripSummary,
   resolveTravelExpenseSplits,
 } from "./split.ts";
@@ -158,6 +159,74 @@ test("buildTravelTripSummary: builds balances and settlement transfers", () => {
       toMemberId: "a",
       toMemberDisplayName: "Anna",
       amount: 1,
+    },
+  ]);
+  assert.equal(summary.settlementPlanStats.baselineTransferCount, 2);
+  assert.equal(summary.settlementPlanStats.optimizedTransferCount, 2);
+  assert.equal(summary.settlementPlanStats.reducedTransferCount, 0);
+});
+
+test("buildTravelSettlementPlan: optimization stats are deterministic and non-negative", () => {
+  const balances = [
+    {
+      memberId: "a",
+      memberDisplayName: "Anna",
+      paidAmount: 0,
+      owedAmount: 0,
+      netAmount: 9,
+    },
+    {
+      memberId: "b",
+      memberDisplayName: "Ilya",
+      paidAmount: 0,
+      owedAmount: 0,
+      netAmount: 2,
+    },
+    {
+      memberId: "c",
+      memberDisplayName: "Masha",
+      paidAmount: 0,
+      owedAmount: 0,
+      netAmount: -4,
+    },
+    {
+      memberId: "d",
+      memberDisplayName: "Sasha",
+      paidAmount: 0,
+      owedAmount: 0,
+      netAmount: -7,
+    },
+  ];
+
+  const plan = buildTravelSettlementPlan(balances);
+
+  assert.equal(plan.stats.optimizedTransferCount, plan.settlements.length);
+  assert.ok(plan.stats.baselineTransferCount >= plan.stats.optimizedTransferCount);
+  assert.equal(
+    plan.stats.reducedTransferCount,
+    plan.stats.baselineTransferCount - plan.stats.optimizedTransferCount,
+  );
+  assert.deepEqual(plan.settlements, [
+    {
+      fromMemberId: "d",
+      fromMemberDisplayName: "Sasha",
+      toMemberId: "a",
+      toMemberDisplayName: "Anna",
+      amount: 5,
+    },
+    {
+      fromMemberId: "c",
+      fromMemberDisplayName: "Masha",
+      toMemberId: "a",
+      toMemberDisplayName: "Anna",
+      amount: 4,
+    },
+    {
+      fromMemberId: "d",
+      fromMemberDisplayName: "Sasha",
+      toMemberId: "b",
+      toMemberDisplayName: "Ilya",
+      amount: 2,
     },
   ]);
 });

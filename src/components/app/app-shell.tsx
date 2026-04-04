@@ -10,7 +10,7 @@ type AppShellProps = {
   screens: Record<AppTab, React.ReactNode>;
 };
 
-export type AppTab = "home" | "reminders" | "history" | "profile";
+export type AppTab = "home" | "reminders" | "travel" | "history" | "profile";
 export type AppNavigationIntent =
   | "reminders_add_payment"
   | "reminders_action_now"
@@ -46,11 +46,22 @@ type OnboardingStep = {
 const tabItems: ReadonlyArray<{
   key: AppTab;
   label: string;
-  icon: "home" | "reminders" | "history" | "profile";
+  icon: "home" | "reminders" | "travel" | "history" | "profile";
   hint: string;
 }> = [
   { key: "home", label: "Home", icon: "home", hint: "Snapshot and next step" },
-  { key: "reminders", label: "Reminders", icon: "reminders", hint: "Main action lane" },
+  {
+    key: "reminders",
+    label: "Recurring",
+    icon: "reminders",
+    hint: "Recurring payments routine",
+  },
+  {
+    key: "travel",
+    label: "Travel",
+    icon: "travel",
+    hint: "Trips, receipts, and settlements",
+  },
   { key: "history", label: "History", icon: "history", hint: "Recent payment updates" },
   { key: "profile", label: "Profile", icon: "profile", hint: "Workspace and settings" },
 ];
@@ -284,10 +295,10 @@ export const clearAllTabNavigationContexts = () => {
 const onboardingSteps: OnboardingStep[] = [
   {
     title: "Welcome to Payment Control",
-    description: "Keep daily money control simple with one short routine.",
+    description: "Keep daily money control simple with one short recurring routine.",
     tab: "reminders",
     bullets: [
-      "First step: open Reminders and add your first payment.",
+      "First step: open Recurring and add your first payment.",
       "Use Mark paid / Undo paid directly from payment cards.",
       "Templates are scenario-specific: personal and family are independent.",
     ],
@@ -298,7 +309,7 @@ const onboardingSteps: OnboardingStep[] = [
     tab: "home",
     bullets: [
       "Use Home for a calm snapshot, not for deep management.",
-      "Open Reminders for actions and History for proof of changes.",
+      "Open Recurring for actions and History for proof of changes.",
       "Start with one recurring payment, then grow from real usage.",
     ],
   },
@@ -309,7 +320,7 @@ const onboardingSteps: OnboardingStep[] = [
     bullets: [
       "History is your lightweight activity feed.",
       "See what changed and when, without extra dashboard noise.",
-      "If empty, do one action in Reminders and check back here.",
+      "If empty, do one action in Recurring and check back here.",
     ],
   },
   {
@@ -613,7 +624,7 @@ export function AppShell({ screens }: AppShellProps) {
           </main>
 
           <footer className="pc-tabbar sticky bottom-1 z-40 mt-2 p-1.25 backdrop-blur supports-[backdrop-filter]:bg-app-surface/90 [padding-bottom:calc(env(safe-area-inset-bottom)+0.3rem)]">
-            <div className="grid grid-cols-4 gap-1">
+            <div className="grid grid-cols-5 gap-1">
               {tabItems.map((tab) => (
                 <button
                   key={tab.key}

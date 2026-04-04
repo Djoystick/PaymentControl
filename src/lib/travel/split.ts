@@ -53,6 +53,11 @@ export type TravelCalculatedTripSummary = {
   totalSpent: number;
   balances: TravelMemberBalancePayload[];
   settlements: TravelSettlementTransferPayload[];
+  settlementPlanStats: {
+    baselineTransferCount: number;
+    optimizedTransferCount: number;
+    reducedTransferCount: number;
+  };
 };
 
 const normalizeMemberIds = (ids: string[]): string[] => {
@@ -86,6 +91,14 @@ const toCents = (value: number): number | null => {
 
 const centsToAmount = (value: number): number => {
   return Number((value / 100).toFixed(2));
+};
+
+type TravelSettlementCentsTransfer = {
+  fromMemberId: string;
+  fromMemberDisplayName: string;
+  toMemberId: string;
+  toMemberDisplayName: string;
+  cents: number;
 };
 
 const splitEvenly = (
@@ -231,7 +244,79 @@ export const resolveTravelExpenseSplits = (
   return resolveManualSplits(totalCents, memberIdSet, input.manualSplits);
 };
 
-const buildSettlements = (
+const toTransferPayload = (
+  transfer: TravelSettlementCentsTransfer,
+): TravelSettlementTransferPayload => {
+  return {
+    fromMemberId: transfer.fromMemberId,
+    fromMemberDisplayName: transfer.fromMemberDisplayName,
+    toMemberId: transfer.toMemberId,
+    toMemberDisplayName: transfer.toMemberDisplayName,
+    amount: centsToAmount(transfer.cents),
+  };
+};
+
+const sortSettlementTransfers = (
+  settlements: TravelSettlementTransferPayload[],
+): TravelSettlementTransferPayload[] => {
+  return [...settlements].sort((left, right) => {
+    if (right.amount !== left.amount) {
+      return right.amount - left.amount;
+    }
+
+    const fromCompare = left.fromMemberDisplayName.localeCompare(
+      right.fromMemberDisplayName,
+    );
+    if (fromCompare !== 0) {
+      return fromCompare;
+    }
+
+    const toCompare = left.toMemberDisplayName.localeCompare(
+      right.toMemberDisplayName,
+    );
+    if (toCompare !== 0) {
+      return toCompare;
+    }
+
+    const fromIdCompare = left.fromMemberId.localeCompare(right.fromMemberId);
+    if (fromIdCompare !== 0) {
+      return fromIdCompare;
+    }
+
+    return left.toMemberId.localeCompare(right.toMemberId);
+  });
+};
+
+const settlementPlanKey = (
+  debtorsCents: number[],
+  creditorsCents: number[],
+): string => {
+  return `${debtorsCents.join(",")}|${creditorsCents.join(",")}`;
+};
+
+const settlementPlanSignature = (
+  settlements: TravelSettlementTransferPayload[],
+): string => {
+  return settlements
+    .map(
+      (settlement) =>
+        `${settlement.amount.toFixed(2)}:${settlement.fromMemberId}->${settlement.toMemberId}`,
+    )
+    .join("|");
+};
+
+const compareSettlementPlans = (
+  left: TravelSettlementTransferPayload[],
+  right: TravelSettlementTransferPayload[],
+): number => {
+  if (left.length !== right.length) {
+    return left.length - right.length;
+  }
+
+  return settlementPlanSignature(left).localeCompare(settlementPlanSignature(right));
+};
+
+const buildGreedySettlements = (
   balances: TravelMemberBalancePayload[],
 ): TravelSettlementTransferPayload[] => {
   const creditors = balances
@@ -283,7 +368,178 @@ const buildSettlements = (
     }
   }
 
-  return settlements;
+  return sortSettlementTransfers(settlements);
+};
+
+const MAX_ADVANCED_SETTLEMENT_PARTICIPANTS = 12;
+
+const buildOptimizedSettlements = (
+  balances: TravelMemberBalancePayload[],
+): TravelSettlementTransferPayload[] | null => {
+  const creditors = balances
+    .map((balance) => ({
+      memberId: balance.memberId,
+      displayName: balance.memberDisplayName,
+      cents: toCents(Math.max(balance.netAmount, 0)) ?? 0,
+    }))
+    .filter((balance) => balance.cents > 0)
+    .sort((left, right) => {
+      const displayCompare = left.displayName.localeCompare(right.displayName);
+      if (displayCompare !== 0) {
+        return displayCompare;
+      }
+
+      return left.memberId.localeCompare(right.memberId);
+    });
+
+  const debtors = balances
+    .map((balance) => ({
+      memberId: balance.memberId,
+      displayName: balance.memberDisplayName,
+      cents: toCents(Math.max(-balance.netAmount, 0)) ?? 0,
+    }))
+    .filter((balance) => balance.cents > 0)
+    .sort((left, right) => {
+      const displayCompare = left.displayName.localeCompare(right.displayName);
+      if (displayCompare !== 0) {
+        return displayCompare;
+      }
+
+      return left.memberId.localeCompare(right.memberId);
+    });
+
+  if (creditors.length === 0 || debtors.length === 0) {
+    return [];
+  }
+
+  if (
+    creditors.length + debtors.length >
+    MAX_ADVANCED_SETTLEMENT_PARTICIPANTS
+  ) {
+    return null;
+  }
+
+  const memo = new Map<string, TravelSettlementTransferPayload[]>();
+
+  const solve = (
+    debtorsCents: number[],
+    creditorsCents: number[],
+  ): TravelSettlementTransferPayload[] => {
+    const debtorIndex = debtorsCents.findIndex((cents) => cents > 0);
+    if (debtorIndex < 0) {
+      return [];
+    }
+
+    const stateKey = settlementPlanKey(debtorsCents, creditorsCents);
+    const cached = memo.get(stateKey);
+    if (cached) {
+      return cached;
+    }
+
+    let bestPlan: TravelSettlementTransferPayload[] | null = null;
+
+    for (let creditorIndex = 0; creditorIndex < creditorsCents.length; creditorIndex += 1) {
+      const creditorCents = creditorsCents[creditorIndex];
+      if (creditorCents <= 0) {
+        continue;
+      }
+
+      const transferCents = Math.min(
+        debtorsCents[debtorIndex] ?? 0,
+        creditorCents,
+      );
+      if (transferCents <= 0) {
+        continue;
+      }
+
+      const nextDebtors = [...debtorsCents];
+      const nextCreditors = [...creditorsCents];
+      nextDebtors[debtorIndex] -= transferCents;
+      nextCreditors[creditorIndex] -= transferCents;
+
+      const nextPlan = solve(nextDebtors, nextCreditors);
+      const currentTransfer = toTransferPayload({
+        fromMemberId: debtors[debtorIndex].memberId,
+        fromMemberDisplayName: debtors[debtorIndex].displayName,
+        toMemberId: creditors[creditorIndex].memberId,
+        toMemberDisplayName: creditors[creditorIndex].displayName,
+        cents: transferCents,
+      });
+      const candidatePlan = sortSettlementTransfers([currentTransfer, ...nextPlan]);
+      if (!bestPlan || compareSettlementPlans(candidatePlan, bestPlan) < 0) {
+        bestPlan = candidatePlan;
+      }
+    }
+
+    const resolvedPlan = bestPlan ?? [];
+    memo.set(stateKey, resolvedPlan);
+    return resolvedPlan;
+  };
+
+  const optimizedPlan = solve(
+    debtors.map((item) => item.cents),
+    creditors.map((item) => item.cents),
+  );
+
+  return sortSettlementTransfers(optimizedPlan);
+};
+
+const pickSettlementPlan = (params: {
+  baseline: TravelSettlementTransferPayload[];
+  optimized: TravelSettlementTransferPayload[] | null;
+}): TravelSettlementTransferPayload[] => {
+  if (!params.optimized) {
+    return params.baseline;
+  }
+
+  if (params.optimized.length < params.baseline.length) {
+    return params.optimized;
+  }
+
+  if (params.optimized.length > params.baseline.length) {
+    return params.baseline;
+  }
+
+  const optimizedSignature = settlementPlanSignature(params.optimized);
+  const baselineSignature = settlementPlanSignature(params.baseline);
+  if (optimizedSignature <= baselineSignature) {
+    return params.optimized;
+  }
+
+  return params.baseline;
+};
+
+export const buildTravelSettlementPlan = (
+  balances: TravelMemberBalancePayload[],
+): {
+  settlements: TravelSettlementTransferPayload[];
+  stats: {
+    baselineTransferCount: number;
+    optimizedTransferCount: number;
+    reducedTransferCount: number;
+  };
+} => {
+  const baseline = buildGreedySettlements(balances);
+  const optimized = buildOptimizedSettlements(balances);
+  const selected = pickSettlementPlan({
+    baseline,
+    optimized,
+  });
+
+  const optimizedTransferCount = selected.length;
+  const baselineTransferCount = baseline.length;
+
+  return {
+    settlements: selected,
+    stats: {
+      baselineTransferCount,
+      optimizedTransferCount,
+      reducedTransferCount: Math.max(
+        baselineTransferCount - optimizedTransferCount,
+        0,
+      ),
+    },
+  };
 };
 
 export const buildTravelTripSummary = (params: {
@@ -348,11 +604,14 @@ export const buildTravelTripSummary = (params: {
       return left.memberDisplayName.localeCompare(right.memberDisplayName);
     });
 
+  const settlementPlan = buildTravelSettlementPlan(balances);
+
   return {
     totalExpensesCount: params.expenses.length,
     totalSpent: centsToAmount(totalSpentCents),
     balances,
-    settlements: buildSettlements(balances),
+    settlements: settlementPlan.settlements,
+    settlementPlanStats: settlementPlan.stats,
   };
 };
 

@@ -1,17 +1,10 @@
-﻿import "server-only";
+import "server-only";
 
 import { serverEnv } from "@/lib/config/server-env";
-
-type TravelReceiptOcrSuggestion = {
-  sourceAmount: number | null;
-  sourceCurrency: string | null;
-  spentAt: string | null;
-  merchant: string | null;
-  description: string | null;
-  category: string | null;
-  conversionRate: number | null;
-  rawText: string | null;
-};
+import {
+  normalizeTravelReceiptOcrSuggestion,
+  type TravelReceiptOcrSuggestion,
+} from "@/lib/travel/receipt-ocr-normalization";
 
 type TravelReceiptOcrSuccess = {
   ok: true;
@@ -29,59 +22,6 @@ export type TravelReceiptOcrResult =
   | TravelReceiptOcrFailure;
 
 const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
-
-const normalizeNumber = (value: unknown, digits: number): number | null => {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric <= 0) {
-    return null;
-  }
-
-  return Number(numeric.toFixed(digits));
-};
-
-const normalizeCurrency = (value: unknown): string | null => {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const normalized = value.trim().toUpperCase();
-  if (!/^[A-Z]{3}$/.test(normalized)) {
-    return null;
-  }
-
-  return normalized;
-};
-
-const normalizeText = (value: unknown, maxLength: number): string | null => {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const normalized = value.trim();
-  if (!normalized) {
-    return null;
-  }
-
-  return normalized.slice(0, maxLength);
-};
-
-const normalizeDate = (value: unknown): string | null => {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const normalized = value.trim();
-  if (!normalized) {
-    return null;
-  }
-
-  const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-
-  return parsed.toISOString();
-};
 
 const extractJsonObject = (value: string): string | null => {
   const trimmed = value.trim();
@@ -121,30 +61,6 @@ const parseChatContent = (payload: unknown): string | null => {
   return typeof content === "string" ? content : null;
 };
 
-const parseSuggestionPayload = (
-  payload: Record<string, unknown>,
-): TravelReceiptOcrSuggestion => {
-  const sourceAmount = normalizeNumber(payload.sourceAmount, 2);
-  const sourceCurrency = normalizeCurrency(payload.sourceCurrency);
-  const spentAt = normalizeDate(payload.spentAt);
-  const merchant = normalizeText(payload.merchant, 240);
-  const description = normalizeText(payload.description, 240);
-  const category = normalizeText(payload.category, 80);
-  const conversionRate = normalizeNumber(payload.conversionRate, 6);
-  const rawText = normalizeText(payload.rawText, 8000);
-
-  return {
-    sourceAmount,
-    sourceCurrency,
-    spentAt,
-    merchant,
-    description,
-    category,
-    conversionRate,
-    rawText,
-  };
-};
-
 export const runTravelReceiptOcr = async (params: {
   imageDataUrl: string;
   tripCurrency: string;
@@ -171,8 +87,10 @@ export const runTravelReceiptOcr = async (params: {
     "category: one of General/Food/Transport/Stay/Activities/Other or null",
     "conversionRate: number|null (optional suggested rate to trip currency)",
     "rawText: short receipt text snippet or null",
+    "fieldQuality: object with keys sourceAmount/sourceCurrency/spentAt/merchant/description/category/conversionRate and values high|medium|low|missing",
     `Trip base currency: ${params.tripCurrency}.`,
-    "Never create data you are not confident in. Use null for unknown fields.",
+    "Never create data you are not confident in. Use null for unknown fields and quality=missing.",
+    "Do not infer conversion rate unless receipt text clearly supports it.",
   ].join("\n");
 
   let response: Response;
@@ -186,7 +104,7 @@ export const runTravelReceiptOcr = async (params: {
       body: JSON.stringify({
         model,
         temperature: 0,
-        max_tokens: 500,
+        max_tokens: 600,
         response_format: { type: "json_object" },
         messages: [
           {
@@ -278,6 +196,8 @@ export const runTravelReceiptOcr = async (params: {
 
   return {
     ok: true,
-    data: parseSuggestionPayload(suggestionPayload as Record<string, unknown>),
+    data: normalizeTravelReceiptOcrSuggestion(
+      suggestionPayload as Record<string, unknown>,
+    ),
   };
 };

@@ -600,10 +600,10 @@ export function PaymentsActivitySection({
                 <p className="text-sm text-app-text-muted">
                   {isFamilyWorkspace
                     ? tr(
-                        "Add the first shared payment in Reminders. Events will appear here after updates.",
+                        "Add the first shared payment in Recurring. Events will appear here after updates.",
                       )
                     : tr(
-                        "Add your first payment in Reminders. Events will appear here after updates.",
+                        "Add your first payment in Recurring. Events will appear here after updates.",
                       )}
                 </p>
                 <button
@@ -612,14 +612,14 @@ export function PaymentsActivitySection({
                   className="pc-btn-quiet mt-2"
                 >
                   <AppIcon name="add" className="h-3.5 w-3.5" />
-                  {tr("Open Reminders and add payment")}
+                  {tr("Open Recurring and add payment")}
                 </button>
               </div>
             ) : activityItems.length === 0 ? (
               <div className="pc-empty-state space-y-1">
                 <p className="text-sm font-semibold text-app-text">{tr("No recent updates yet")}</p>
                 <p className="text-sm text-app-text-muted">
-                  {tr("Mark paid or edit a payment in Reminders to populate History.")}
+                  {tr("Mark paid or edit a payment in Recurring to populate History.")}
                 </p>
                 <button
                   type="button"
@@ -627,7 +627,7 @@ export function PaymentsActivitySection({
                   className="pc-btn-quiet mt-2"
                 >
                   <AppIcon name="add" className="h-3.5 w-3.5" />
-                  {tr("Open Reminders and add payment")}
+                  {tr("Open Recurring and add payment")}
                 </button>
               </div>
             ) : focusedActivityItems.length === 0 ? (

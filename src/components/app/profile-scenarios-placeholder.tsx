@@ -25,7 +25,8 @@ import { LocalizationProvider, useLocalization } from "@/lib/i18n/localization";
 import { LandingScreen } from "@/components/app/landing-screen";
 import { PaymentsDashboardSection } from "@/components/app/payments-dashboard-section";
 import { PaymentsActivitySection } from "@/components/app/payments-activity-section";
-import { RemindersAndTravelSection } from "@/components/app/reminders-and-travel-section";
+import { RecurringPaymentsSection } from "@/components/app/recurring-payments-section";
+import { TravelGroupExpensesSection } from "@/components/app/travel-group-expenses-section";
 import { HelpPopover } from "@/components/app/help-popover";
 import { AppIcon } from "@/components/app/app-icon";
 import { clientEnv } from "@/lib/config/client-env";
@@ -524,10 +525,13 @@ function ProfileScenariosContent() {
 
   const remindersScreen = (
     <div className="pc-screen-stack">
-      <RemindersAndTravelSection
-        workspace={workspace}
-        initData={initData}
-      />
+      <RecurringPaymentsSection workspace={workspace} initData={initData} />
+    </div>
+  );
+
+  const travelScreen = (
+    <div className="pc-screen-stack">
+      <TravelGroupExpensesSection workspace={workspace} initData={initData} />
     </div>
   );
 
@@ -554,7 +558,7 @@ function ProfileScenariosContent() {
           {tr("Quick start")}
         </p>
         <p className="mt-0.5 text-xs text-app-text-muted">
-          {tr("Start in Reminders: add a payment, then use Mark paid when done.")}
+          {tr("Start in Recurring: add a payment, then use Mark paid when done.")}
         </p>
       </div>
       <div className="pc-surface">
@@ -1569,6 +1573,7 @@ function ProfileScenariosContent() {
       screens={{
         home: homeScreen,
         reminders: remindersScreen,
+        travel: travelScreen,
         history: historyScreen,
         profile: profileScreen,
       }}

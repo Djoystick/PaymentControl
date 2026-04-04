@@ -6,6 +6,7 @@ import type {
   TravelExpenseDeleteResponse,
   TravelExpenseMutateResponse,
   TravelSettlementMutateResponse,
+  TravelTripMemberMutateResponse,
   TravelTripClosureMutateResponse,
   TravelTripDetailResponse,
   TravelTripMutateResponse,
@@ -167,7 +168,7 @@ export const deleteTravelExpense = async (params: {
 export const mutateTravelTripClosure = async (params: {
   initData: string;
   tripId: string;
-  action: "start" | "close" | "reopen";
+  action: "start" | "close" | "reopen" | "archive" | "unarchive";
   allowUnsettled?: boolean;
 }): Promise<TravelTripClosureMutateResponse> => {
   return postJson<TravelTripClosureMutateResponse>(
@@ -178,6 +179,53 @@ export const mutateTravelTripClosure = async (params: {
       allowUnsettled: params.allowUnsettled ?? false,
     },
   );
+};
+
+export const createTravelTripMember = async (params: {
+  initData: string;
+  tripId: string;
+  displayName: string;
+  role?: "organizer" | "participant";
+  status?: "active" | "inactive";
+  linkToCurrentProfile?: boolean;
+}): Promise<TravelTripMemberMutateResponse> => {
+  return postJson<TravelTripMemberMutateResponse>(
+    `/api/travel/trips/${params.tripId}/members`,
+    {
+      initData: params.initData,
+      displayName: params.displayName,
+      role: params.role ?? "participant",
+      status: params.status ?? "active",
+      linkToCurrentProfile: params.linkToCurrentProfile ?? false,
+    },
+  );
+};
+
+export const updateTravelTripMember = async (params: {
+  initData: string;
+  tripId: string;
+  memberId: string;
+  displayName?: string;
+  role?: "organizer" | "participant";
+  status?: "active" | "inactive";
+}): Promise<TravelTripMemberMutateResponse> => {
+  const response = await fetch(
+    `/api/travel/trips/${params.tripId}/members/${params.memberId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        initData: params.initData,
+        displayName: params.displayName,
+        role: params.role,
+        status: params.status,
+      }),
+    },
+  );
+
+  return (await response.json()) as TravelTripMemberMutateResponse;
 };
 
 export const updateTravelSettlementItemStatus = async (params: {
@@ -224,6 +272,7 @@ export const parseTravelReceiptDraft = async (params: {
   initData: string;
   tripId: string;
   receiptDraftId: string;
+  action?: "parse" | "reset";
 }): Promise<TravelReceiptDraftMutateResponse> => {
   const response = await fetch(
     `/api/travel/trips/${params.tripId}/receipts/${params.receiptDraftId}`,
@@ -234,8 +283,29 @@ export const parseTravelReceiptDraft = async (params: {
       },
       body: JSON.stringify({
         initData: params.initData,
-        action: "parse",
+        action: params.action ?? "parse",
       }),
+    },
+  );
+
+  return (await response.json()) as TravelReceiptDraftMutateResponse;
+};
+
+export const replaceTravelReceiptDraftImage = async (params: {
+  initData: string;
+  tripId: string;
+  receiptDraftId: string;
+  receiptImage: File;
+}): Promise<TravelReceiptDraftMutateResponse> => {
+  const formData = new FormData();
+  formData.set("initData", params.initData);
+  formData.set("receiptImage", params.receiptImage);
+
+  const response = await fetch(
+    `/api/travel/trips/${params.tripId}/receipts/${params.receiptDraftId}`,
+    {
+      method: "PUT",
+      body: formData,
     },
   );
 

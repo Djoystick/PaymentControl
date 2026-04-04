@@ -9,7 +9,9 @@ export type TravelSplitMode =
   | "full_one"
   | "manual_amounts";
 
-export type TravelTripStatus = "active" | "closing" | "closed";
+export type TravelTripStatus = "active" | "closing" | "closed" | "archived";
+export type TravelTripMemberRole = "organizer" | "participant";
+export type TravelTripMemberStatus = "active" | "inactive";
 
 export type TravelSettlementItemStatus = "open" | "settled";
 export type TravelReceiptDraftStatus =
@@ -18,12 +20,31 @@ export type TravelReceiptDraftStatus =
   | "ocr_failed"
   | "finalized";
 
+export type TravelReceiptOcrFieldKey =
+  | "sourceAmount"
+  | "sourceCurrency"
+  | "spentAt"
+  | "merchant"
+  | "description"
+  | "category"
+  | "conversionRate";
+
+export type TravelReceiptOcrFieldQuality = "high" | "medium" | "low" | "missing";
+
+export type TravelReceiptOcrFieldQualityMap = Record<
+  TravelReceiptOcrFieldKey,
+  TravelReceiptOcrFieldQuality
+>;
+
 export type TravelTripMemberPayload = {
   id: string;
   tripId: string;
   profileId: string | null;
   telegramUserId: string | null;
   displayName: string;
+  role: TravelTripMemberRole;
+  status: TravelTripMemberStatus;
+  inactiveAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -100,8 +121,12 @@ export type TravelReceiptDraftPayload = {
   ocrSuggestedDescription: string | null;
   ocrSuggestedCategory: string | null;
   ocrSuggestedConversionRate: number | null;
+  ocrFieldQuality: TravelReceiptOcrFieldQualityMap;
   ocrLastError: string | null;
   parsedAt: string | null;
+  ocrParseAttempts: number;
+  ocrLastAttemptAt: string | null;
+  sourceImageUpdatedAt: string;
   finalizedAt: string | null;
   finalizedExpenseId: string | null;
   createdAt: string;
@@ -111,9 +136,14 @@ export type TravelReceiptDraftPayload = {
 export type TravelTripSummaryPayload = {
   totalExpensesCount: number;
   totalSpent: number;
+  activeMemberCount: number;
+  inactiveMemberCount: number;
   balances: TravelMemberBalancePayload[];
   settlements: TravelSettlementTransferPayload[];
   recommendedSettlements: TravelSettlementTransferPayload[];
+  settlementBaselineTransferCount: number;
+  settlementOptimizedTransferCount: number;
+  settlementReducedTransferCount: number;
   settledSettlements: TravelSettlementTransferPayload[];
   unsettledSettlementCount: number;
   settledSettlementCount: number;
@@ -132,6 +162,7 @@ export type TravelTripPayload = {
   createdByProfileId: string | null;
   status: TravelTripStatus;
   closedAt: string | null;
+  archivedAt: string | null;
   closureUpdatedAt: string;
   createdAt: string;
   updatedAt: string;
@@ -151,6 +182,7 @@ export type TravelTripListItemPayload = {
   totalSpent: number;
   status: TravelTripStatus;
   closedAt: string | null;
+  archivedAt: string | null;
   updatedAt: string;
 };
 
@@ -159,6 +191,19 @@ export type TravelCreateTripInput = {
   baseCurrency: string;
   description: string | null;
   memberNames: string[];
+};
+
+export type TravelCreateTripMemberInput = {
+  displayName: string;
+  role: TravelTripMemberRole;
+  status: TravelTripMemberStatus;
+  linkToCurrentProfile: boolean;
+};
+
+export type TravelUpdateTripMemberInput = {
+  displayName: string | null;
+  role: TravelTripMemberRole | null;
+  status: TravelTripMemberStatus | null;
 };
 
 export type TravelManualSplitInput = {
@@ -187,7 +232,14 @@ export type TravelCreateReceiptDraftInput = {
   imageFileName: string | null;
 };
 
-export type TravelTripClosureAction = "start" | "close" | "reopen";
+export type TravelReplaceReceiptDraftImageInput = TravelCreateReceiptDraftInput;
+
+export type TravelTripClosureAction =
+  | "start"
+  | "close"
+  | "reopen"
+  | "archive"
+  | "unarchive";
 
 export type TravelScopeResolutionSuccess = {
   ok: true;
@@ -225,10 +277,16 @@ export type TravelApiErrorCode =
   | "TRAVEL_EXPENSE_CREATE_FAILED"
   | "TRAVEL_EXPENSE_UPDATE_FAILED"
   | "TRAVEL_EXPENSE_DELETE_FAILED"
+  | "TRAVEL_MEMBER_VALIDATION_FAILED"
+  | "TRAVEL_MEMBER_NOT_FOUND"
+  | "TRAVEL_MEMBER_CREATE_FAILED"
+  | "TRAVEL_MEMBER_UPDATE_FAILED"
   | "TRAVEL_RECEIPT_VALIDATION_FAILED"
   | "TRAVEL_RECEIPT_CREATE_FAILED"
   | "TRAVEL_RECEIPT_NOT_FOUND"
   | "TRAVEL_RECEIPT_PARSE_FAILED"
+  | "TRAVEL_RECEIPT_RESET_FAILED"
+  | "TRAVEL_RECEIPT_REPLACE_FAILED"
   | "TRAVEL_RECEIPT_DELETE_FAILED"
   | "TRAVEL_OCR_UNAVAILABLE"
   | "TRAVEL_SETTLEMENT_NOT_FOUND"
@@ -318,5 +376,14 @@ export type TravelReceiptDraftDeleteResponse =
       workspace: WorkspaceSummaryPayload;
       trip: TravelTripPayload;
       deletedReceiptDraftId: string;
+    }
+  | TravelApiError;
+
+export type TravelTripMemberMutateResponse =
+  | {
+      ok: true;
+      workspace: WorkspaceSummaryPayload;
+      trip: TravelTripPayload;
+      member: TravelTripMemberPayload;
     }
   | TravelApiError;

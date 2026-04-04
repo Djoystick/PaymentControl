@@ -1,21 +1,22 @@
 import { NextResponse } from "next/server";
 import { isSupabaseServerConfigured } from "@/lib/config/server-env";
 import { resolveTravelScope } from "@/lib/travel/context";
-import { mutateTravelTripClosureForTrip } from "@/lib/travel/repository";
+import { updateTravelTripMemberForTrip } from "@/lib/travel/repository";
+import { validateTravelUpdateTripMemberInput } from "@/lib/travel/validation";
 import type {
   TravelApiError,
-  TravelTripClosureAction,
-  TravelTripClosureMutateResponse,
+  TravelTripMemberMutateResponse,
 } from "@/lib/travel/types";
 
-type MutateTravelTripClosureBody = {
+type UpdateTravelTripMemberBody = {
   initData?: string;
-  action?: unknown;
-  allowUnsettled?: unknown;
+  displayName?: unknown;
+  role?: unknown;
+  status?: unknown;
 };
 
 type RouteContext = {
-  params: Promise<{ tripId: string }>;
+  params: Promise<{ tripId: string; memberId: string }>;
 };
 
 const codeToStatus: Partial<Record<TravelApiError["error"]["code"], number>> = {
@@ -43,6 +44,10 @@ const codeToStatus: Partial<Record<TravelApiError["error"]["code"], number>> = {
   TRAVEL_EXPENSE_CREATE_FAILED: 500,
   TRAVEL_EXPENSE_UPDATE_FAILED: 500,
   TRAVEL_EXPENSE_DELETE_FAILED: 500,
+  TRAVEL_MEMBER_VALIDATION_FAILED: 400,
+  TRAVEL_MEMBER_NOT_FOUND: 404,
+  TRAVEL_MEMBER_CREATE_FAILED: 500,
+  TRAVEL_MEMBER_UPDATE_FAILED: 500,
   TRAVEL_SETTLEMENT_NOT_FOUND: 404,
   TRAVEL_SETTLEMENT_UPDATE_FAILED: 500,
 };
@@ -51,7 +56,7 @@ const jsonError = (
   code: TravelApiError["error"]["code"],
   message: string,
 ) => {
-  return NextResponse.json<TravelTripClosureMutateResponse>(
+  return NextResponse.json<TravelTripMemberMutateResponse>(
     {
       ok: false,
       error: {
@@ -63,25 +68,7 @@ const jsonError = (
   );
 };
 
-const normalizeClosureAction = (value: unknown): TravelTripClosureAction | null => {
-  if (
-    value === "start" ||
-    value === "close" ||
-    value === "reopen" ||
-    value === "archive" ||
-    value === "unarchive"
-  ) {
-    return value;
-  }
-
-  return null;
-};
-
-const normalizeAllowUnsettled = (value: unknown): boolean => {
-  return value === true;
-};
-
-export async function POST(request: Request, context: RouteContext) {
+export async function PATCH(request: Request, context: RouteContext) {
   if (!isSupabaseServerConfigured) {
     return jsonError(
       "SUPABASE_NOT_CONFIGURED",
@@ -89,14 +76,18 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 
-  const { tripId } = await context.params;
+  const { tripId, memberId } = await context.params;
   if (!tripId) {
     return jsonError("TRAVEL_TRIP_NOT_FOUND", "Trip id is required.");
   }
 
-  let body: MutateTravelTripClosureBody = {};
+  if (!memberId) {
+    return jsonError("TRAVEL_MEMBER_NOT_FOUND", "Trip member id is required.");
+  }
+
+  let body: UpdateTravelTripMemberBody = {};
   try {
-    body = (await request.json()) as MutateTravelTripClosureBody;
+    body = (await request.json()) as UpdateTravelTripMemberBody;
   } catch {
     body = {};
   }
@@ -106,41 +97,47 @@ export async function POST(request: Request, context: RouteContext) {
     return jsonError(scopeResult.error.code, scopeResult.error.message);
   }
 
-  const action = normalizeClosureAction(body.action);
-  if (!action) {
-    return jsonError(
-      "TRAVEL_TRIP_CLOSURE_INVALID_STATE",
-      "Closure action is invalid.",
-    );
-  }
-
-  const closureResult = await mutateTravelTripClosureForTrip({
-    workspaceId: scopeResult.workspace.id,
-    tripId,
-    action,
-    allowUnsettled: normalizeAllowUnsettled(body.allowUnsettled),
+  const validationResult = validateTravelUpdateTripMemberInput({
+    displayName: body.displayName,
+    role: body.role,
+    status: body.status,
   });
 
-  if (!closureResult.ok) {
-    if (closureResult.reason === "TRIP_NOT_FOUND") {
-      return jsonError("TRAVEL_TRIP_NOT_FOUND", closureResult.message);
-    }
-
-    if (closureResult.reason === "INVALID_STATE") {
-      return jsonError("TRAVEL_TRIP_CLOSURE_INVALID_STATE", closureResult.message);
-    }
-
-    if (closureResult.reason === "BLOCKED") {
-      return jsonError("TRAVEL_TRIP_CLOSURE_BLOCKED", closureResult.message);
-    }
-
-    return jsonError("TRAVEL_TRIP_CLOSURE_FAILED", closureResult.message);
+  if (!validationResult.ok) {
+    return jsonError("TRAVEL_MEMBER_VALIDATION_FAILED", validationResult.message);
   }
 
-  return NextResponse.json<TravelTripClosureMutateResponse>({
+  const updateResult = await updateTravelTripMemberForTrip({
+    workspaceId: scopeResult.workspace.id,
+    tripId,
+    memberId,
+    input: validationResult.data,
+  });
+
+  if (!updateResult.ok) {
+    if (updateResult.reason === "TRIP_NOT_FOUND") {
+      return jsonError("TRAVEL_TRIP_NOT_FOUND", updateResult.message);
+    }
+
+    if (updateResult.reason === "TRIP_NOT_ACTIVE") {
+      return jsonError("TRAVEL_TRIP_EDIT_LOCKED", updateResult.message);
+    }
+
+    if (updateResult.reason === "MEMBER_NOT_FOUND") {
+      return jsonError("TRAVEL_MEMBER_NOT_FOUND", updateResult.message);
+    }
+
+    if (updateResult.reason === "VALIDATION_FAILED") {
+      return jsonError("TRAVEL_MEMBER_VALIDATION_FAILED", updateResult.message);
+    }
+
+    return jsonError("TRAVEL_MEMBER_UPDATE_FAILED", updateResult.message);
+  }
+
+  return NextResponse.json<TravelTripMemberMutateResponse>({
     ok: true,
     workspace: scopeResult.workspace,
-    trip: closureResult.trip,
-    action: closureResult.action,
+    trip: updateResult.trip,
+    member: updateResult.member,
   });
 }

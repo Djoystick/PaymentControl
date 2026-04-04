@@ -1,4 +1,4 @@
-# Payment Control - Master Anchor (Active, Post-28A Travel Foundation)
+# Payment Control - Master Anchor (Active, Post-28K Travel Archive Lifecycle)
 
 - Date: 2026-04-04
 - Supersedes as active anchor:
@@ -35,9 +35,10 @@ Supporter recognition:
 3. badge never changes feature access.
 
 Travel module (new active branch):
-1. travel/group expenses runs as a separate mode inside Reminders (`Recurring` / `Travel groups`),
+1. travel/group expenses runs as a separate root tab (`Travel`) and does not share the Recurring working surface,
 2. travel trips are not modeled as recurring reminders,
-3. split/balance logic is recognition of shared spending only (no access gating semantics).
+3. split/balance logic is recognition of shared spending only (no access gating semantics),
+4. travel lifecycle is explicit and stateful (`active`/`closing`/`closed`/`archived`) with archive as non-destructive post-trip storage.
 
 ## 3) Completed baseline summary (condensed)
 
@@ -61,6 +62,17 @@ Domain reset and stabilization (completed):
 10. 27G - release-candidate consolidation + final active-surface closure.
 11. 27H - final release sign-off + verified closure sync.
 12. 28A - travel/group expenses foundation + manual-first MVP.
+13. 28A.1 - recurring summary slice restoration + recurring surface unification.
+14. 28B - official subscription cancellation guide layer.
+15. 28C - expanded official cancellation catalog + category navigation.
+16. 28D - travel workspace acceleration + settlement clarity.
+17. 28E - trip closure + settlement finalization.
+18. 28F - multi-currency travel foundation.
+19. 28G - receipt capture + OCR prefill assistant.
+20. 28H - OCR quality hardening + receipt enrichment.
+21. 28I - advanced debt optimization + settlement plan simplification.
+22. 28J - travel tab extraction + shell separation.
+23. 28K - travel archive + completion flow polish.
 
 Release-line verification state:
 1. 27B-27G are accepted as verified release-line baseline.
@@ -92,7 +104,7 @@ Protect unless explicitly targeted:
 ## 6) Current release baseline state (post-27H)
 
 Current status:
-1. active runtime surfaces (Home/Reminders/History/Profile) are consolidated to one donation-only product truth,
+1. active runtime surfaces (Home/Recurring/Travel/History/Profile) are consolidated to one donation-only product truth,
 2. continuity/reset/help/bug-report context layers are hardened and synchronized,
 3. user-facing premium-era residue is removed from active runtime surfaces,
 4. release-line closure documentation is synchronized (history + anchor + phase reports).
@@ -101,7 +113,7 @@ What counts as 100% release baseline for this version:
 1. unrestricted app utility with no access gating,
 2. donation-only support rails (Boosty + CloudTips) as optional secondary surfaces,
 3. supporter badge remains cosmetic-only and owner-managed,
-4. core utility flows are preserved: reminders/history/family/workspace, add/edit/delete, mark paid/undo paid, onboarding replay, bug report.
+4. core utility flows are preserved: recurring/history/travel/family/workspace, add/edit/delete, mark paid/undo paid, onboarding replay, bug report.
 
 ## 7) Frozen branches (do not reopen)
 
@@ -112,14 +124,12 @@ Do not schedule as active roadmap:
 4. CloudTips/provider verification as unlock decision gate,
 5. storefront-style monetization expansion.
 
-## 8) Active roadmap direction after 28A
+## 8) Active roadmap direction after 28K
 
-**Phase 28B - Travel MVP hardening + practical iteration (next logical wave).**
-
-Scope:
-1. harden travel real-device UX and edge-case validation from production usage,
-2. improve trip/member lifecycle convenience without merging travel into recurring flows,
-3. keep travel manual-first while preparing safe future seams (OCR/receipts/multicurrency remain future work).
+Current active direction:
+1. keep Recurring and Travel as separate root scenarios in shell,
+2. continue travel-module maturity with full lifecycle clarity (active/completed/archived) without merging travel into recurring data model,
+3. preserve donation-only unrestricted truth and release-line invariants from 27H closure.
 
 ## 9) Monitoring list (minimal)
 
