@@ -25,7 +25,7 @@ import { LocalizationProvider, useLocalization } from "@/lib/i18n/localization";
 import { LandingScreen } from "@/components/app/landing-screen";
 import { PaymentsDashboardSection } from "@/components/app/payments-dashboard-section";
 import { PaymentsActivitySection } from "@/components/app/payments-activity-section";
-import { RecurringPaymentsSection } from "@/components/app/recurring-payments-section";
+import { RemindersAndTravelSection } from "@/components/app/reminders-and-travel-section";
 import { HelpPopover } from "@/components/app/help-popover";
 import { AppIcon } from "@/components/app/app-icon";
 import { clientEnv } from "@/lib/config/client-env";
@@ -477,7 +477,7 @@ function ProfileScenariosContent() {
 
   const remindersScreen = (
     <div className="pc-screen-stack">
-      <RecurringPaymentsSection
+      <RemindersAndTravelSection
         workspace={workspace}
         initData={initData}
       />

@@ -1,4 +1,4 @@
-# Payment Control - Master Anchor (Active, Post-27H Final Release Sign-Off)
+# Payment Control - Master Anchor (Active, Post-28A Travel Foundation)
 
 - Date: 2026-04-04
 - Supersedes as active anchor:
@@ -34,6 +34,11 @@ Supporter recognition:
 2. owner-managed manually via numeric Telegram user id,
 3. badge never changes feature access.
 
+Travel module (new active branch):
+1. travel/group expenses runs as a separate mode inside Reminders (`Recurring` / `Travel groups`),
+2. travel trips are not modeled as recurring reminders,
+3. split/balance logic is recognition of shared spending only (no access gating semantics).
+
 ## 3) Completed baseline summary (condensed)
 
 Core utility baseline (stable):
@@ -55,6 +60,7 @@ Domain reset and stabilization (completed):
 9. 27F - reliability hardening + low-risk legacy cleanup.
 10. 27G - release-candidate consolidation + final active-surface closure.
 11. 27H - final release sign-off + verified closure sync.
+12. 28A - travel/group expenses foundation + manual-first MVP.
 
 Release-line verification state:
 1. 27B-27G are accepted as verified release-line baseline.
@@ -80,7 +86,8 @@ Protect unless explicitly targeted:
 5. bug-report flow,
 6. donation rails as plain external links,
 7. supporter badge as cosmetic-only recognition,
-8. 27C continuity model + 27E/27F reset safety paths.
+8. 27C continuity model + 27E/27F reset safety paths,
+9. recurring payments domain and travel expenses domain remain product-separated.
 
 ## 6) Current release baseline state (post-27H)
 
@@ -105,21 +112,23 @@ Do not schedule as active roadmap:
 4. CloudTips/provider verification as unlock decision gate,
 5. storefront-style monetization expansion.
 
-## 8) Post-release direction (outside current release closure)
+## 8) Active roadmap direction after 28A
 
-**Phase 28A - Post-release monitoring + next-branch planning (non-blocking for current baseline closure).**
+**Phase 28B - Travel MVP hardening + practical iteration (next logical wave).**
 
 Scope:
-1. monitor real-device/runtime stability after release decision,
-2. track only critical regressions/hotfix needs,
-3. evaluate next evolution branch separately from this closed release-line.
+1. harden travel real-device UX and edge-case validation from production usage,
+2. improve trip/member lifecycle convenience without merging travel into recurring flows,
+3. keep travel manual-first while preparing safe future seams (OCR/receipts/multicurrency remain future work).
 
-## 9) Post-release monitoring list (minimal)
+## 9) Monitoring list (minimal)
 
 1. continuity/reset behavior in real Telegram mobile webview under long sessions,
 2. workspace switching continuity isolation,
 3. bug-report runtime context readability/utility in production incidents,
-4. owner-only supporter tooling visibility/permission correctness for non-owner accounts.
+4. owner-only supporter tooling visibility/permission correctness for non-owner accounts,
+5. travel split/balance correctness in real mixed scenarios (equal/selected/full/manual),
+6. travel trip separation integrity vs recurring/history baseline.
 
 ## 10) Working agreement for next chats
 

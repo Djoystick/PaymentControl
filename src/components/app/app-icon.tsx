@@ -5,6 +5,7 @@ type AppIconName =
   | "reminders"
   | "history"
   | "profile"
+  | "travel"
   | "help"
   | "theme"
   | "sun"
@@ -85,6 +86,15 @@ export function AppIcon({
         <path d="M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" />
         <path d="M9 10a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
         <path d="M6.168 18.849a4 4 0 0 1 3.832 -2.849h4a4 4 0 0 1 3.834 2.855" />
+      </svg>
+    );
+  }
+
+  if (name === "travel") {
+    return (
+      <svg {...baseProps}>
+        <path d="M2 16l20 -8l-8 20l-2 -9l-10 -3z" />
+        <path d="M12 19l10 -11" />
       </svg>
     );
   }
