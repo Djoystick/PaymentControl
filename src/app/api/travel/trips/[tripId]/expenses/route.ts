@@ -41,6 +41,8 @@ const codeToStatus: Record<TravelApiError["error"]["code"], number> = {
   TRAVEL_TRIP_NOT_FOUND: 404,
   TRAVEL_EXPENSE_VALIDATION_FAILED: 400,
   TRAVEL_EXPENSE_CREATE_FAILED: 500,
+  TRAVEL_EXPENSE_UPDATE_FAILED: 500,
+  TRAVEL_EXPENSE_DELETE_FAILED: 500,
 };
 
 const jsonError = (

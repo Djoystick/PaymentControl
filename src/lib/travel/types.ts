@@ -142,7 +142,9 @@ export type TravelApiErrorCode =
   | "TRAVEL_TRIP_CREATE_FAILED"
   | "TRAVEL_TRIP_NOT_FOUND"
   | "TRAVEL_EXPENSE_VALIDATION_FAILED"
-  | "TRAVEL_EXPENSE_CREATE_FAILED";
+  | "TRAVEL_EXPENSE_CREATE_FAILED"
+  | "TRAVEL_EXPENSE_UPDATE_FAILED"
+  | "TRAVEL_EXPENSE_DELETE_FAILED";
 
 export type TravelApiError = {
   ok: false;
@@ -182,5 +184,14 @@ export type TravelExpenseMutateResponse =
       workspace: WorkspaceSummaryPayload;
       trip: TravelTripPayload;
       expense: TravelTripExpensePayload;
+    }
+  | TravelApiError;
+
+export type TravelExpenseDeleteResponse =
+  | {
+      ok: true;
+      workspace: WorkspaceSummaryPayload;
+      trip: TravelTripPayload;
+      deletedExpenseId: string;
     }
   | TravelApiError;

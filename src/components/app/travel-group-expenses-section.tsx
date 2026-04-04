@@ -1,15 +1,18 @@
 ﻿"use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { WorkspaceSummaryPayload } from "@/lib/auth/types";
 import {
   createTravelExpense,
   createTravelTrip,
+  deleteTravelExpense,
   listTravelTrips,
   readTravelTripDetail,
+  updateTravelExpense,
 } from "@/lib/travel/client";
 import type {
   TravelSplitMode,
+  TravelTripExpensePayload,
   TravelTripListItemPayload,
   TravelTripPayload,
 } from "@/lib/travel/types";
@@ -46,6 +49,17 @@ const defaultExpenseDraft: ExpenseDraft = {
   manualSharesByMemberId: {},
   spentAt: "",
 };
+
+type TravelExpenseDefaultsSnapshot = {
+  paidByMemberId: string;
+  category: string;
+  splitMode: TravelSplitMode;
+  selectedMemberIds: string[];
+  fullAmountMemberId: string;
+};
+
+const TRAVEL_EXPENSE_DEFAULTS_STORAGE_KEY =
+  "payment_control_travel_expense_defaults_v28d";
 
 const splitMemberNames = (value: string): string[] => {
   const parts = value
@@ -106,6 +120,100 @@ const mergeTripListWithDetail = (
   return clone.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
 };
 
+const toDateInputValue = (isoDate: string): string => {
+  const parsed = new Date(isoDate);
+  if (Number.isNaN(parsed.getTime())) {
+    return "";
+  }
+
+  const year = parsed.getUTCFullYear();
+  const month = String(parsed.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const createExpenseDraftFromDefaults = (
+  trip: TravelTripPayload,
+  defaults: TravelExpenseDefaultsSnapshot | null,
+): ExpenseDraft => {
+  const memberIds = trip.members.map((member) => member.id);
+  const firstMemberId = memberIds[0] ?? "";
+  const splitMode = defaults?.splitMode ?? "equal_all";
+
+  const selectedForEqualSelected = defaults?.selectedMemberIds.filter((memberId) =>
+    memberIds.includes(memberId),
+  );
+
+  const selectedMemberIds =
+    splitMode === "equal_selected"
+      ? selectedForEqualSelected && selectedForEqualSelected.length > 0
+        ? selectedForEqualSelected
+        : memberIds
+      : memberIds;
+
+  const manualSharesByMemberId = Object.fromEntries(
+    memberIds.map((memberId) => [memberId, ""]),
+  );
+
+  return {
+    amount: "",
+    paidByMemberId:
+      defaults?.paidByMemberId && memberIds.includes(defaults.paidByMemberId)
+        ? defaults.paidByMemberId
+        : firstMemberId,
+    description: "",
+    category: defaults?.category || "General",
+    splitMode,
+    selectedMemberIds,
+    fullAmountMemberId:
+      defaults?.fullAmountMemberId && memberIds.includes(defaults.fullAmountMemberId)
+        ? defaults.fullAmountMemberId
+        : firstMemberId,
+    manualSharesByMemberId,
+    spentAt: "",
+  };
+};
+
+const createExpenseDraftFromExistingExpense = (
+  trip: TravelTripPayload,
+  expense: TravelTripExpensePayload,
+): ExpenseDraft => {
+  const memberIds = trip.members.map((member) => member.id);
+  const firstMemberId = memberIds[0] ?? "";
+  const splitMap = new Map(expense.splits.map((split) => [split.memberId, split]));
+  const manualSharesByMemberId = Object.fromEntries(
+    memberIds.map((memberId) => [memberId, splitMap.get(memberId)?.shareAmount.toFixed(2) ?? ""]),
+  );
+
+  const selectedMemberIds =
+    expense.splitMode === "equal_selected"
+      ? expense.splits
+          .map((split) => split.memberId)
+          .filter((memberId) => memberIds.includes(memberId))
+      : memberIds;
+
+  const fullAmountMemberId =
+    expense.splitMode === "full_one"
+      ? expense.splits[0]?.memberId ?? expense.paidByMemberId
+      : expense.paidByMemberId;
+
+  return {
+    amount: expense.amount.toFixed(2),
+    paidByMemberId: memberIds.includes(expense.paidByMemberId)
+      ? expense.paidByMemberId
+      : firstMemberId,
+    description: expense.description,
+    category: expense.category,
+    splitMode: expense.splitMode,
+    selectedMemberIds,
+    fullAmountMemberId: memberIds.includes(fullAmountMemberId)
+      ? fullAmountMemberId
+      : firstMemberId,
+    manualSharesByMemberId,
+    spentAt: toDateInputValue(expense.spentAt),
+  };
+};
+
 export function TravelGroupExpensesSection({
   workspace,
   initData,
@@ -119,6 +227,11 @@ export function TravelGroupExpensesSection({
   const [isTripLoading, setIsTripLoading] = useState(false);
   const [isCreatingTrip, setIsCreatingTrip] = useState(false);
   const [isCreatingExpense, setIsCreatingExpense] = useState(false);
+  const [isUpdatingExpense, setIsUpdatingExpense] = useState(false);
+  const [isDeletingExpenseId, setIsDeletingExpenseId] = useState<string | null>(null);
+  const [pendingDeleteExpenseId, setPendingDeleteExpenseId] = useState<string | null>(
+    null,
+  );
   const [feedback, setFeedback] = useState<string | null>(null);
   const [feedbackTone, setFeedbackTone] = useState<FeedbackTone>("info");
 
@@ -127,6 +240,13 @@ export function TravelGroupExpensesSection({
   const [tripDescription, setTripDescription] = useState("");
   const [tripMembersInput, setTripMembersInput] = useState("");
   const [expenseDraft, setExpenseDraft] = useState<ExpenseDraft>(defaultExpenseDraft);
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+  const [expenseHistorySort, setExpenseHistorySort] = useState<"newest" | "highest">(
+    "newest",
+  );
+  const amountInputRef = useRef<HTMLInputElement | null>(null);
+  const expenseFormRef = useRef<HTMLFormElement | null>(null);
+  const historySectionRef = useRef<HTMLDivElement | null>(null);
 
   const workspaceUnavailable = useMemo(() => {
     if (!workspace) {
@@ -144,6 +264,151 @@ export function TravelGroupExpensesSection({
 
     return null;
   }, [workspace, tr]);
+
+  const readExpenseDefaultsForTrip = useCallback(
+    (tripId: string): TravelExpenseDefaultsSnapshot | null => {
+      if (typeof window === "undefined" || !workspaceId) {
+        return null;
+      }
+
+      const storageKey = `${workspaceId}:${tripId}`;
+
+      try {
+        const raw = window.localStorage.getItem(TRAVEL_EXPENSE_DEFAULTS_STORAGE_KEY);
+        if (!raw) {
+          return null;
+        }
+
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        const value = parsed[storageKey];
+        if (!value || typeof value !== "object") {
+          return null;
+        }
+
+        const typed = value as Partial<TravelExpenseDefaultsSnapshot>;
+        const splitMode = typed.splitMode;
+        if (
+          splitMode !== "equal_all" &&
+          splitMode !== "equal_selected" &&
+          splitMode !== "full_one" &&
+          splitMode !== "manual_amounts"
+        ) {
+          return null;
+        }
+
+        return {
+          paidByMemberId:
+            typeof typed.paidByMemberId === "string" ? typed.paidByMemberId : "",
+          category: typeof typed.category === "string" ? typed.category : "General",
+          splitMode,
+          selectedMemberIds: Array.isArray(typed.selectedMemberIds)
+            ? typed.selectedMemberIds
+                .filter((item): item is string => typeof item === "string")
+                .map((item) => item.trim())
+                .filter((item) => item.length > 0)
+            : [],
+          fullAmountMemberId:
+            typeof typed.fullAmountMemberId === "string"
+              ? typed.fullAmountMemberId
+              : "",
+        };
+      } catch {
+        return null;
+      }
+    },
+    [workspaceId],
+  );
+
+  const writeExpenseDefaultsForTrip = useCallback(
+    (tripId: string, defaults: TravelExpenseDefaultsSnapshot) => {
+      if (typeof window === "undefined" || !workspaceId) {
+        return;
+      }
+
+      const storageKey = `${workspaceId}:${tripId}`;
+      try {
+        const raw = window.localStorage.getItem(TRAVEL_EXPENSE_DEFAULTS_STORAGE_KEY);
+        const parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+        parsed[storageKey] = defaults;
+        window.localStorage.setItem(
+          TRAVEL_EXPENSE_DEFAULTS_STORAGE_KEY,
+          JSON.stringify(parsed),
+        );
+      } catch {
+        // Ignore storage write errors in restricted environments.
+      }
+    },
+    [workspaceId],
+  );
+
+  const buildManualSplitsFromDraft = useCallback(
+    (trip: TravelTripPayload): Array<{ memberId: string; amount: number }> => {
+      return trip.members
+        .map((member) => ({
+          memberId: member.id,
+          amount: Number(expenseDraft.manualSharesByMemberId[member.id] ?? ""),
+        }))
+        .filter((entry) => Number.isFinite(entry.amount) && entry.amount > 0);
+    },
+    [expenseDraft.manualSharesByMemberId],
+  );
+
+  const isExpenseSaveInProgress = isCreatingExpense || isUpdatingExpense;
+  const isEditingExpense = editingExpenseId !== null;
+
+  const sortedRecentExpenses = useMemo(() => {
+    if (!selectedTrip) {
+      return [];
+    }
+
+    const next = [...selectedTrip.recentExpenses];
+    if (expenseHistorySort === "highest") {
+      next.sort((left, right) => {
+        if (right.amount !== left.amount) {
+          return right.amount - left.amount;
+        }
+
+        if (left.spentAt !== right.spentAt) {
+          return right.spentAt.localeCompare(left.spentAt);
+        }
+
+        return right.createdAt.localeCompare(left.createdAt);
+      });
+      return next;
+    }
+
+    next.sort((left, right) => {
+      if (left.spentAt !== right.spentAt) {
+        return right.spentAt.localeCompare(left.spentAt);
+      }
+
+      return right.createdAt.localeCompare(left.createdAt);
+    });
+    return next;
+  }, [selectedTrip, expenseHistorySort]);
+
+  const focusExpenseForm = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      expenseFormRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      amountInputRef.current?.focus();
+      amountInputRef.current?.select();
+    });
+  }, []);
+
+  const resetExpenseDraftToDefaults = useCallback(
+    (trip: TravelTripPayload) => {
+      const defaults = readExpenseDefaultsForTrip(trip.id);
+      setExpenseDraft(createExpenseDraftFromDefaults(trip, defaults));
+    },
+    [readExpenseDefaultsForTrip],
+  );
 
   const loadTrips = useCallback(async () => {
     if (!workspaceId || workspaceUnavailable) {
@@ -243,37 +508,31 @@ export function TravelGroupExpensesSection({
 
   useEffect(() => {
     if (!selectedTrip || selectedTrip.members.length === 0) {
+      setEditingExpenseId(null);
+      setPendingDeleteExpenseId(null);
       setExpenseDraft(defaultExpenseDraft);
       return;
     }
 
-    setExpenseDraft((current) => {
-      const memberIds = selectedTrip.members.map((member) => member.id);
-      const firstMemberId = memberIds[0] ?? "";
+    if (editingExpenseId) {
+      const editingExpense = selectedTrip.recentExpenses.find(
+        (expense) => expense.id === editingExpenseId,
+      );
 
-      const nextSelectedMemberIds =
-        current.selectedMemberIds.length > 0
-          ? current.selectedMemberIds.filter((memberId) => memberIds.includes(memberId))
-          : memberIds;
-
-      const nextManualShares: Record<string, string> = {};
-      for (const memberId of memberIds) {
-        nextManualShares[memberId] = current.manualSharesByMemberId[memberId] ?? "";
+      if (!editingExpense) {
+        setEditingExpenseId(null);
+        setPendingDeleteExpenseId(null);
+        resetExpenseDraftToDefaults(selectedTrip);
+        return;
       }
 
-      return {
-        ...current,
-        paidByMemberId: memberIds.includes(current.paidByMemberId)
-          ? current.paidByMemberId
-          : firstMemberId,
-        fullAmountMemberId: memberIds.includes(current.fullAmountMemberId)
-          ? current.fullAmountMemberId
-          : firstMemberId,
-        selectedMemberIds: nextSelectedMemberIds,
-        manualSharesByMemberId: nextManualShares,
-      };
-    });
-  }, [selectedTrip]);
+      setExpenseDraft(createExpenseDraftFromExistingExpense(selectedTrip, editingExpense));
+      return;
+    }
+
+    setPendingDeleteExpenseId(null);
+    resetExpenseDraftToDefaults(selectedTrip);
+  }, [editingExpenseId, resetExpenseDraftToDefaults, selectedTrip]);
 
   const submitTripCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -321,9 +580,9 @@ export function TravelGroupExpensesSection({
     }
   };
 
-  const submitExpenseCreate = async (event: FormEvent<HTMLFormElement>) => {
+  const submitExpense = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (isCreatingExpense || !selectedTrip) {
+    if (!selectedTrip || isExpenseSaveInProgress) {
       return;
     }
 
@@ -334,31 +593,48 @@ export function TravelGroupExpensesSection({
       return;
     }
 
-    const manualSplits = selectedTrip.members
-      .map((member) => ({
-        memberId: member.id,
-        amount: Number(expenseDraft.manualSharesByMemberId[member.id] ?? ""),
-      }))
-      .filter((entry) => Number.isFinite(entry.amount) && entry.amount > 0);
+    const manualSplits = buildManualSplitsFromDraft(selectedTrip);
+    const spentAtIso = expenseDraft.spentAt
+      ? new Date(`${expenseDraft.spentAt}T12:00:00.000Z`).toISOString()
+      : null;
 
-    setIsCreatingExpense(true);
+    const payload = {
+      initData,
+      tripId: selectedTrip.id,
+      amount,
+      paidByMemberId: expenseDraft.paidByMemberId,
+      description: expenseDraft.description,
+      category: expenseDraft.category,
+      splitMode: expenseDraft.splitMode,
+      selectedMemberIds: expenseDraft.selectedMemberIds,
+      fullAmountMemberId: expenseDraft.fullAmountMemberId || null,
+      manualSplits,
+      spentAt: spentAtIso,
+    };
+
+    const defaultsSnapshot: TravelExpenseDefaultsSnapshot = {
+      paidByMemberId: payload.paidByMemberId,
+      category: payload.category,
+      splitMode: payload.splitMode,
+      selectedMemberIds: [...payload.selectedMemberIds],
+      fullAmountMemberId: payload.fullAmountMemberId ?? "",
+    };
+
     setFeedback(null);
+    if (isEditingExpense) {
+      setIsUpdatingExpense(true);
+    } else {
+      setIsCreatingExpense(true);
+    }
+
     try {
-      const result = await createTravelExpense({
-        initData,
-        tripId: selectedTrip.id,
-        amount,
-        paidByMemberId: expenseDraft.paidByMemberId,
-        description: expenseDraft.description,
-        category: expenseDraft.category,
-        splitMode: expenseDraft.splitMode,
-        selectedMemberIds: expenseDraft.selectedMemberIds,
-        fullAmountMemberId: expenseDraft.fullAmountMemberId || null,
-        manualSplits,
-        spentAt: expenseDraft.spentAt
-          ? new Date(`${expenseDraft.spentAt}T12:00:00.000Z`).toISOString()
-          : null,
-      });
+      const result =
+        isEditingExpense && editingExpenseId
+          ? await updateTravelExpense({
+              ...payload,
+              expenseId: editingExpenseId,
+            })
+          : await createTravelExpense(payload);
 
       if (!result.ok) {
         setFeedbackTone("error");
@@ -366,27 +642,139 @@ export function TravelGroupExpensesSection({
         return;
       }
 
+      writeExpenseDefaultsForTrip(result.trip.id, defaultsSnapshot);
       setSelectedTrip(result.trip);
       setTrips((current) => mergeTripListWithDetail(current, result.trip));
-      setExpenseDraft((current) => ({
-        ...current,
-        amount: "",
-        description: "",
-        splitMode: "equal_all",
-        selectedMemberIds: result.trip.members.map((member) => member.id),
-        fullAmountMemberId: result.trip.members[0]?.id ?? "",
-        manualSharesByMemberId: {},
-        spentAt: "",
-      }));
+      setEditingExpenseId(null);
+      setPendingDeleteExpenseId(null);
+      setExpenseDraft(createExpenseDraftFromDefaults(result.trip, defaultsSnapshot));
       setFeedbackTone("success");
-      setFeedback(tr("Expense added and balances updated."));
+      setFeedback(
+        tr(
+          isEditingExpense
+            ? "Expense updated and balances recalculated."
+            : "Expense added and balances updated.",
+        ),
+      );
+      focusExpenseForm();
     } catch {
       setFeedbackTone("error");
-      setFeedback(tr("Failed to create trip expense."));
+      setFeedback(
+        tr(
+          isEditingExpense
+            ? "Failed to update trip expense."
+            : "Failed to create trip expense.",
+        ),
+      );
     } finally {
-      setIsCreatingExpense(false);
+      if (isEditingExpense) {
+        setIsUpdatingExpense(false);
+      } else {
+        setIsCreatingExpense(false);
+      }
     }
   };
+
+  const startExpenseEdit = useCallback(
+    (expense: TravelTripExpensePayload) => {
+      if (!selectedTrip || isExpenseSaveInProgress || isDeletingExpenseId) {
+        return;
+      }
+
+      setPendingDeleteExpenseId(null);
+      setEditingExpenseId(expense.id);
+      setExpenseDraft(createExpenseDraftFromExistingExpense(selectedTrip, expense));
+      setFeedbackTone("info");
+      setFeedback(tr("Editing expense. Update fields and save changes."));
+      focusExpenseForm();
+    },
+    [
+      focusExpenseForm,
+      isDeletingExpenseId,
+      isExpenseSaveInProgress,
+      selectedTrip,
+      tr,
+    ],
+  );
+
+  const cancelExpenseEdit = useCallback(() => {
+    if (!selectedTrip || isExpenseSaveInProgress || isDeletingExpenseId) {
+      return;
+    }
+
+    setEditingExpenseId(null);
+    setPendingDeleteExpenseId(null);
+    resetExpenseDraftToDefaults(selectedTrip);
+    setFeedbackTone("info");
+    setFeedback(tr("Edit cancelled. Back to quick add mode."));
+  }, [
+    isDeletingExpenseId,
+    isExpenseSaveInProgress,
+    resetExpenseDraftToDefaults,
+    selectedTrip,
+    tr,
+  ]);
+
+  const deleteExpense = useCallback(
+    async (expenseId: string) => {
+      if (!selectedTrip || isExpenseSaveInProgress || isDeletingExpenseId) {
+        return;
+      }
+
+      setFeedback(null);
+      setIsDeletingExpenseId(expenseId);
+      try {
+        const result = await deleteTravelExpense({
+          initData,
+          tripId: selectedTrip.id,
+          expenseId,
+        });
+
+        if (!result.ok) {
+          setFeedbackTone("error");
+          setFeedback(result.error.message);
+          return;
+        }
+
+        setSelectedTrip(result.trip);
+        setTrips((current) => mergeTripListWithDetail(current, result.trip));
+        setPendingDeleteExpenseId(null);
+        if (editingExpenseId === expenseId) {
+          setEditingExpenseId(null);
+          resetExpenseDraftToDefaults(result.trip);
+        }
+        setFeedbackTone("success");
+        setFeedback(tr("Expense deleted. Balances recalculated."));
+      } catch {
+        setFeedbackTone("error");
+        setFeedback(tr("Failed to delete trip expense."));
+      } finally {
+        setIsDeletingExpenseId(null);
+      }
+    },
+    [
+      editingExpenseId,
+      initData,
+      isDeletingExpenseId,
+      isExpenseSaveInProgress,
+      resetExpenseDraftToDefaults,
+      selectedTrip,
+      tr,
+    ],
+  );
+
+  const scrollToHistory = useCallback(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      historySectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }, []);
 
   const toggleSelectedMember = (memberId: string) => {
     setExpenseDraft((current) => {
@@ -578,20 +966,76 @@ export function TravelGroupExpensesSection({
                     </span>
                   ))}
                 </div>
+                <p className="mt-2 text-[11px] text-app-text-muted">
+                  {selectedTrip.recentExpenses.length > 0
+                    ? tr("Last activity") +
+                      ": " +
+                      selectedTrip.recentExpenses[0]?.description +
+                      " • " +
+                      formatDateTime(selectedTrip.recentExpenses[0]?.spentAt ?? "")
+                    : tr("No expenses yet")}
+                </p>
+                <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={focusExpenseForm}
+                    className="pc-btn-primary w-full"
+                  >
+                    <AppIcon name="add" className="h-3.5 w-3.5" />
+                    {tr("Quick add expense")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={scrollToHistory}
+                    className="pc-btn-secondary w-full"
+                  >
+                    <AppIcon name="history" className="h-3.5 w-3.5" />
+                    {tr("View recent expenses")}
+                  </button>
+                </div>
               </div>
 
-              <form className="pc-surface space-y-2" onSubmit={submitExpenseCreate}>
+              <form
+                ref={expenseFormRef}
+                className="pc-surface space-y-2"
+                onSubmit={submitExpense}
+              >
                 <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                  <AppIcon name="add" className="h-3.5 w-3.5" />
-                  {tr("Add expense")}
+                  <AppIcon name={isEditingExpense ? "edit" : "add"} className="h-3.5 w-3.5" />
+                  {tr(isEditingExpense ? "Edit expense" : "Add expense")}
                 </p>
+                <p className="text-[11px] text-app-text-muted">
+                  {tr("Fast path: amount, payer, description, then save.")}
+                </p>
+                {isEditingExpense && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2">
+                    <p className="text-xs font-semibold text-amber-900">
+                      {tr("You are editing an existing expense.")}
+                    </p>
+                    <p className="mt-1 text-[11px] text-amber-800">
+                      {tr("Save changes to recalculate balances, or cancel to return to quick add.")}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={cancelExpenseEdit}
+                        disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
+                        className="pc-btn-secondary"
+                      >
+                        {tr("Cancel edit")}
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div className="space-y-1">
                     <p className="text-xs font-semibold text-app-text">{tr("Amount")}</p>
                     <input
+                      ref={amountInputRef}
                       type="number"
                       min="0"
                       step="0.01"
+                      disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
                       value={expenseDraft.amount}
                       onChange={(event) =>
                         setExpenseDraft((current) => ({
@@ -606,6 +1050,7 @@ export function TravelGroupExpensesSection({
                   <div className="space-y-1">
                     <p className="text-xs font-semibold text-app-text">{tr("Paid by")}</p>
                     <select
+                      disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
                       value={expenseDraft.paidByMemberId}
                       onChange={(event) =>
                         setExpenseDraft((current) => ({
@@ -628,6 +1073,7 @@ export function TravelGroupExpensesSection({
                     <p className="text-xs font-semibold text-app-text">{tr("Description")}</p>
                     <input
                       type="text"
+                      disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
                       value={expenseDraft.description}
                       onChange={(event) =>
                         setExpenseDraft((current) => ({
@@ -643,6 +1089,7 @@ export function TravelGroupExpensesSection({
                   <div className="space-y-1">
                     <p className="text-xs font-semibold text-app-text">{tr("Category")}</p>
                     <select
+                      disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
                       value={expenseDraft.category}
                       onChange={(event) =>
                         setExpenseDraft((current) => ({
@@ -665,6 +1112,7 @@ export function TravelGroupExpensesSection({
                   <p className="text-xs font-semibold text-app-text">{tr("Expense date (optional)")}</p>
                   <input
                     type="date"
+                    disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
                     value={expenseDraft.spentAt}
                     onChange={(event) =>
                       setExpenseDraft((current) => ({
@@ -687,6 +1135,7 @@ export function TravelGroupExpensesSection({
                       <button
                         key={mode}
                         type="button"
+                        disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
                         onClick={() =>
                           setExpenseDraft((current) => ({
                             ...current,
@@ -717,6 +1166,7 @@ export function TravelGroupExpensesSection({
                           >
                             <input
                               type="checkbox"
+                              disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
                               checked={isSelected}
                               onChange={() => toggleSelectedMember(member.id)}
                             />
@@ -732,6 +1182,7 @@ export function TravelGroupExpensesSection({
                   <div className="pc-state-card space-y-1">
                     <p className="text-xs font-semibold text-app-text">{tr("Assign full amount to")}</p>
                     <select
+                      disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
                       value={expenseDraft.fullAmountMemberId}
                       onChange={(event) =>
                         setExpenseDraft((current) => ({
@@ -760,6 +1211,7 @@ export function TravelGroupExpensesSection({
                           type="number"
                           min="0"
                           step="0.01"
+                          disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
                           value={expenseDraft.manualSharesByMemberId[member.id] ?? ""}
                           onChange={(event) =>
                             setExpenseDraft((current) => ({
@@ -783,11 +1235,13 @@ export function TravelGroupExpensesSection({
 
                 <button
                   type="submit"
-                  disabled={isCreatingExpense}
+                  disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
                   className="pc-btn-primary w-full"
                 >
                   <AppIcon name="check" className="h-4 w-4" />
-                  {isCreatingExpense ? tr("Saving...") : tr("Save expense")}
+                  {isExpenseSaveInProgress
+                    ? tr("Saving...")
+                    : tr(isEditingExpense ? "Save changes" : "Save expense")}
                 </button>
               </form>
 
@@ -795,6 +1249,9 @@ export function TravelGroupExpensesSection({
                 <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                   <AppIcon name="wallet" className="h-3.5 w-3.5" />
                   {tr("Balances")}
+                </p>
+                <p className="mt-1 text-[11px] text-app-text-muted">
+                  {tr("Positive balance means member should receive money back. Negative means member should pay.")}
                 </p>
                 <div className="mt-2 space-y-1">
                   {selectedTrip.summary.balances.map((balance) => (
@@ -834,19 +1291,30 @@ export function TravelGroupExpensesSection({
                   ) : (
                     <div className="mt-1 space-y-1">
                       {selectedTrip.summary.settlements.map((settlement, index) => (
-                        <p key={`${settlement.fromMemberId}-${settlement.toMemberId}-${index}`} className="text-xs text-app-text-muted">
-                          <span className="font-semibold text-app-text">{settlement.fromMemberDisplayName}</span>{" "}
-                          {tr("owes")}{" "}
-                          <span className="font-semibold text-app-text">{settlement.toMemberDisplayName}</span>{" "}
-                          {formatAmount(settlement.amount, selectedTrip.baseCurrency)}
-                        </p>
+                        <div
+                          key={`${settlement.fromMemberId}-${settlement.toMemberId}-${index}`}
+                          className="pc-state-card flex items-center justify-between gap-2 px-3 py-2"
+                        >
+                          <p className="text-xs text-app-text-muted">
+                            <span className="font-semibold text-app-text">
+                              {settlement.fromMemberDisplayName}
+                            </span>{" "}
+                            {tr("owes")}{" "}
+                            <span className="font-semibold text-app-text">
+                              {settlement.toMemberDisplayName}
+                            </span>
+                          </p>
+                          <span className="pc-status-pill pc-status-pill-warning">
+                            {formatAmount(settlement.amount, selectedTrip.baseCurrency)}
+                          </span>
+                        </div>
                       ))}
                     </div>
                   )}
                 </div>
               </div>
 
-              <div className="pc-surface pc-surface-soft">
+              <div ref={historySectionRef} className="pc-surface pc-surface-soft">
                 <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                   <AppIcon name="history" className="h-3.5 w-3.5" />
                   {tr("Trip expense history")}
@@ -860,8 +1328,41 @@ export function TravelGroupExpensesSection({
                   </div>
                 ) : (
                   <div className="mt-2 space-y-2">
-                    {selectedTrip.recentExpenses.map((expense) => (
-                      <div key={expense.id} className="pc-state-card px-3 py-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-app-text-muted">
+                        {tr("Sort")}
+                      </span>
+                      <div className="pc-segmented">
+                        <button
+                          type="button"
+                          onClick={() => setExpenseHistorySort("newest")}
+                          aria-pressed={expenseHistorySort === "newest"}
+                          className={`pc-segment-btn min-h-8 ${
+                            expenseHistorySort === "newest" ? "pc-segment-btn-active" : ""
+                          }`}
+                        >
+                          {tr("Newest")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setExpenseHistorySort("highest")}
+                          aria-pressed={expenseHistorySort === "highest"}
+                          className={`pc-segment-btn min-h-8 ${
+                            expenseHistorySort === "highest" ? "pc-segment-btn-active" : ""
+                          }`}
+                        >
+                          {tr("Highest amount")}
+                        </button>
+                      </div>
+                    </div>
+
+                    {sortedRecentExpenses.map((expense) => (
+                      <div
+                        key={expense.id}
+                        className={`pc-state-card px-3 py-2 ${
+                          editingExpenseId === expense.id ? "border-app-accent" : ""
+                        }`}
+                      >
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-sm font-semibold text-app-text">{expense.description}</p>
                           <span className="pc-status-pill">
@@ -879,6 +1380,62 @@ export function TravelGroupExpensesSection({
                             .map((split) => `${split.memberDisplayName} ${split.shareAmount.toFixed(2)}`)
                             .join(", ")}
                         </p>
+                        <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                          <button
+                            type="button"
+                            onClick={() => startExpenseEdit(expense)}
+                            disabled={isDeletingExpenseId !== null || isExpenseSaveInProgress}
+                            className="pc-btn-secondary w-full"
+                          >
+                            <AppIcon name="edit" className="h-3.5 w-3.5" />
+                            {tr("Edit")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setPendingDeleteExpenseId((current) =>
+                                current === expense.id ? null : expense.id,
+                              )
+                            }
+                            disabled={isDeletingExpenseId !== null || isExpenseSaveInProgress}
+                            className="pc-btn-danger w-full"
+                          >
+                            <AppIcon name="archive" className="h-3.5 w-3.5" />
+                            {isDeletingExpenseId === expense.id
+                              ? tr("Deleting...")
+                              : tr("Delete expense")}
+                          </button>
+                        </div>
+                        {pendingDeleteExpenseId === expense.id && (
+                          <div className="mt-2 rounded-xl border border-red-200 bg-red-50/70 px-2 py-2 text-xs text-red-900">
+                            <p className="font-semibold">
+                              {tr("Delete this expense? Balances will be recalculated immediately.")}
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => void deleteExpense(expense.id)}
+                                disabled={
+                                  isDeletingExpenseId !== null || isExpenseSaveInProgress
+                                }
+                                className="pc-btn-danger"
+                              >
+                                <AppIcon name="archive" className="h-3.5 w-3.5" />
+                                {tr("Confirm delete")}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setPendingDeleteExpenseId(null)}
+                                disabled={
+                                  isDeletingExpenseId !== null || isExpenseSaveInProgress
+                                }
+                                className="pc-btn-secondary"
+                              >
+                                {tr("Cancel delete")}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

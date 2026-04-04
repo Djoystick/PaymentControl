@@ -191,6 +191,29 @@ const readTripExpenses = async (
   return data;
 };
 
+const readExpenseRowByTripAndId = async (
+  tripId: string,
+  expenseId: string,
+): Promise<TravelTripExpenseRow | null> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("travel_trip_expenses")
+    .select(expenseSelection)
+    .eq("trip_id", tripId)
+    .eq("id", expenseId)
+    .maybeSingle<TravelTripExpenseRow>();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data;
+};
+
 const readExpenseSplits = async (
   expenseIds: string[],
 ): Promise<TravelExpenseSplitRow[] | null> => {
@@ -463,6 +486,34 @@ export type CreateTravelExpenseResult =
       message: string;
     };
 
+export type UpdateTravelExpenseResult =
+  | {
+      ok: true;
+      expense: TravelTripExpensePayload;
+      trip: TravelTripPayload;
+    }
+  | {
+      ok: false;
+      reason:
+        | "TRIP_NOT_FOUND"
+        | "EXPENSE_NOT_FOUND"
+        | "VALIDATION_FAILED"
+        | "CREATE_FAILED";
+      message: string;
+    };
+
+export type DeleteTravelExpenseResult =
+  | {
+      ok: true;
+      trip: TravelTripPayload;
+      deletedExpenseId: string;
+    }
+  | {
+      ok: false;
+      reason: "TRIP_NOT_FOUND" | "EXPENSE_NOT_FOUND" | "CREATE_FAILED";
+      message: string;
+    };
+
 export const createTravelExpenseForTrip = async (params: {
   workspaceId: string;
   profileId: string;
@@ -605,5 +656,262 @@ export const createTravelExpenseForTrip = async (params: {
     ok: true,
     expense: expensePayload,
     trip,
+  };
+};
+
+export const updateTravelExpenseForTrip = async (params: {
+  workspaceId: string;
+  tripId: string;
+  expenseId: string;
+  input: TravelCreateExpenseInput;
+}): Promise<UpdateTravelExpenseResult> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return {
+      ok: false,
+      reason: "CREATE_FAILED",
+      message: "Supabase server configuration is missing.",
+    };
+  }
+
+  const tripRow = await readTripRowByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!tripRow) {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_FOUND",
+      message: "Trip was not found in current workspace.",
+    };
+  }
+
+  const existingExpense = await readExpenseRowByTripAndId(
+    params.tripId,
+    params.expenseId,
+  );
+  if (!existingExpense) {
+    return {
+      ok: false,
+      reason: "EXPENSE_NOT_FOUND",
+      message: "Trip expense was not found.",
+    };
+  }
+
+  const members = await readTripMembers(params.tripId);
+  if (!members || members.length === 0) {
+    return {
+      ok: false,
+      reason: "VALIDATION_FAILED",
+      message: "Trip members are missing.",
+    };
+  }
+
+  const memberPayloads = members.map(toTripMemberPayload);
+  const memberNameById = new Map(
+    memberPayloads.map((member) => [member.id, member.displayName]),
+  );
+  if (!memberNameById.has(params.input.paidByMemberId)) {
+    return {
+      ok: false,
+      reason: "VALIDATION_FAILED",
+      message: "Expense payer must be a trip member.",
+    };
+  }
+
+  const splitResult = resolveTravelExpenseSplits({
+    totalAmount: params.input.amount,
+    splitMode: params.input.splitMode,
+    members: memberPayloads.map((member): TravelSplitEngineMember => ({
+      id: member.id,
+      displayName: member.displayName,
+    })),
+    selectedMemberIds: params.input.selectedMemberIds,
+    fullAmountMemberId: params.input.fullAmountMemberId,
+    manualSplits: params.input.manualSplits,
+  });
+
+  if (!splitResult.ok) {
+    return {
+      ok: false,
+      reason: "VALIDATION_FAILED",
+      message: splitResult.message,
+    };
+  }
+
+  const now = new Date().toISOString();
+  const spentAt = params.input.spentAt ?? now;
+
+  const existingSplits = await readExpenseSplits([params.expenseId]);
+  if (!existingSplits) {
+    return {
+      ok: false,
+      reason: "CREATE_FAILED",
+      message: "Failed to read existing expense split rows.",
+    };
+  }
+
+  const { data: updatedExpense, error: updateExpenseError } = await supabase
+    .from("travel_trip_expenses")
+    .update({
+      paid_by_member_id: params.input.paidByMemberId,
+      amount: params.input.amount,
+      currency: tripRow.base_currency,
+      description: params.input.description,
+      category: params.input.category,
+      split_mode: params.input.splitMode,
+      spent_at: spentAt,
+      updated_at: now,
+    })
+    .eq("id", params.expenseId)
+    .eq("trip_id", params.tripId)
+    .select(expenseSelection)
+    .single<TravelTripExpenseRow>();
+
+  if (updateExpenseError || !updatedExpense) {
+    return {
+      ok: false,
+      reason: "CREATE_FAILED",
+      message: "Failed to update trip expense.",
+    };
+  }
+
+  const { error: deleteOldSplitsError } = await supabase
+    .from("travel_expense_splits")
+    .delete()
+    .eq("expense_id", params.expenseId);
+
+  if (deleteOldSplitsError) {
+    return {
+      ok: false,
+      reason: "CREATE_FAILED",
+      message: "Failed to refresh expense split rows.",
+    };
+  }
+
+  const splitInsertRows = splitResult.splits.map((split) => ({
+    expense_id: params.expenseId,
+    trip_id: params.tripId,
+    member_id: split.memberId,
+    share_amount: split.shareAmount,
+    updated_at: now,
+  }));
+
+  const { error: insertNewSplitsError } = await supabase
+    .from("travel_expense_splits")
+    .insert(splitInsertRows);
+
+  if (insertNewSplitsError) {
+    if (existingSplits.length > 0) {
+      await supabase.from("travel_expense_splits").insert(
+        existingSplits.map((split) => ({
+          expense_id: split.expense_id,
+          trip_id: params.tripId,
+          member_id: split.member_id,
+          share_amount: toAmount(split.share_amount),
+          updated_at: split.updated_at,
+        })),
+      );
+    }
+
+    return {
+      ok: false,
+      reason: "CREATE_FAILED",
+      message: "Failed to save expense split rows.",
+    };
+  }
+
+  await touchTripUpdatedAt(params.tripId);
+
+  const expensePayload = toExpensePayload({
+    row: updatedExpense,
+    memberNameById,
+    splits: splitInsertRows.map((split, index) => ({
+      id: `${updatedExpense.id}-updated-${index}`,
+      expense_id: updatedExpense.id,
+      member_id: split.member_id,
+      share_amount: split.share_amount,
+      created_at: now,
+      updated_at: now,
+    })),
+  });
+
+  const trip = await getTravelTripByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!trip) {
+    return {
+      ok: false,
+      reason: "CREATE_FAILED",
+      message: "Expense was updated but failed to refresh trip snapshot.",
+    };
+  }
+
+  return {
+    ok: true,
+    expense: expensePayload,
+    trip,
+  };
+};
+
+export const deleteTravelExpenseForTrip = async (params: {
+  workspaceId: string;
+  tripId: string;
+  expenseId: string;
+}): Promise<DeleteTravelExpenseResult> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return {
+      ok: false,
+      reason: "CREATE_FAILED",
+      message: "Supabase server configuration is missing.",
+    };
+  }
+
+  const tripRow = await readTripRowByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!tripRow) {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_FOUND",
+      message: "Trip was not found in current workspace.",
+    };
+  }
+
+  const existingExpense = await readExpenseRowByTripAndId(
+    params.tripId,
+    params.expenseId,
+  );
+  if (!existingExpense) {
+    return {
+      ok: false,
+      reason: "EXPENSE_NOT_FOUND",
+      message: "Trip expense was not found.",
+    };
+  }
+
+  const { error: deleteExpenseError } = await supabase
+    .from("travel_trip_expenses")
+    .delete()
+    .eq("id", params.expenseId)
+    .eq("trip_id", params.tripId);
+
+  if (deleteExpenseError) {
+    return {
+      ok: false,
+      reason: "CREATE_FAILED",
+      message: "Failed to delete trip expense.",
+    };
+  }
+
+  await touchTripUpdatedAt(params.tripId);
+
+  const trip = await getTravelTripByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!trip) {
+    return {
+      ok: false,
+      reason: "CREATE_FAILED",
+      message: "Expense was deleted but failed to refresh trip snapshot.",
+    };
+  }
+
+  return {
+    ok: true,
+    trip,
+    deletedExpenseId: params.expenseId,
   };
 };

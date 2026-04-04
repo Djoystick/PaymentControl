@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import type {
+  TravelExpenseDeleteResponse,
   TravelExpenseMutateResponse,
   TravelTripDetailResponse,
   TravelTripMutateResponse,
@@ -85,4 +86,64 @@ export const createTravelExpense = async (params: {
       spentAt: params.spentAt ?? null,
     },
   );
+};
+
+export const updateTravelExpense = async (params: {
+  initData: string;
+  tripId: string;
+  expenseId: string;
+  amount: number;
+  paidByMemberId: string;
+  description: string;
+  category: string;
+  splitMode: "equal_all" | "equal_selected" | "full_one" | "manual_amounts";
+  selectedMemberIds: string[];
+  fullAmountMemberId: string | null;
+  manualSplits: Array<{ memberId: string; amount: number }>;
+  spentAt?: string | null;
+}): Promise<TravelExpenseMutateResponse> => {
+  const response = await fetch(
+    `/api/travel/trips/${params.tripId}/expenses/${params.expenseId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        initData: params.initData,
+        amount: params.amount,
+        paidByMemberId: params.paidByMemberId,
+        description: params.description,
+        category: params.category,
+        splitMode: params.splitMode,
+        selectedMemberIds: params.selectedMemberIds,
+        fullAmountMemberId: params.fullAmountMemberId,
+        manualSplits: params.manualSplits,
+        spentAt: params.spentAt ?? null,
+      }),
+    },
+  );
+
+  return (await response.json()) as TravelExpenseMutateResponse;
+};
+
+export const deleteTravelExpense = async (params: {
+  initData: string;
+  tripId: string;
+  expenseId: string;
+}): Promise<TravelExpenseDeleteResponse> => {
+  const response = await fetch(
+    `/api/travel/trips/${params.tripId}/expenses/${params.expenseId}`,
+    {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        initData: params.initData,
+      }),
+    },
+  );
+
+  return (await response.json()) as TravelExpenseDeleteResponse;
 };
