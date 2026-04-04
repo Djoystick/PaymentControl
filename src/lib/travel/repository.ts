@@ -1,4 +1,5 @@
-﻿import "server-only";
+import "server-only";
+import { randomUUID } from "node:crypto";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normalizeTravelExpenseAmount } from "@/lib/travel/currency";
 import { buildTravelSettlementOverview } from "@/lib/travel/finalization";
@@ -21,6 +22,8 @@ import type {
   TravelSettlementItemStatus,
   TravelTripExpensePayload,
   TravelTripClosureAction,
+  TravelTripInvitePayload,
+  TravelTripInviteStatus,
   TravelTripMemberRole,
   TravelTripMemberStatus,
   TravelUpdateTripMemberInput,
@@ -88,6 +91,21 @@ type TravelTripMemberRow = {
   updated_at: string;
 };
 
+type TravelTripInviteRow = {
+  id: string;
+  trip_id: string;
+  workspace_id: string;
+  invite_token: string;
+  created_by_profile_id: string | null;
+  invite_status: TravelTripInviteStatus;
+  expires_at: string | null;
+  accepted_by_profile_id: string | null;
+  accepted_member_id: string | null;
+  accepted_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type TravelTripExpenseRow = {
   id: string;
   trip_id: string;
@@ -145,6 +163,8 @@ const splitSelection =
   "id, expense_id, member_id, share_amount, created_at, updated_at";
 const settlementSelection =
   "id, trip_id, from_member_id, to_member_id, amount, status, settled_at, created_at, updated_at";
+const inviteSelection =
+  "id, trip_id, workspace_id, invite_token, created_by_profile_id, invite_status, expires_at, accepted_by_profile_id, accepted_member_id, accepted_at, created_at, updated_at";
 const receiptSelection =
   "id, trip_id, workspace_id, created_by_profile_id, status, image_data_url, image_mime_type, image_file_name, ocr_raw_text, ocr_suggested_amount, ocr_suggested_currency, ocr_suggested_spent_at, ocr_suggested_merchant, ocr_suggested_description, ocr_suggested_category, ocr_suggested_conversion_rate, ocr_field_quality, ocr_parse_attempts, ocr_last_attempt_at, ocr_last_error, parsed_at, source_image_updated_at, finalized_at, finalized_expense_id, created_at, updated_at";
 
@@ -182,6 +202,25 @@ const toTripMemberPayload = (
     role: row.role,
     status: row.status,
     inactiveAt: row.inactive_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+};
+
+const toTripInvitePayload = (
+  row: TravelTripInviteRow,
+): TravelTripInvitePayload => {
+  return {
+    id: row.id,
+    tripId: row.trip_id,
+    workspaceId: row.workspace_id,
+    inviteToken: row.invite_token,
+    createdByProfileId: row.created_by_profile_id,
+    inviteStatus: row.invite_status,
+    expiresAt: row.expires_at,
+    acceptedByProfileId: row.accepted_by_profile_id,
+    acceptedMemberId: row.accepted_member_id,
+    acceptedAt: row.accepted_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -513,6 +552,78 @@ const readTripReceiptDraftById = async (params: {
   return data;
 };
 
+const readTripInviteByToken = async (
+  inviteToken: string,
+): Promise<TravelTripInviteRow | null> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("travel_trip_invites")
+    .select(inviteSelection)
+    .eq("invite_token", inviteToken)
+    .maybeSingle<TravelTripInviteRow>();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data;
+};
+
+const readLatestTripInvite = async (
+  tripId: string,
+): Promise<TravelTripInviteRow | null> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("travel_trip_invites")
+    .select(inviteSelection)
+    .eq("trip_id", tripId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<TravelTripInviteRow>();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data;
+};
+
+const updateTripInviteStatusById = async (params: {
+  inviteId: string;
+  nextStatus: TravelTripInviteStatus;
+}): Promise<boolean> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return false;
+  }
+
+  const now = new Date().toISOString();
+  const patch: Record<string, unknown> = {
+    invite_status: params.nextStatus,
+    updated_at: now,
+  };
+  if (params.nextStatus !== "accepted") {
+    patch.accepted_by_profile_id = null;
+    patch.accepted_member_id = null;
+    patch.accepted_at = null;
+  }
+
+  const { error } = await supabase
+    .from("travel_trip_invites")
+    .update(patch)
+    .eq("id", params.inviteId);
+
+  return !error;
+};
+
 const buildTripPayload = async (
   tripRow: TravelTripRow,
 ): Promise<TravelTripPayload | null> => {
@@ -773,6 +884,7 @@ export const getTravelTripByWorkspaceAndId = async (
 export const createTravelTripForWorkspace = async (params: {
   workspaceId: string;
   profileId: string;
+  telegramUserId?: string | null;
   input: TravelCreateTripInput;
 }): Promise<TravelTripPayload | null> => {
   const supabase = createSupabaseServerClient();
@@ -802,6 +914,8 @@ export const createTravelTripForWorkspace = async (params: {
   const memberRows = params.input.memberNames.map((displayName, index) => ({
     trip_id: createdTrip.id,
     profile_id: index === 0 ? params.profileId : null,
+    telegram_user_id:
+      index === 0 && params.telegramUserId ? params.telegramUserId : null,
     display_name: displayName,
     role: (index === 0
       ? "organizer"
@@ -995,10 +1109,102 @@ export type UpdateTravelTripMemberResult =
       message: string;
     };
 
+export type TravelTripInviteCreateResult =
+  | {
+      ok: true;
+      invite: TravelTripInvitePayload;
+      trip: TravelTripPayload;
+    }
+  | {
+      ok: false;
+      reason: "TRIP_NOT_FOUND" | "TRIP_NOT_ACTIVE" | "FORBIDDEN" | "FAILED";
+      message: string;
+    };
+
+export type TravelTripInviteReadResult =
+  | {
+      ok: true;
+      invite: TravelTripInvitePayload | null;
+      trip: TravelTripPayload;
+    }
+  | {
+      ok: false;
+      reason: "TRIP_NOT_FOUND" | "FORBIDDEN" | "FAILED";
+      message: string;
+    };
+
+export type TravelTripInviteJoinResult =
+  | {
+      ok: true;
+      invite: TravelTripInvitePayload;
+      trip: TravelTripPayload;
+      member: TravelTripMemberPayload;
+    }
+  | {
+      ok: false;
+      reason:
+        | "INVITE_NOT_FOUND"
+        | "INVITE_EXPIRED"
+        | "INVITE_ALREADY_USED"
+        | "WORKSPACE_MISMATCH"
+        | "TRIP_NOT_ACTIVE"
+        | "FAILED";
+      message: string;
+    };
+
 const findOrganizerMember = (
   members: TravelTripMemberPayload[],
 ): TravelTripMemberPayload | null => {
   return members.find((member) => member.role === "organizer") ?? null;
+};
+
+const isInviteExpired = (expiresAt: string | null): boolean => {
+  if (!expiresAt) {
+    return false;
+  }
+
+  const parsed = new Date(expiresAt);
+  if (Number.isNaN(parsed.getTime())) {
+    return false;
+  }
+
+  return parsed.getTime() < Date.now();
+};
+
+const resolveParticipantDisplayNameFromProfile = (profile: {
+  firstName: string;
+  username: string | null;
+}): string => {
+  const firstName = profile.firstName.trim();
+  if (firstName) {
+    return firstName.slice(0, 80);
+  }
+
+  const username = (profile.username ?? "").trim();
+  if (username) {
+    return username.slice(0, 80);
+  }
+
+  return "Participant";
+};
+
+const canManageTripInvites = (params: {
+  trip: TravelTripRow;
+  members: TravelTripMemberPayload[];
+  profileId: string;
+}): boolean => {
+  if (params.trip.created_by_profile_id === params.profileId) {
+    return true;
+  }
+
+  const linkedMember = params.members.find(
+    (member) => member.profileId === params.profileId,
+  );
+  if (!linkedMember) {
+    return false;
+  }
+
+  return linkedMember.role === "organizer";
 };
 
 const getActiveTripMembers = (
@@ -2090,6 +2296,7 @@ export const deleteTravelExpenseForTrip = async (params: {
 export const createTravelTripMemberForTrip = async (params: {
   workspaceId: string;
   profileId: string;
+  telegramUserId?: string | null;
   tripId: string;
   input: TravelCreateTripMemberInput;
 }): Promise<CreateTravelTripMemberResult> => {
@@ -2177,6 +2384,10 @@ export const createTravelTripMemberForTrip = async (params: {
     .insert({
       trip_id: params.tripId,
       profile_id: params.input.linkToCurrentProfile ? params.profileId : null,
+      telegram_user_id:
+        params.input.linkToCurrentProfile && params.telegramUserId
+          ? params.telegramUserId
+          : null,
       display_name: params.input.displayName,
       role: params.input.role,
       status: params.input.status,
@@ -2408,6 +2619,531 @@ export const updateTravelTripMemberForTrip = async (params: {
     ok: true,
     trip,
     member: memberPayload,
+  };
+};
+
+export const readLatestTravelTripInviteForTrip = async (params: {
+  workspaceId: string;
+  profileId: string;
+  tripId: string;
+}): Promise<TravelTripInviteReadResult> => {
+  const tripRow = await readTripRowByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!tripRow) {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_FOUND",
+      message: "Trip was not found in current workspace.",
+    };
+  }
+
+  const members = await readTripMembers(params.tripId);
+  if (!members) {
+    return {
+      ok: false,
+      reason: "FAILED",
+      message: "Failed to read trip participants.",
+    };
+  }
+
+  if (
+    !canManageTripInvites({
+      trip: tripRow,
+      members: members.map(toTripMemberPayload),
+      profileId: params.profileId,
+    })
+  ) {
+    return {
+      ok: false,
+      reason: "FORBIDDEN",
+      message: "Only organizer can view trip invite token.",
+    };
+  }
+
+  const trip = await getTravelTripByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!trip) {
+    return {
+      ok: false,
+      reason: "FAILED",
+      message: "Failed to refresh trip snapshot.",
+    };
+  }
+
+  const invite = await readLatestTripInvite(params.tripId);
+  if (!invite) {
+    return {
+      ok: true,
+      trip,
+      invite: null,
+    };
+  }
+
+  if (invite.invite_status === "active" && isInviteExpired(invite.expires_at)) {
+    const expired = await updateTripInviteStatusById({
+      inviteId: invite.id,
+      nextStatus: "expired",
+    });
+    if (!expired) {
+      return {
+        ok: false,
+        reason: "FAILED",
+        message: "Failed to refresh expired invite status.",
+      };
+    }
+
+    return {
+      ok: true,
+      trip,
+      invite: toTripInvitePayload({
+        ...invite,
+        invite_status: "expired",
+      }),
+    };
+  }
+
+  return {
+    ok: true,
+    trip,
+    invite: toTripInvitePayload(invite),
+  };
+};
+
+export const createTravelTripInviteForTrip = async (params: {
+  workspaceId: string;
+  profileId: string;
+  tripId: string;
+}): Promise<TravelTripInviteCreateResult> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return {
+      ok: false,
+      reason: "FAILED",
+      message: "Supabase server configuration is missing.",
+    };
+  }
+
+  const tripRow = await readTripRowByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!tripRow) {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_FOUND",
+      message: "Trip was not found in current workspace.",
+    };
+  }
+
+  if (tripRow.status !== "active") {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_ACTIVE",
+      message: "Trip is not active. Reopen trip editing before creating new invite.",
+    };
+  }
+
+  const members = await readTripMembers(params.tripId);
+  if (!members) {
+    return {
+      ok: false,
+      reason: "FAILED",
+      message: "Failed to read trip participants.",
+    };
+  }
+
+  if (
+    !canManageTripInvites({
+      trip: tripRow,
+      members: members.map(toTripMemberPayload),
+      profileId: params.profileId,
+    })
+  ) {
+    return {
+      ok: false,
+      reason: "FORBIDDEN",
+      message: "Only organizer can create invite for this trip.",
+    };
+  }
+
+  const now = new Date();
+  const expiresAt = new Date(now);
+  expiresAt.setUTCDate(expiresAt.getUTCDate() + 7);
+
+  const activeInviteRows = await supabase
+    .from("travel_trip_invites")
+    .select("id")
+    .eq("trip_id", params.tripId)
+    .eq("invite_status", "active")
+    .returns<Array<{ id: string }>>();
+
+  if (activeInviteRows.error) {
+    return {
+      ok: false,
+      reason: "FAILED",
+      message: "Failed to cleanup previous active invite.",
+    };
+  }
+
+  if ((activeInviteRows.data ?? []).length > 0) {
+    const inviteIds = (activeInviteRows.data ?? []).map((row) => row.id);
+    const { error: revokeError } = await supabase
+      .from("travel_trip_invites")
+      .update({
+        invite_status: "revoked" satisfies TravelTripInviteStatus,
+        updated_at: now.toISOString(),
+      })
+      .in("id", inviteIds);
+
+    if (revokeError) {
+      return {
+        ok: false,
+        reason: "FAILED",
+        message: "Failed to revoke previous active invite.",
+      };
+    }
+  }
+
+  const inviteToken = `trip_${randomUUID().replace(/-/g, "")}`;
+  const { data: createdInvite, error: createInviteError } = await supabase
+    .from("travel_trip_invites")
+    .insert({
+      trip_id: params.tripId,
+      workspace_id: params.workspaceId,
+      invite_token: inviteToken,
+      created_by_profile_id: params.profileId,
+      invite_status: "active" satisfies TravelTripInviteStatus,
+      expires_at: expiresAt.toISOString(),
+      updated_at: now.toISOString(),
+    })
+    .select(inviteSelection)
+    .single<TravelTripInviteRow>();
+
+  if (createInviteError || !createdInvite) {
+    return {
+      ok: false,
+      reason: "FAILED",
+      message: "Failed to create trip invite.",
+    };
+  }
+
+  const trip = await getTravelTripByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!trip) {
+    return {
+      ok: false,
+      reason: "FAILED",
+      message: "Invite created, but trip refresh failed.",
+    };
+  }
+
+  return {
+    ok: true,
+    trip,
+    invite: toTripInvitePayload(createdInvite),
+  };
+};
+
+export const joinTravelTripByInvite = async (params: {
+  workspaceId: string;
+  inviteToken: string;
+  profile: {
+    id: string;
+    telegramUserId: string;
+    username: string | null;
+    firstName: string;
+  };
+}): Promise<TravelTripInviteJoinResult> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return {
+      ok: false,
+      reason: "FAILED",
+      message: "Supabase server configuration is missing.",
+    };
+  }
+
+  const invite = await readTripInviteByToken(params.inviteToken);
+  if (!invite) {
+    return {
+      ok: false,
+      reason: "INVITE_NOT_FOUND",
+      message: "Invite token was not found.",
+    };
+  }
+
+  if (invite.workspace_id !== params.workspaceId) {
+    return {
+      ok: false,
+      reason: "WORKSPACE_MISMATCH",
+      message:
+        "Invite belongs to another workspace. Switch workspace before joining this trip.",
+    };
+  }
+
+  if (invite.invite_status === "active" && isInviteExpired(invite.expires_at)) {
+    const expired = await updateTripInviteStatusById({
+      inviteId: invite.id,
+      nextStatus: "expired",
+    });
+    if (!expired) {
+      return {
+        ok: false,
+        reason: "FAILED",
+        message: "Failed to mark expired invite.",
+      };
+    }
+    return {
+      ok: false,
+      reason: "INVITE_EXPIRED",
+      message: "Invite has expired. Ask organizer for a new invite.",
+    };
+  }
+
+  if (invite.invite_status !== "active") {
+    if (
+      invite.invite_status === "accepted" &&
+      invite.accepted_by_profile_id === params.profile.id
+    ) {
+      const trip = await getTravelTripByWorkspaceAndId(
+        params.workspaceId,
+        invite.trip_id,
+      );
+      if (!trip) {
+        return {
+          ok: false,
+          reason: "FAILED",
+          message: "Invite was accepted, but trip refresh failed.",
+        };
+      }
+
+      const member =
+        trip.members.find((tripMember) => tripMember.profileId === params.profile.id) ??
+        (invite.accepted_member_id
+          ? trip.members.find((tripMember) => tripMember.id === invite.accepted_member_id)
+          : null);
+      if (!member) {
+        return {
+          ok: false,
+          reason: "FAILED",
+          message: "Invite was accepted, but linked participant is missing.",
+        };
+      }
+
+      return {
+        ok: true,
+        trip,
+        member,
+        invite: toTripInvitePayload(invite),
+      };
+    }
+
+    if (invite.invite_status === "expired") {
+      return {
+        ok: false,
+        reason: "INVITE_EXPIRED",
+        message: "Invite has expired. Ask organizer for a new invite.",
+      };
+    }
+
+    return {
+      ok: false,
+      reason: "INVITE_ALREADY_USED",
+      message: "Invite is already used. Ask organizer for a new active invite.",
+    };
+  }
+
+  const tripRow = await readTripRowByWorkspaceAndId(params.workspaceId, invite.trip_id);
+  if (!tripRow) {
+    return {
+      ok: false,
+      reason: "WORKSPACE_MISMATCH",
+      message: "Invite does not belong to current workspace.",
+    };
+  }
+
+  if (tripRow.status !== "active") {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_ACTIVE",
+      message: "Trip is not active. Organizer should reopen trip before new participants join.",
+    };
+  }
+
+  const memberRows = await readTripMembers(tripRow.id);
+  if (!memberRows) {
+    return {
+      ok: false,
+      reason: "FAILED",
+      message: "Failed to read trip participants.",
+    };
+  }
+
+  const memberPayloads = memberRows.map(toTripMemberPayload);
+  const normalizedTelegramUserId = params.profile.telegramUserId.trim();
+  const normalizedNameCandidates = new Set<string>(
+    [params.profile.firstName, params.profile.username ?? ""]
+      .map((value) => value.trim().toLowerCase())
+      .filter((value) => value.length > 0),
+  );
+
+  let targetMember =
+    memberPayloads.find((member) => member.profileId === params.profile.id) ?? null;
+  if (!targetMember && normalizedTelegramUserId) {
+    targetMember =
+      memberPayloads.find(
+        (member) =>
+          !member.profileId &&
+          (member.telegramUserId ?? "") === normalizedTelegramUserId,
+      ) ?? null;
+  }
+  if (!targetMember && normalizedNameCandidates.size > 0) {
+    const nameMatchedMembers = memberPayloads.filter(
+      (member) =>
+        !member.profileId &&
+        normalizedNameCandidates.has(member.displayName.trim().toLowerCase()),
+    );
+    if (nameMatchedMembers.length === 1) {
+      targetMember = nameMatchedMembers[0];
+    }
+  }
+
+  const now = new Date().toISOString();
+  let member: TravelTripMemberPayload | null = null;
+  if (targetMember) {
+    const { data: updatedMemberRow, error: updateMemberError } = await supabase
+      .from("travel_trip_members")
+      .update({
+        profile_id: params.profile.id,
+        telegram_user_id: normalizedTelegramUserId || null,
+        status: "active" satisfies TravelTripMemberStatus,
+        inactive_at: null,
+        updated_at: now,
+      })
+      .eq("trip_id", tripRow.id)
+      .eq("id", targetMember.id)
+      .select(memberSelection)
+      .single<TravelTripMemberRow>();
+
+    if (updateMemberError || !updatedMemberRow) {
+      return {
+        ok: false,
+        reason: "FAILED",
+        message: "Failed to link participant to current profile.",
+      };
+    }
+
+    member = toTripMemberPayload(updatedMemberRow);
+  } else {
+    const displayName = resolveParticipantDisplayNameFromProfile(params.profile);
+    const { data: createdMemberRow, error: createMemberError } = await supabase
+      .from("travel_trip_members")
+      .insert({
+        trip_id: tripRow.id,
+        profile_id: params.profile.id,
+        telegram_user_id: normalizedTelegramUserId || null,
+        display_name: displayName,
+        role: "participant" satisfies TravelTripMemberRole,
+        status: "active" satisfies TravelTripMemberStatus,
+        inactive_at: null,
+        updated_at: now,
+      })
+      .select(memberSelection)
+      .single<TravelTripMemberRow>();
+
+    if (createMemberError || !createdMemberRow) {
+      if (createMemberError?.code !== "23505") {
+        return {
+          ok: false,
+          reason: "FAILED",
+          message: "Failed to create participant for joined profile.",
+        };
+      }
+
+      const reloadedMembers = await readTripMembers(tripRow.id);
+      const existingLinked =
+        reloadedMembers
+          ?.map(toTripMemberPayload)
+          .find((tripMember) => tripMember.profileId === params.profile.id) ?? null;
+      if (!existingLinked) {
+        return {
+          ok: false,
+          reason: "FAILED",
+          message: "Participant linkage conflict detected and could not be recovered.",
+        };
+      }
+
+      member = existingLinked;
+    } else {
+      member = toTripMemberPayload(createdMemberRow);
+    }
+  }
+
+  if (!member) {
+    return {
+      ok: false,
+      reason: "FAILED",
+      message: "Joined participant could not be resolved.",
+    };
+  }
+
+  const { data: acceptedInviteRow, error: acceptError } = await supabase
+    .from("travel_trip_invites")
+    .update({
+      invite_status: "accepted" satisfies TravelTripInviteStatus,
+      accepted_by_profile_id: params.profile.id,
+      accepted_member_id: member.id,
+      accepted_at: now,
+      updated_at: now,
+    })
+    .eq("id", invite.id)
+    .eq("invite_status", "active")
+    .select(inviteSelection)
+    .maybeSingle<TravelTripInviteRow>();
+
+  if (acceptError) {
+    return {
+      ok: false,
+      reason: "FAILED",
+      message: "Failed to finalize invite join state.",
+    };
+  }
+
+  let invitePayload: TravelTripInvitePayload;
+  if (acceptedInviteRow) {
+    invitePayload = toTripInvitePayload(acceptedInviteRow);
+  } else {
+    const reloadedInvite = await readTripInviteByToken(params.inviteToken);
+    if (
+      !reloadedInvite ||
+      reloadedInvite.invite_status !== "accepted" ||
+      reloadedInvite.accepted_by_profile_id !== params.profile.id
+    ) {
+      return {
+        ok: false,
+        reason: "INVITE_ALREADY_USED",
+        message: "Invite is already used. Ask organizer for a new active invite.",
+      };
+    }
+
+    invitePayload = toTripInvitePayload(reloadedInvite);
+  }
+
+  await touchTripUpdatedAt(tripRow.id);
+
+  const trip = await getTravelTripByWorkspaceAndId(params.workspaceId, tripRow.id);
+  if (!trip) {
+    return {
+      ok: false,
+      reason: "FAILED",
+      message: "Invite accepted, but trip refresh failed.",
+    };
+  }
+
+  const refreshedMember =
+    trip.members.find((tripMember) => tripMember.profileId === params.profile.id) ??
+    trip.members.find((tripMember) => tripMember.id === member.id) ??
+    member;
+
+  return {
+    ok: true,
+    trip,
+    invite: invitePayload,
+    member: refreshedMember,
   };
 };
 
@@ -2850,4 +3586,3 @@ export const updateTravelSettlementItemStatusForTrip = async (params: {
     status: nextStatus,
   };
 };
-

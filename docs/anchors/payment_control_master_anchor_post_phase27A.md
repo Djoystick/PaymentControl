@@ -1,6 +1,6 @@
-# Payment Control - Master Anchor (Active, Post-28K Travel Archive Lifecycle)
+# Payment Control - Master Anchor (Active, Post-28M Shared Identity + Invite/Join)
 
-- Date: 2026-04-04
+- Date: 2026-04-05
 - Supersedes as active anchor:
   - `docs/anchors/payment_control_master_anchor_post_premium_removal.md`
 - Historical anchors (not active truth):
@@ -73,6 +73,8 @@ Domain reset and stabilization (completed):
 21. 28I - advanced debt optimization + settlement plan simplification.
 22. 28J - travel tab extraction + shell separation.
 23. 28K - travel archive + completion flow polish.
+24. 28L - travel collaboration + participant workflow.
+25. 28M - shared trip identity linking + invite/join flow.
 
 Release-line verification state:
 1. 27B-27G are accepted as verified release-line baseline.
@@ -124,12 +126,13 @@ Do not schedule as active roadmap:
 4. CloudTips/provider verification as unlock decision gate,
 5. storefront-style monetization expansion.
 
-## 8) Active roadmap direction after 28K
+## 8) Active roadmap direction after 28M
 
 Current active direction:
 1. keep Recurring and Travel as separate root scenarios in shell,
-2. continue travel-module maturity with full lifecycle clarity (active/completed/archived) without merging travel into recurring data model,
-3. preserve donation-only unrestricted truth and release-line invariants from 27H closure.
+2. keep travel-module participant identity clear (joined vs local, organizer vs participant, active vs inactive) with invite/join continuity inside shared workspace context,
+3. continue travel-module maturity without merging travel into recurring data model,
+4. preserve donation-only unrestricted truth and release-line invariants from 27H closure.
 
 ## 9) Monitoring list (minimal)
 

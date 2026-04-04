@@ -1,14 +1,16 @@
-﻿import type {
+import type {
   TravelCreateExpenseInput,
   TravelCreateReceiptDraftInput,
   TravelCreateTripMemberInput,
   TravelCreateTripInput,
+  TravelJoinTripByInviteInput,
   TravelManualSplitInput,
   TravelSplitMode,
   TravelTripMemberRole,
   TravelTripMemberStatus,
   TravelUpdateTripMemberInput,
-} from "@/lib/travel/types";
+} from "./types";
+import { normalizeTravelInviteToken } from "./invite-token";
 
 type ValidationOk<T> = {
   ok: true;
@@ -255,6 +257,26 @@ export const validateTravelCreateTripMemberInput = (
   };
 };
 
+export const validateTravelJoinTripInviteInput = (
+  body: Record<string, unknown>,
+): ValidationOk<TravelJoinTripByInviteInput> | ValidationError => {
+  const inviteTokenRaw =
+    typeof body.inviteToken === "string" ? body.inviteToken : "";
+  const inviteToken = normalizeTravelInviteToken(inviteTokenRaw);
+  if (!inviteToken) {
+    return {
+      ok: false,
+      message: "Invite token is empty or invalid.",
+    };
+  }
+
+  return {
+    ok: true,
+    data: {
+      inviteToken,
+    },
+  };
+};
 export const validateTravelUpdateTripMemberInput = (
   body: Record<string, unknown>,
 ): ValidationOk<TravelUpdateTripMemberInput> | ValidationError => {
@@ -518,3 +540,5 @@ export const validateTravelCreateReceiptDraftInput = (
     },
   };
 };
+
+

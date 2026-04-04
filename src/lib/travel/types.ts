@@ -12,6 +12,11 @@ export type TravelSplitMode =
 export type TravelTripStatus = "active" | "closing" | "closed" | "archived";
 export type TravelTripMemberRole = "organizer" | "participant";
 export type TravelTripMemberStatus = "active" | "inactive";
+export type TravelTripInviteStatus =
+  | "active"
+  | "accepted"
+  | "expired"
+  | "revoked";
 
 export type TravelSettlementItemStatus = "open" | "settled";
 export type TravelReceiptDraftStatus =
@@ -45,6 +50,21 @@ export type TravelTripMemberPayload = {
   role: TravelTripMemberRole;
   status: TravelTripMemberStatus;
   inactiveAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TravelTripInvitePayload = {
+  id: string;
+  tripId: string;
+  workspaceId: string;
+  inviteToken: string;
+  createdByProfileId: string | null;
+  inviteStatus: TravelTripInviteStatus;
+  expiresAt: string | null;
+  acceptedByProfileId: string | null;
+  acceptedMemberId: string | null;
+  acceptedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -200,6 +220,10 @@ export type TravelCreateTripMemberInput = {
   linkToCurrentProfile: boolean;
 };
 
+export type TravelJoinTripByInviteInput = {
+  inviteToken: string;
+};
+
 export type TravelUpdateTripMemberInput = {
   displayName: string | null;
   role: TravelTripMemberRole | null;
@@ -245,6 +269,12 @@ export type TravelScopeResolutionSuccess = {
   ok: true;
   workspace: WorkspaceSummaryPayload;
   profileId: string;
+  profile: {
+    id: string;
+    telegramUserId: string;
+    username: string | null;
+    firstName: string;
+  };
 };
 
 export type TravelScopeResolutionErrorCode =
@@ -281,6 +311,15 @@ export type TravelApiErrorCode =
   | "TRAVEL_MEMBER_NOT_FOUND"
   | "TRAVEL_MEMBER_CREATE_FAILED"
   | "TRAVEL_MEMBER_UPDATE_FAILED"
+  | "TRAVEL_INVITE_VALIDATION_FAILED"
+  | "TRAVEL_INVITE_FORBIDDEN"
+  | "TRAVEL_INVITE_NOT_FOUND"
+  | "TRAVEL_INVITE_EXPIRED"
+  | "TRAVEL_INVITE_ALREADY_USED"
+  | "TRAVEL_INVITE_WORKSPACE_MISMATCH"
+  | "TRAVEL_INVITE_CREATE_FAILED"
+  | "TRAVEL_INVITE_READ_FAILED"
+  | "TRAVEL_INVITE_JOIN_FAILED"
   | "TRAVEL_RECEIPT_VALIDATION_FAILED"
   | "TRAVEL_RECEIPT_CREATE_FAILED"
   | "TRAVEL_RECEIPT_NOT_FOUND"
@@ -384,6 +423,34 @@ export type TravelTripMemberMutateResponse =
       ok: true;
       workspace: WorkspaceSummaryPayload;
       trip: TravelTripPayload;
+      member: TravelTripMemberPayload;
+    }
+  | TravelApiError;
+
+export type TravelTripInviteMutateResponse =
+  | {
+      ok: true;
+      workspace: WorkspaceSummaryPayload;
+      trip: TravelTripPayload;
+      invite: TravelTripInvitePayload;
+    }
+  | TravelApiError;
+
+export type TravelTripInviteReadResponse =
+  | {
+      ok: true;
+      workspace: WorkspaceSummaryPayload;
+      trip: TravelTripPayload;
+      invite: TravelTripInvitePayload | null;
+    }
+  | TravelApiError;
+
+export type TravelTripInviteJoinResponse =
+  | {
+      ok: true;
+      workspace: WorkspaceSummaryPayload;
+      trip: TravelTripPayload;
+      invite: TravelTripInvitePayload;
       member: TravelTripMemberPayload;
     }
   | TravelApiError;

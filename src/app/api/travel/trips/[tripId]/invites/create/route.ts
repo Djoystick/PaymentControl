@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server";
 import { isSupabaseServerConfigured } from "@/lib/config/server-env";
 import { resolveTravelScope } from "@/lib/travel/context";
-import { createTravelTripMemberForTrip } from "@/lib/travel/repository";
-import { validateTravelCreateTripMemberInput } from "@/lib/travel/validation";
+import { createTravelTripInviteForTrip } from "@/lib/travel/repository";
 import type {
   TravelApiError,
-  TravelTripMemberMutateResponse,
+  TravelTripInviteMutateResponse,
 } from "@/lib/travel/types";
 
-type CreateTravelTripMemberBody = {
+type CreateTravelTripInviteBody = {
   initData?: string;
-  displayName?: unknown;
-  role?: unknown;
-  status?: unknown;
-  linkToCurrentProfile?: unknown;
 };
 
 type RouteContext = {
@@ -33,31 +28,17 @@ const codeToStatus: Partial<Record<TravelApiError["error"]["code"], number>> = {
   WORKSPACE_NOT_FOUND: 404,
   WORKSPACE_LIST_FAILED: 500,
   WORKSPACE_UNAVAILABLE: 409,
-  TRAVEL_TRIP_VALIDATION_FAILED: 400,
-  TRAVEL_TRIP_LIST_FAILED: 500,
-  TRAVEL_TRIP_CREATE_FAILED: 500,
   TRAVEL_TRIP_NOT_FOUND: 404,
   TRAVEL_TRIP_EDIT_LOCKED: 409,
-  TRAVEL_TRIP_CLOSURE_INVALID_STATE: 409,
-  TRAVEL_TRIP_CLOSURE_BLOCKED: 409,
-  TRAVEL_TRIP_CLOSURE_FAILED: 500,
-  TRAVEL_EXPENSE_VALIDATION_FAILED: 400,
-  TRAVEL_EXPENSE_CREATE_FAILED: 500,
-  TRAVEL_EXPENSE_UPDATE_FAILED: 500,
-  TRAVEL_EXPENSE_DELETE_FAILED: 500,
-  TRAVEL_MEMBER_VALIDATION_FAILED: 400,
-  TRAVEL_MEMBER_NOT_FOUND: 404,
-  TRAVEL_MEMBER_CREATE_FAILED: 500,
-  TRAVEL_MEMBER_UPDATE_FAILED: 500,
-  TRAVEL_SETTLEMENT_NOT_FOUND: 404,
-  TRAVEL_SETTLEMENT_UPDATE_FAILED: 500,
+  TRAVEL_INVITE_FORBIDDEN: 403,
+  TRAVEL_INVITE_CREATE_FAILED: 500,
 };
 
 const jsonError = (
   code: TravelApiError["error"]["code"],
   message: string,
 ) => {
-  return NextResponse.json<TravelTripMemberMutateResponse>(
+  return NextResponse.json<TravelTripInviteMutateResponse>(
     {
       ok: false,
       error: {
@@ -82,9 +63,9 @@ export async function POST(request: Request, context: RouteContext) {
     return jsonError("TRAVEL_TRIP_NOT_FOUND", "Trip id is required.");
   }
 
-  let body: CreateTravelTripMemberBody = {};
+  let body: CreateTravelTripInviteBody = {};
   try {
-    body = (await request.json()) as CreateTravelTripMemberBody;
+    body = (await request.json()) as CreateTravelTripInviteBody;
   } catch {
     body = {};
   }
@@ -94,23 +75,10 @@ export async function POST(request: Request, context: RouteContext) {
     return jsonError(scopeResult.error.code, scopeResult.error.message);
   }
 
-  const validationResult = validateTravelCreateTripMemberInput({
-    displayName: body.displayName,
-    role: body.role,
-    status: body.status,
-    linkToCurrentProfile: body.linkToCurrentProfile,
-  });
-
-  if (!validationResult.ok) {
-    return jsonError("TRAVEL_MEMBER_VALIDATION_FAILED", validationResult.message);
-  }
-
-  const createResult = await createTravelTripMemberForTrip({
+  const createResult = await createTravelTripInviteForTrip({
     workspaceId: scopeResult.workspace.id,
     profileId: scopeResult.profileId,
-    telegramUserId: scopeResult.profile.telegramUserId,
     tripId,
-    input: validationResult.data,
   });
 
   if (!createResult.ok) {
@@ -122,17 +90,17 @@ export async function POST(request: Request, context: RouteContext) {
       return jsonError("TRAVEL_TRIP_EDIT_LOCKED", createResult.message);
     }
 
-    if (createResult.reason === "VALIDATION_FAILED") {
-      return jsonError("TRAVEL_MEMBER_VALIDATION_FAILED", createResult.message);
+    if (createResult.reason === "FORBIDDEN") {
+      return jsonError("TRAVEL_INVITE_FORBIDDEN", createResult.message);
     }
 
-    return jsonError("TRAVEL_MEMBER_CREATE_FAILED", createResult.message);
+    return jsonError("TRAVEL_INVITE_CREATE_FAILED", createResult.message);
   }
 
-  return NextResponse.json<TravelTripMemberMutateResponse>({
+  return NextResponse.json<TravelTripInviteMutateResponse>({
     ok: true,
     workspace: scopeResult.workspace,
     trip: createResult.trip,
-    member: createResult.member,
+    invite: createResult.invite,
   });
 }

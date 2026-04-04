@@ -92,6 +92,7 @@ export async function POST(request: Request) {
   const trip = await createTravelTripForWorkspace({
     workspaceId: scopeResult.workspace.id,
     profileId: scopeResult.profileId,
+    telegramUserId: scopeResult.profile.telegramUserId,
     input: validationResult.data,
   });
 

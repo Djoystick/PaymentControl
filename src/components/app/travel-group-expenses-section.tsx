@@ -9,18 +9,21 @@ import {
   useRef,
   useState,
 } from "react";
-import type { WorkspaceSummaryPayload } from "@/lib/auth/types";
+import type { ProfilePayload, WorkspaceSummaryPayload } from "@/lib/auth/types";
 import { normalizeTravelExpenseAmount } from "@/lib/travel/currency";
 import {
   createTravelExpense,
+  createTravelTripInvite,
   createTravelTripMember,
   createTravelReceiptDraft,
   createTravelTrip,
   deleteTravelReceiptDraft,
   deleteTravelExpense,
+  joinTravelTripByInvite,
   listTravelTrips,
   mutateTravelTripClosure,
   parseTravelReceiptDraft,
+  readTravelTripInvite,
   readTravelTripDetail,
   replaceTravelReceiptDraftImage,
   updateTravelSettlementItemStatus,
@@ -28,6 +31,7 @@ import {
   updateTravelTripMember,
 } from "@/lib/travel/client";
 import type {
+  TravelTripInvitePayload,
   TravelReceiptDraftPayload,
   TravelSettlementTransferPayload,
   TravelSplitMode,
@@ -37,11 +41,13 @@ import type {
   TravelTripPayload,
   TravelTripSettlementItemPayload,
 } from "@/lib/travel/types";
+import { maskTravelInviteToken } from "@/lib/travel/invite-token";
 import { useLocalization } from "@/lib/i18n/localization";
 import { AppIcon } from "@/components/app/app-icon";
 
 type TravelGroupExpensesSectionProps = {
   workspace: WorkspaceSummaryPayload | null;
+  profile: ProfilePayload | null;
   initData: string;
 };
 
@@ -500,6 +506,7 @@ const createExpenseDraftFromReceiptSuggestion = (params: {
 
 export function TravelGroupExpensesSection({
   workspace,
+  profile,
   initData,
 }: TravelGroupExpensesSectionProps) {
   const { tr } = useLocalization();
@@ -535,6 +542,15 @@ export function TravelGroupExpensesSection({
   );
   const [isAddingMember, setIsAddingMember] = useState(false);
   const [isMutatingMemberId, setIsMutatingMemberId] = useState<string | null>(null);
+  const [isCreatingInvite, setIsCreatingInvite] = useState(false);
+  const [isLoadingInvite, setIsLoadingInvite] = useState(false);
+  const [isJoiningInvite, setIsJoiningInvite] = useState(false);
+  const [joinInviteTokenInput, setJoinInviteTokenInput] = useState("");
+  const [activeTripInvite, setActiveTripInvite] =
+    useState<TravelTripInvitePayload | null>(null);
+  const [inviteCopyState, setInviteCopyState] = useState<"idle" | "copied" | "failed">(
+    "idle",
+  );
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [allowCloseWithUnsettledConfirm, setAllowCloseWithUnsettledConfirm] =
     useState(false);
@@ -735,6 +751,41 @@ export function TravelGroupExpensesSection({
       return left.createdAt.localeCompare(right.createdAt);
     });
   }, [selectedTrip]);
+  const currentProfileMember = useMemo(() => {
+    if (!selectedTrip || !profile) {
+      return null;
+    }
+
+    return (
+      selectedTrip.members.find((member) => member.profileId === profile.id) ?? null
+    );
+  }, [profile, selectedTrip]);
+  const joinedTripMembers = useMemo(() => {
+    if (!selectedTrip) {
+      return [] as TravelTripMemberPayload[];
+    }
+
+    return selectedTrip.members.filter((member) => member.profileId !== null);
+  }, [selectedTrip]);
+  const localOnlyTripMembers = useMemo(() => {
+    if (!selectedTrip) {
+      return [] as TravelTripMemberPayload[];
+    }
+
+    return selectedTrip.members.filter((member) => member.profileId === null);
+  }, [selectedTrip]);
+  const canManageTripInvite = useMemo(() => {
+    if (!selectedTrip || !profile || selectedTrip.status !== "active") {
+      return false;
+    }
+
+    if (selectedTrip.createdByProfileId === profile.id) {
+      return true;
+    }
+
+    return currentProfileMember?.role === "organizer";
+  }, [currentProfileMember?.role, profile, selectedTrip]);
+  const selectedTripIdForInvite = selectedTrip?.id ?? null;
   const normalizedExpenseCurrency = expenseDraft.expenseCurrency.trim().toUpperCase();
   const isCrossCurrencyDraft =
     !!selectedTrip &&
@@ -1105,6 +1156,63 @@ export function TravelGroupExpensesSection({
   }, [selectedTripId, initData, workspaceUnavailable, tr]);
 
   useEffect(() => {
+    if (!selectedTripIdForInvite || !canManageTripInvite) {
+      setActiveTripInvite(null);
+      setIsLoadingInvite(false);
+      return;
+    }
+
+    let isCancelled = false;
+    const tripId = selectedTripIdForInvite;
+
+    const readInvite = async () => {
+      setIsLoadingInvite(true);
+      try {
+        const result = await readTravelTripInvite({
+          initData,
+          tripId,
+        });
+
+        if (isCancelled) {
+          return;
+        }
+
+        if (!result.ok) {
+          setActiveTripInvite(null);
+          setInviteCopyState("idle");
+          if (result.error.code !== "TRAVEL_INVITE_FORBIDDEN") {
+            setFeedbackTone("error");
+            setFeedback(result.error.message);
+          }
+          return;
+        }
+
+        setActiveTripInvite(result.invite);
+        setInviteCopyState("idle");
+        setSelectedTrip(result.trip);
+        setTrips((current) => mergeTripListWithDetail(current, result.trip));
+      } catch {
+        if (!isCancelled) {
+          setActiveTripInvite(null);
+          setInviteCopyState("idle");
+          setFeedbackTone("error");
+          setFeedback(tr("Failed to load trip invite status."));
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoadingInvite(false);
+        }
+      }
+    };
+
+    void readInvite();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [canManageTripInvite, initData, selectedTripIdForInvite, tr]);
+
+  useEffect(() => {
     if (!selectedTrip || selectedTrip.members.length === 0) {
       setEditingExpenseId(null);
       setEditingMemberId(null);
@@ -1116,6 +1224,8 @@ export function TravelGroupExpensesSection({
       setAllowArchiveTripConfirm(false);
       setAttachedReceiptDraftId(null);
       setPrefillReviewFields([]);
+      setActiveTripInvite(null);
+      setInviteCopyState("idle");
       setExpenseDraft(defaultExpenseDraft);
       return;
     }
@@ -2010,6 +2120,125 @@ export function TravelGroupExpensesSection({
     tr,
   ]);
 
+  const createTripInvite = useCallback(async () => {
+    if (
+      !selectedTrip ||
+      !canManageTripInvite ||
+      isCreatingInvite ||
+      isJoiningInvite ||
+      isLoadingInvite
+    ) {
+      return;
+    }
+
+    setFeedback(null);
+    setIsCreatingInvite(true);
+    setInviteCopyState("idle");
+    try {
+      const result = await createTravelTripInvite({
+        initData,
+        tripId: selectedTrip.id,
+      });
+
+      if (!result.ok) {
+        setFeedbackTone("error");
+        setFeedback(result.error.message);
+        return;
+      }
+
+      setSelectedTrip(result.trip);
+      setTrips((current) => mergeTripListWithDetail(current, result.trip));
+      setActiveTripInvite(result.invite);
+      setFeedbackTone("success");
+      setFeedback(tr("Trip invite is ready. Share token so participants can join this trip."));
+    } catch {
+      setFeedbackTone("error");
+      setFeedback(tr("Failed to create trip invite."));
+    } finally {
+      setIsCreatingInvite(false);
+    }
+  }, [
+    canManageTripInvite,
+    initData,
+    isCreatingInvite,
+    isJoiningInvite,
+    isLoadingInvite,
+    selectedTrip,
+    tr,
+  ]);
+
+  const copyTripInviteToken = useCallback(async () => {
+    if (!activeTripInvite) {
+      return;
+    }
+
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      setInviteCopyState("failed");
+      setFeedbackTone("error");
+      setFeedback(tr("Invite copy failed. Copy token manually."));
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(activeTripInvite.inviteToken);
+      setInviteCopyState("copied");
+      setFeedbackTone("success");
+      setFeedback(tr("Invite token copied."));
+    } catch {
+      setInviteCopyState("failed");
+      setFeedbackTone("error");
+      setFeedback(tr("Invite copy failed. Copy token manually."));
+    }
+  }, [activeTripInvite, tr]);
+
+  const joinTripViaInviteToken = useCallback(async () => {
+    if (workspaceUnavailable || isJoiningInvite) {
+      return;
+    }
+
+    const token = joinInviteTokenInput.trim();
+    if (!token) {
+      setFeedbackTone("error");
+      setFeedback(tr("Invite token is empty or invalid."));
+      return;
+    }
+
+    setFeedback(null);
+    setIsJoiningInvite(true);
+    try {
+      const result = await joinTravelTripByInvite({
+        initData,
+        inviteToken: token,
+      });
+
+      if (!result.ok) {
+        setFeedbackTone("error");
+        setFeedback(result.error.message);
+        return;
+      }
+
+      setJoinInviteTokenInput("");
+      setSelectedTrip(result.trip);
+      setSelectedTripId(result.trip.id);
+      setTrips((current) => mergeTripListWithDetail(current, result.trip));
+      setTripListFilter("active");
+      if (selectedTrip?.id === result.trip.id) {
+        setActiveTripInvite(result.invite);
+      }
+      setFeedbackTone("success");
+      setFeedback(
+        tr(
+          "Joined trip successfully. Participant is now linked to your profile in this workspace.",
+        ),
+      );
+    } catch {
+      setFeedbackTone("error");
+      setFeedback(tr("Failed to join trip by invite token."));
+    } finally {
+      setIsJoiningInvite(false);
+    }
+  }, [initData, isJoiningInvite, joinInviteTokenInput, selectedTrip?.id, tr, workspaceUnavailable]);
+
   const startMemberRename = useCallback((member: TravelTripMemberPayload) => {
     setEditingMemberId(member.id);
     setEditingMemberName(member.displayName);
@@ -2256,6 +2485,41 @@ export function TravelGroupExpensesSection({
 
       {!workspaceUnavailable && (
         <>
+          <div className="pc-surface pc-surface-soft">
+            <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+              <AppIcon name="workspace" className="h-3.5 w-3.5" />
+              {tr("Join shared trip")}
+            </p>
+            <p className="mt-1 text-[11px] text-app-text-muted">
+              {tr("Paste invite token from organizer and join trip in current workspace context.")}
+            </p>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+              <input
+                type="text"
+                value={joinInviteTokenInput}
+                onChange={(event) => setJoinInviteTokenInput(event.target.value)}
+                placeholder={tr("Trip invite token")}
+                className="pc-input"
+                maxLength={256}
+                disabled={isJoiningInvite || isTripsLoading || isTripLoading}
+              />
+              <button
+                type="button"
+                onClick={() => void joinTripViaInviteToken()}
+                disabled={
+                  isJoiningInvite ||
+                  isTripsLoading ||
+                  isTripLoading ||
+                  joinInviteTokenInput.trim().length === 0
+                }
+                className="pc-btn-secondary h-fit w-full sm:w-auto"
+              >
+                <AppIcon name="check" className="h-3.5 w-3.5" />
+                {isJoiningInvite ? tr("Joining...") : tr("Join trip")}
+              </button>
+            </div>
+          </div>
+
           <details className="pc-detail-surface" open={trips.length === 0}>
             <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               <AppIcon name="add" className="h-3.5 w-3.5" />
@@ -2515,7 +2779,11 @@ export function TravelGroupExpensesSection({
                       {member.displayName}
                       {member.role === "organizer" ? ` • ${tr("Organizer")}` : ""}
                       {member.status === "inactive" ? ` • ${tr("Inactive")}` : ""}
-                      {member.profileId ? ` • ${tr("Linked profile")}` : ""}
+                      {member.profileId === profile?.id
+                        ? ` • ${tr("You")}`
+                        : member.profileId
+                          ? ` • ${tr("Joined")}`
+                          : ` • ${tr("Local")}`}
                     </span>
                   ))}
                 </div>
@@ -2712,6 +2980,123 @@ export function TravelGroupExpensesSection({
                     {tr("Participant edits are available only while trip is active.")}
                   </p>
                 )}
+                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="pc-state-card px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase text-app-text-muted">
+                      {tr("Joined profiles")}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-app-text">
+                      {joinedTripMembers.length}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-app-text-muted">
+                      {tr("Local only")}: {localOnlyTripMembers.length}
+                    </p>
+                  </div>
+                  <div className="pc-state-card px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase text-app-text-muted">
+                      {tr("Current member")}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-app-text">
+                      {currentProfileMember
+                        ? currentProfileMember.displayName
+                        : tr("Not linked yet")}
+                    </p>
+                    <p className="mt-0.5 text-[11px] text-app-text-muted">
+                      {currentProfileMember
+                        ? tr("You are linked to this participant in trip context.")
+                        : tr("Join via invite or mark yourself in participant list.")}
+                    </p>
+                  </div>
+                </div>
+
+                {(canManageTripInvite || activeTripInvite !== null) && (
+                  <div className="mt-2 rounded-xl border border-app-border/70 bg-app-surface/65 px-3 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold text-app-text">
+                        {tr("Shared invite")}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => void createTripInvite()}
+                        disabled={
+                          !canManageTripInvite ||
+                          isCreatingInvite ||
+                          isJoiningInvite ||
+                          isLoadingInvite
+                        }
+                        className="pc-btn-secondary"
+                      >
+                        <AppIcon name="add" className="h-3.5 w-3.5" />
+                        {isCreatingInvite ? tr("Saving...") : tr("Create invite")}
+                      </button>
+                    </div>
+                    <p className="mt-1 text-[11px] text-app-text-muted">
+                      {tr("Organizer can share one active invite token. New invite revokes previous active token.")}
+                    </p>
+                    {isLoadingInvite && (
+                      <p className="mt-1 text-[11px] text-app-text-muted">
+                        {tr("Loading invite status...")}
+                      </p>
+                    )}
+                    {activeTripInvite ? (
+                      <div className="mt-2 space-y-1">
+                        <p className="text-xs font-semibold text-app-text">
+                          {tr("Invite token")}:{" "}
+                          <span className="font-mono text-[11px]">
+                            {maskTravelInviteToken(activeTripInvite.inviteToken)}
+                          </span>
+                        </p>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <span
+                            className={`pc-status-pill ${
+                              activeTripInvite.inviteStatus === "active"
+                                ? "pc-status-pill-success"
+                                : activeTripInvite.inviteStatus === "accepted"
+                                  ? "pc-status-pill-warning"
+                                  : "pc-status-pill-error"
+                            }`}
+                          >
+                            {tr(
+                              activeTripInvite.inviteStatus === "active"
+                                ? "Active"
+                                : activeTripInvite.inviteStatus === "accepted"
+                                  ? "Accepted"
+                                  : activeTripInvite.inviteStatus === "expired"
+                                    ? "Expired"
+                                    : "Revoked",
+                            )}
+                          </span>
+                          {activeTripInvite.expiresAt && (
+                            <span className="text-[11px] text-app-text-muted">
+                              {tr("Expires")}: {formatDateTime(activeTripInvite.expiresAt)}
+                            </span>
+                          )}
+                        </div>
+                        {activeTripInvite.inviteStatus === "active" && (
+                          <div className="mt-1 flex flex-wrap gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => void copyTripInviteToken()}
+                              className="pc-btn-secondary"
+                            >
+                              <AppIcon name="check" className="h-3.5 w-3.5" />
+                              {inviteCopyState === "copied"
+                                ? tr("Copied")
+                                : inviteCopyState === "failed"
+                                  ? tr("Copy failed")
+                                  : tr("Copy invite")}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="mt-1 text-[11px] text-app-text-muted">
+                        {tr("No invite yet. Create one when your group is ready to join this trip.")}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
                   <div className="space-y-1">
                     <p className="text-xs font-semibold text-app-text">
@@ -2781,8 +3166,14 @@ export function TravelGroupExpensesSection({
                             >
                               {member.status === "active" ? tr("Active") : tr("Inactive")}
                             </span>
-                            {member.profileId && (
-                              <span className="pc-status-pill">{tr("Linked profile")}</span>
+                            {member.profileId === profile?.id ? (
+                              <span className="pc-status-pill pc-status-pill-success">
+                                {tr("You")}
+                              </span>
+                            ) : member.profileId ? (
+                              <span className="pc-status-pill">{tr("Joined")}</span>
+                            ) : (
+                              <span className="pc-status-pill">{tr("Local")}</span>
                             )}
                           </div>
                         </div>

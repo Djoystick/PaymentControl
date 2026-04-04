@@ -531,7 +531,11 @@ function ProfileScenariosContent() {
 
   const travelScreen = (
     <div className="pc-screen-stack">
-      <TravelGroupExpensesSection workspace={workspace} initData={initData} />
+      <TravelGroupExpensesSection
+        workspace={workspace}
+        profile={profile}
+        initData={initData}
+      />
     </div>
   );
 

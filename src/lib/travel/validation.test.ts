@@ -4,8 +4,10 @@ import {
   validateTravelCreateExpenseInput,
   validateTravelCreateReceiptDraftInput,
   validateTravelCreateTripMemberInput,
+  validateTravelJoinTripInviteInput,
   validateTravelUpdateTripMemberInput,
 } from "./validation.ts";
+import { normalizeTravelInviteToken } from "./invite-token.ts";
 
 test("validateTravelCreateExpenseInput keeps optional receiptDraftId", () => {
   const result = validateTravelCreateExpenseInput({
@@ -91,4 +93,39 @@ test("validateTravelUpdateTripMemberInput accepts status update", () => {
   assert.equal(result.data.status, "inactive");
   assert.equal(result.data.displayName, null);
   assert.equal(result.data.role, null);
+});
+
+test("normalizeTravelInviteToken extracts token from direct value", () => {
+  assert.equal(
+    normalizeTravelInviteToken(" trip_abc123 "),
+    "trip_abc123",
+  );
+});
+
+test("normalizeTravelInviteToken extracts token from link", () => {
+  assert.equal(
+    normalizeTravelInviteToken("https://t.me/payment_control_bot?startapp=trip_az19z"),
+    "trip_az19z",
+  );
+});
+
+test("validateTravelJoinTripInviteInput accepts normalized token", () => {
+  const result = validateTravelJoinTripInviteInput({
+    inviteToken: "https://t.me/payment_control_bot?startapp=trip_1a2b3c",
+  });
+
+  assert.equal(result.ok, true);
+  if (!result.ok) {
+    return;
+  }
+
+  assert.equal(result.data.inviteToken, "trip_1a2b3c");
+});
+
+test("validateTravelJoinTripInviteInput rejects invalid token", () => {
+  const result = validateTravelJoinTripInviteInput({
+    inviteToken: "not-a-token",
+  });
+
+  assert.equal(result.ok, false);
 });

@@ -5,6 +5,9 @@ import type {
   TravelReceiptDraftMutateResponse,
   TravelExpenseDeleteResponse,
   TravelExpenseMutateResponse,
+  TravelTripInviteJoinResponse,
+  TravelTripInviteMutateResponse,
+  TravelTripInviteReadResponse,
   TravelSettlementMutateResponse,
   TravelTripMemberMutateResponse,
   TravelTripClosureMutateResponse,
@@ -226,6 +229,40 @@ export const updateTravelTripMember = async (params: {
   );
 
   return (await response.json()) as TravelTripMemberMutateResponse;
+};
+
+export const createTravelTripInvite = async (params: {
+  initData: string;
+  tripId: string;
+}): Promise<TravelTripInviteMutateResponse> => {
+  return postJson<TravelTripInviteMutateResponse>(
+    `/api/travel/trips/${params.tripId}/invites/create`,
+    {
+      initData: params.initData,
+    },
+  );
+};
+
+export const readTravelTripInvite = async (params: {
+  initData: string;
+  tripId: string;
+}): Promise<TravelTripInviteReadResponse> => {
+  return postJson<TravelTripInviteReadResponse>(
+    `/api/travel/trips/${params.tripId}/invites/current`,
+    {
+      initData: params.initData,
+    },
+  );
+};
+
+export const joinTravelTripByInvite = async (params: {
+  initData: string;
+  inviteToken: string;
+}): Promise<TravelTripInviteJoinResponse> => {
+  return postJson<TravelTripInviteJoinResponse>("/api/travel/trips/invites/join", {
+    initData: params.initData,
+    inviteToken: params.inviteToken,
+  });
 };
 
 export const updateTravelSettlementItemStatus = async (params: {

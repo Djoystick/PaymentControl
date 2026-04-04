@@ -28,5 +28,11 @@ export const resolveTravelScope = async (
     ok: true,
     workspace: contextResult.workspace,
     profileId: contextResult.profile.id,
+    profile: {
+      id: contextResult.profile.id,
+      telegramUserId: contextResult.profile.telegramUserId,
+      username: contextResult.profile.username,
+      firstName: contextResult.profile.firstName,
+    },
   };
 };
