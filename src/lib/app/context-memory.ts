@@ -19,9 +19,7 @@ export type RuntimeContextSnapshot = {
 };
 
 export type RemindersContextSnapshot = {
-  paymentListView: "payments" | "subscriptions";
   reminderFocusFilter: "all" | "action_now" | "upcoming" | "paid";
-  showPausedSubscriptionsOnly: boolean;
   entryFlowContextReason: string | null;
   updatedAt: string;
 };
@@ -184,10 +182,6 @@ const normalizeRemindersSnapshot = (
     return null;
   }
 
-  const paymentListView =
-    value.paymentListView === "payments" || value.paymentListView === "subscriptions"
-      ? value.paymentListView
-      : null;
   const reminderFocusFilter =
     value.reminderFocusFilter === "all" ||
     value.reminderFocusFilter === "action_now" ||
@@ -195,14 +189,11 @@ const normalizeRemindersSnapshot = (
     value.reminderFocusFilter === "paid"
       ? value.reminderFocusFilter
       : null;
-  if (!paymentListView || !reminderFocusFilter) {
+  if (!reminderFocusFilter) {
     return null;
   }
 
-  if (
-    typeof value.showPausedSubscriptionsOnly !== "boolean" ||
-    !isFreshIsoTimestamp(value.updatedAt, maxAgeMs)
-  ) {
+  if (!isFreshIsoTimestamp(value.updatedAt, maxAgeMs)) {
     return null;
   }
 
@@ -212,9 +203,7 @@ const normalizeRemindersSnapshot = (
       : normalizeOptionalText(value.entryFlowContextReason) ?? null;
 
   return {
-    paymentListView,
     reminderFocusFilter,
-    showPausedSubscriptionsOnly: value.showPausedSubscriptionsOnly,
     entryFlowContextReason,
     updatedAt: value.updatedAt,
   };

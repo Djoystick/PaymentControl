@@ -88,9 +88,7 @@ test("context-memory: stale reminders/history contexts are ignored by TTL", () =
     JSON.stringify({
       remindersByWorkspace: {
         "workspace-a": {
-          paymentListView: "payments",
           reminderFocusFilter: "action_now",
-          showPausedSubscriptionsOnly: false,
           entryFlowContextReason: "Old focus",
           updatedAt: staleIso,
         },
@@ -115,9 +113,7 @@ test("context-memory: clearAllContextMemory removes persisted store", () => {
   const storage = installWindowWithStorage();
 
   writeRemindersContextSnapshot("workspace-a", {
-    paymentListView: "payments",
     reminderFocusFilter: "all",
-    showPausedSubscriptionsOnly: false,
     entryFlowContextReason: "Test reminders context.",
   });
   writeHistoryContextSnapshot("workspace-a", {
@@ -131,4 +127,3 @@ test("context-memory: clearAllContextMemory removes persisted store", () => {
 
   clearWindow();
 });
-

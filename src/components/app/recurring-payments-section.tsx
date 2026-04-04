@@ -72,7 +72,6 @@ type PaymentFormState = {
 };
 
 type TemplateScenario = "personal" | "family";
-type PaymentListView = "payments" | "subscriptions";
 type ReminderFocusFilter = "all" | "action_now" | "upcoming" | "paid";
 type FeedbackTone = "info" | "success" | "error";
 type RemindersGuidanceKind =
@@ -288,25 +287,11 @@ const isCycleToggleDisabled = (
   return payment.isSubscription && payment.isPaused;
 };
 
-const WEEKLY_TO_MONTHLY_FACTOR = 52 / 12;
-
 const toUtcDateKey = (date: Date): string => {
   const year = date.getUTCFullYear();
   const month = String(date.getUTCMonth() + 1).padStart(2, "0");
   const day = String(date.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-};
-
-const formatCurrencyTotals = (
-  totals: Array<{ currency: string; total: number }>,
-): string => {
-  if (totals.length === 0) {
-    return "0";
-  }
-
-  return totals
-    .map((item) => `${item.total.toFixed(2)} ${item.currency}`)
-    .join(" | ");
 };
 
 export function RecurringPaymentsSection({
@@ -334,10 +319,8 @@ export function RecurringPaymentsSection({
   });
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [pendingDeletePaymentId, setPendingDeletePaymentId] = useState<string | null>(null);
-  const [paymentListView, setPaymentListView] = useState<PaymentListView>("payments");
   const [reminderFocusFilter, setReminderFocusFilter] =
     useState<ReminderFocusFilter>("all");
-  const [showPausedSubscriptionsOnly, setShowPausedSubscriptionsOnly] = useState(false);
   const [isComposerExpanded, setIsComposerExpanded] = useState(false);
   const [isAdvancedFormExpanded, setIsAdvancedFormExpanded] = useState(false);
   const [isTemplateSuggestionsOpen, setIsTemplateSuggestionsOpen] = useState(true);
@@ -352,65 +335,6 @@ export function RecurringPaymentsSection({
   const [form, setForm] = useState<PaymentFormState>(createDefaultForm);
   const [isDiscardConfirmOpen, setIsDiscardConfirmOpen] = useState(false);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
-
-  const subscriptionSummary = useMemo(() => {
-    const activeSubscriptions = payments.filter(
-      (payment) =>
-        payment.status === "active" && payment.isSubscription && !payment.isPaused,
-    );
-    const unpaidSubscriptionsCount = activeSubscriptions.filter(
-      (payment) => payment.currentCycle.state === "unpaid",
-    ).length;
-
-    const totalsByCurrency = new Map<string, number>();
-    for (const payment of activeSubscriptions) {
-      const monthlyAmount =
-        payment.cadence === "weekly"
-          ? payment.amount * WEEKLY_TO_MONTHLY_FACTOR
-          : payment.amount;
-      const current = totalsByCurrency.get(payment.currency) ?? 0;
-      totalsByCurrency.set(payment.currency, current + monthlyAmount);
-    }
-
-    return {
-      activeSubscriptionsCount: activeSubscriptions.length,
-      unpaidSubscriptionsCount,
-      monthlyTotalsByCurrency: Array.from(totalsByCurrency.entries())
-        .map(([currency, total]) => ({ currency, total }))
-        .sort((a, b) => a.currency.localeCompare(b.currency)),
-    };
-  }, [payments]);
-
-  const pausedSubscriptions = useMemo(() => {
-    return payments
-      .filter(
-        (payment) =>
-          payment.status === "active" && payment.isSubscription && payment.isPaused,
-      )
-      .sort((a, b) => {
-        if (a.updatedAt !== b.updatedAt) {
-          return b.updatedAt.localeCompare(a.updatedAt);
-        }
-
-        return a.title.localeCompare(b.title);
-      });
-  }, [payments]);
-
-  const pausedSubscriptionSavings = useMemo(() => {
-    const totalsByCurrency = new Map<string, number>();
-    for (const payment of pausedSubscriptions) {
-      const monthlyAmount =
-        payment.cadence === "weekly"
-          ? payment.amount * WEEKLY_TO_MONTHLY_FACTOR
-          : payment.amount;
-      const current = totalsByCurrency.get(payment.currency) ?? 0;
-      totalsByCurrency.set(payment.currency, current + monthlyAmount);
-    }
-
-    return Array.from(totalsByCurrency.entries())
-      .map(([currency, total]) => ({ currency, total }))
-      .sort((a, b) => a.currency.localeCompare(b.currency));
-  }, [pausedSubscriptions]);
 
   const isFamilyWorkspace = workspace?.kind === "family";
   const activeTemplateScenario: TemplateScenario = isFamilyWorkspace
@@ -490,19 +414,7 @@ export function RecurringPaymentsSection({
     [payments],
   );
 
-  const visiblePayments = useMemo(() => {
-    if (paymentListView === "subscriptions" && showPausedSubscriptionsOnly) {
-      return activePayments.filter(
-        (payment) => payment.isSubscription && payment.isPaused,
-      );
-    }
-
-    if (paymentListView === "subscriptions") {
-      return activePayments.filter((payment) => payment.isSubscription);
-    }
-
-    return activePayments.filter((payment) => !payment.isSubscription);
-  }, [activePayments, paymentListView, showPausedSubscriptionsOnly]);
+  const visiblePayments = activePayments;
 
   const todayDateKey = toUtcDateKey(new Date());
 
@@ -635,10 +547,6 @@ export function RecurringPaymentsSection({
     return sortedVisiblePayments.filter((entry) => entry.isPaidCurrentCycle);
   }, [reminderFocusFilter, sortedVisiblePayments]);
 
-  const paymentsCount = useMemo(
-    () => activePayments.filter((payment) => !payment.isSubscription).length,
-    [activePayments],
-  );
   const subscriptionsCount = useMemo(
     () => activePayments.filter((payment) => payment.isSubscription).length,
     [activePayments],
@@ -845,10 +753,6 @@ export function RecurringPaymentsSection({
       // Ignore storage write failures and keep in-memory templates.
     }
   }, [customTemplatesByScenario]);
-
-  useEffect(() => {
-    setShowPausedSubscriptionsOnly(false);
-  }, [paymentListView]);
 
   const resetFormDraft = useCallback(() => {
     const defaultForm = createDefaultForm();
@@ -1194,8 +1098,6 @@ export function RecurringPaymentsSection({
     (intent: ReminderNavigationIntent, reason?: string) => {
       setLastNavigationIntent(intent);
       setIsRestoredContext(false);
-      setPaymentListView("payments");
-      setShowPausedSubscriptionsOnly(false);
 
       if (intent === "reminders_add_payment") {
         setReminderFocusFilter("all");
@@ -1223,7 +1125,9 @@ export function RecurringPaymentsSection({
       }
 
       setReminderFocusFilter("all");
-      setEntryFlowContextReason(reason ?? "Continue from Home in reminders list.");
+      setEntryFlowContextReason(
+        reason ?? "Opened recurring expenses slice: full list.",
+      );
     },
     [openComposer],
   );
@@ -1258,8 +1162,6 @@ export function RecurringPaymentsSection({
 
     const restoredContext = readRemindersContextSnapshot(activeWorkspaceId);
     if (restoredContext) {
-      setPaymentListView(restoredContext.paymentListView);
-      setShowPausedSubscriptionsOnly(restoredContext.showPausedSubscriptionsOnly);
       setReminderFocusFilter(restoredContext.reminderFocusFilter);
       setEntryFlowContextReason(
         restoredContext.entryFlowContextReason ??
@@ -1285,9 +1187,7 @@ export function RecurringPaymentsSection({
     }
 
     writeRemindersContextSnapshot(activeWorkspaceId, {
-      paymentListView,
       reminderFocusFilter,
-      showPausedSubscriptionsOnly,
       entryFlowContextReason,
     });
 
@@ -1310,9 +1210,7 @@ export function RecurringPaymentsSection({
     entryFlowContextReason,
     isComposerExpanded,
     isContextHydrated,
-    paymentListView,
     reminderFocusFilter,
-    showPausedSubscriptionsOnly,
     workspaceUnavailable,
   ]);
 
@@ -1356,8 +1254,6 @@ export function RecurringPaymentsSection({
   }, [closeComposerImmediately]);
 
   const startCleanRemindersSession = useCallback(() => {
-    setPaymentListView("payments");
-    setShowPausedSubscriptionsOnly(false);
     setReminderFocusFilter("all");
     setEntryFlowContextReason(null);
     setIsRestoredContext(false);
@@ -2071,8 +1967,6 @@ export function RecurringPaymentsSection({
               <button
                 type="button"
                 onClick={() => {
-                  setPaymentListView("payments");
-                  setShowPausedSubscriptionsOnly(false);
                   setReminderFocusFilter((current) =>
                     current === "action_now" ? "all" : "action_now",
                   );
@@ -2093,8 +1987,6 @@ export function RecurringPaymentsSection({
               <button
                 type="button"
                 onClick={() => {
-                  setPaymentListView("payments");
-                  setShowPausedSubscriptionsOnly(false);
                   setReminderFocusFilter((current) =>
                     current === "upcoming" ? "all" : "upcoming",
                   );
@@ -2174,116 +2066,23 @@ export function RecurringPaymentsSection({
             </div>
           )}
 
-          {activePayments.length > 0 && paymentListView === "subscriptions" && (
-            <details className="pc-detail-surface mt-2">
-              <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                <AppIcon name="subscriptions" className="h-3.5 w-3.5" />
-                {tr("Subscription insights - active {active}, unpaid {unpaid}", {
-                  active: subscriptionSummary.activeSubscriptionsCount,
-                  unpaid: subscriptionSummary.unpaidSubscriptionsCount,
-                })}
-              </summary>
-              <div className="mt-2 space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="pc-state-card p-2">
-                    <p className="text-[11px] text-app-text-muted">{tr("Active")}</p>
-                    <p className="text-sm font-semibold text-app-text">
-                      {subscriptionSummary.activeSubscriptionsCount}
-                    </p>
-                  </div>
-                  <div className="pc-state-card p-2">
-                    <p className="text-[11px] text-app-text-muted">{tr("Unpaid this cycle")}</p>
-                    <p className="text-sm font-semibold text-app-text">
-                      {subscriptionSummary.unpaidSubscriptionsCount}
-                    </p>
-                  </div>
-                  <div className="pc-state-card p-2">
-                    <p className="text-[11px] text-app-text-muted">{tr("Paused now")}</p>
-                    <p className="text-sm font-semibold text-app-text">
-                      {pausedSubscriptions.length}
-                    </p>
-                  </div>
-                  <div className="pc-state-card p-2">
-                    <p className="text-[11px] text-app-text-muted">{tr("Monthly payment cost")}</p>
-                    <p className="text-sm font-semibold text-app-text">
-                      {formatCurrencyTotals(subscriptionSummary.monthlyTotalsByCurrency)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowPausedSubscriptionsOnly((current) => !current)}
-                    className="pc-btn-secondary min-h-9 py-1 text-xs"
-                  >
-                    <AppIcon name="subscriptions" className="h-3.5 w-3.5" />
-                    {showPausedSubscriptionsOnly
-                      ? tr("Show all payments")
-                      : tr("Show paused subscriptions")}
-                  </button>
-                  {pausedSubscriptions.length > 0 && (
-                    <p className="text-xs text-app-text-muted">
-                      {tr("Monthly savings/load relief (weekly uses 52/12 monthly equivalent, grouped by currency):")}{" "}
-                      <span className="font-semibold text-app-text">
-                        {formatCurrencyTotals(pausedSubscriptionSavings)}
-                      </span>
-                    </p>
-                  )}
-                </div>
-              </div>
-          </details>
-          )}
-
           {activePayments.length > 0 && (
             <div className="pc-detail-surface mt-2">
-              <div className="pc-segmented">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPaymentListView("payments");
-                    setEntryFlowContextReason(null);
-                    setReminderFocusFilter("all");
-                    setIsRestoredContext(false);
-                    setLastNavigationIntent(null);
-                  }}
-                  aria-pressed={paymentListView === "payments"}
-                  className={`pc-segment-btn min-h-9 ${
-                    paymentListView === "payments"
-                      ? "pc-segment-btn-active"
-                      : ""
-                  }`}
-                >
-                  <AppIcon name="payments" className="h-3.5 w-3.5" />
-                  {tr("Payments")} ({paymentsCount})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPaymentListView("subscriptions");
-                    setEntryFlowContextReason(null);
-                    setReminderFocusFilter("all");
-                    setIsRestoredContext(false);
-                    setLastNavigationIntent(null);
-                  }}
-                  aria-pressed={paymentListView === "subscriptions"}
-                  className={`pc-segment-btn min-h-9 ${
-                    paymentListView === "subscriptions"
-                      ? "pc-segment-btn-active"
-                      : ""
-                  }`}
-                >
-                  <AppIcon name="subscriptions" className="h-3.5 w-3.5" />
-                  {tr("Subscriptions")} ({subscriptionsCount})
-                </button>
-              </div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-app-text-muted">
+                {tr("Recurring expenses list")}
+              </p>
               <p className="mt-1 text-[11px] text-app-text-muted">
-                {tr("Showing {visible} of {inList} cards ({total} active total).", {
+                {tr("Showing {visible} of {total} recurring cards.", {
                   visible: focusedVisiblePayments.length,
-                  inList: visiblePayments.length,
                   total: activePayments.length,
                 })}
               </p>
+              {subscriptionsCount > 0 && (
+                <p className="mt-1 text-[11px] text-app-text-muted">
+                  {tr("Subscription type stays as a secondary card label.")}{" "}
+                  {tr("Subscriptions")}: {subscriptionsCount}
+                </p>
+              )}
               <div className="mt-1.5">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-app-text-muted">
                   {tr("Focus")}
@@ -2365,11 +2164,7 @@ export function RecurringPaymentsSection({
             )}
             {!isLoading && activePayments.length > 0 && visiblePayments.length === 0 && (
               <p className="pc-empty-state text-sm">
-                {showPausedSubscriptionsOnly
-                  ? tr("No paused subscriptions found for the current filter.")
-                  : paymentListView === "subscriptions"
-                    ? tr("No subscription payments found for the current filter.")
-                    : tr("No regular payments found for the current filter.")}
+                {tr("No recurring expenses found for the current filter.")}
               </p>
             )}
             {!isLoading && visiblePayments.length > 0 && focusedVisiblePayments.length === 0 && (

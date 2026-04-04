@@ -278,7 +278,7 @@ export function PaymentsDashboardSection({
                           tab: "reminders",
                           intent: "reminders_all",
                           sourceTab: "home",
-                          reason: "Open full reminders list from Home snapshot.",
+                          reason: "Open recurring expenses slice from Home snapshot.",
                           workspaceId: navigationWorkspaceId,
                         })
                       }
@@ -389,6 +389,30 @@ export function PaymentsDashboardSection({
                     >
                       <AppIcon name="history" className="h-3.5 w-3.5" />
                       {tr("Open History updates")}
+                    </button>
+                  </div>
+
+                  <div className="pc-state-card mt-2 px-3 py-2">
+                    <p className="text-xs font-semibold text-app-text">
+                      {tr("Need to cancel a subscription?")}
+                    </p>
+                    <p className="mt-1 text-xs text-app-text-muted">
+                      {tr("Open official cancellation guides in Profile.")}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigateToTab({
+                          tab: "profile",
+                          sourceTab: "home",
+                          reason: "Open official cancellation guides from Home helper.",
+                          workspaceId: navigationWorkspaceId,
+                        })
+                      }
+                      className="pc-btn-quiet mt-2"
+                    >
+                      <AppIcon name="help" className="h-3.5 w-3.5" />
+                      {tr("Open cancellation guides")}
                     </button>
                   </div>
                 </div>

@@ -31,6 +31,10 @@ import { AppIcon } from "@/components/app/app-icon";
 import { clientEnv } from "@/lib/config/client-env";
 import { ThemeProvider, useTheme } from "@/lib/theme/theme-context";
 import { buildBugReportRuntimeContextPayload } from "@/lib/app/context-memory";
+import {
+  getLocalizedGuideText,
+  subscriptionCancellationGuidesCatalog,
+} from "@/lib/subscription-guides/catalog";
 
 const inviteStatusLabels: Record<FamilyWorkspaceInviteStatus, string> = {
   active: "Active",
@@ -129,6 +133,9 @@ function ProfileScenariosContent() {
   const [isOnboardingFlagCompleted, setIsOnboardingFlagCompleted] = useState<
     boolean | null
   >(() => readOnboardingFlagState());
+  const [selectedCancellationGuideId, setSelectedCancellationGuideId] = useState(
+    subscriptionCancellationGuidesCatalog[0]?.id ?? "",
+  );
 
   const sourceLabel = useMemo(() => {
     if (source === "telegram") {
@@ -153,6 +160,17 @@ function ProfileScenariosContent() {
   );
   const supportRails = clientEnv.supportRails;
   const configuredSupportRails = supportRails.filter((rail) => rail.isConfigured);
+  const selectedCancellationGuide = useMemo(() => {
+    if (subscriptionCancellationGuidesCatalog.length === 0) {
+      return null;
+    }
+
+    return (
+      subscriptionCancellationGuidesCatalog.find(
+        (guide) => guide.id === selectedCancellationGuideId,
+      ) ?? subscriptionCancellationGuidesCatalog[0]
+    );
+  }, [selectedCancellationGuideId]);
 
   useEffect(() => {
     const syncOnboardingFlagState = () => {
@@ -715,6 +733,150 @@ function ProfileScenariosContent() {
             </p>
           )}
         </form>
+      </details>
+      <details className="pc-surface pc-surface-soft">
+        <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+          <AppIcon name="help" className="h-3.5 w-3.5" />
+          {tr("How to cancel subscriptions")}
+        </summary>
+        <p className="mt-2 text-xs text-app-text-muted">
+          {tr(
+            "Official instructions from service help centers. Cancellation path may depend on where subscription was activated.",
+          )}
+        </p>
+        {selectedCancellationGuide ? (
+          <div className="mt-2 space-y-2">
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-app-text">{tr("Service")}</p>
+              <select
+                value={selectedCancellationGuide.id}
+                onChange={(event) => setSelectedCancellationGuideId(event.target.value)}
+                className="pc-select"
+              >
+                {subscriptionCancellationGuidesCatalog.map((guide) => (
+                  <option key={guide.id} value={guide.id}>
+                    {getLocalizedGuideText(guide.serviceName, language)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="pc-state-card px-3 py-2">
+              <p className="text-sm font-semibold text-app-text">
+                {getLocalizedGuideText(selectedCancellationGuide.serviceName, language)}
+              </p>
+              <p className="mt-1 text-xs text-app-text-muted">
+                {getLocalizedGuideText(selectedCancellationGuide.category, language)} -{" "}
+                {getLocalizedGuideText(
+                  selectedCancellationGuide.shortDescription,
+                  language,
+                )}
+              </p>
+              <p className="mt-1 text-[11px] text-app-text-muted">
+                {tr("Verified on {date}", { date: selectedCancellationGuide.verifiedOn })}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                {tr("Steps")}
+              </p>
+              <ol className="mt-1.5 space-y-1.5">
+                {selectedCancellationGuide.steps.map((step, index) => (
+                  <li
+                    key={`${selectedCancellationGuide.id}-step-${index}`}
+                    className="pc-state-card px-3 py-2 text-xs text-app-text"
+                  >
+                    {getLocalizedGuideText(step, language)}
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            {selectedCancellationGuide.importantNotes.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                  {tr("Important notes")}
+                </p>
+                <ul className="mt-1.5 space-y-1.5">
+                  {selectedCancellationGuide.importantNotes.map((note, index) => (
+                    <li
+                      key={`${selectedCancellationGuide.id}-note-${index}`}
+                      className="pc-state-card px-3 py-2 text-xs text-app-text-muted"
+                    >
+                      {getLocalizedGuideText(note, language)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {selectedCancellationGuide.channelCaveats.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                  {tr("Channel-specific notes")}
+                </p>
+                <div className="mt-1.5 space-y-1.5">
+                  {selectedCancellationGuide.channelCaveats.map((caveat) => (
+                    <div key={caveat.id} className="pc-state-card px-3 py-2 text-xs text-app-text">
+                      <p className="font-semibold">
+                        {getLocalizedGuideText(caveat.title, language)}
+                      </p>
+                      <p className="mt-1 text-app-text-muted">
+                        {getLocalizedGuideText(caveat.note, language)}
+                      </p>
+                      {caveat.sources && caveat.sources.length > 0 && (
+                        <ul className="mt-1.5 space-y-1">
+                          {caveat.sources.map((source) => (
+                            <li key={source.url}>
+                              <a
+                                href={source.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-app-accent underline-offset-2 hover:underline"
+                              >
+                                {getLocalizedGuideText(source.label, language)}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                {tr("Official sources")}
+              </p>
+              <ul className="mt-1.5 space-y-1.5">
+                {selectedCancellationGuide.officialSources.map((source) => (
+                  <li key={source.url}>
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="pc-state-card block px-3 py-2 text-xs text-app-text hover:bg-app-surface-soft"
+                    >
+                      <span className="font-semibold">
+                        {getLocalizedGuideText(source.label, language)}
+                      </span>
+                      <span className="mt-1 block break-all text-app-text-muted">
+                        {source.url}
+                      </span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-2 text-xs text-app-text-muted">
+            {tr("No official cancellation guides are available yet.")}
+          </p>
+        )}
       </details>
       {canManageSupporters && (
         <details className="pc-surface pc-surface-soft">

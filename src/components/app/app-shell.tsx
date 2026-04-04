@@ -319,6 +319,7 @@ const onboardingSteps: OnboardingStep[] = [
     bullets: [
       "Use Profile for workspace, language, and family setup.",
       "Use one-time family invites: generate, share, then generate again later.",
+      "Need to stop a popular subscription? Open official cancellation guides in Profile.",
       "Use ? help on each screen when details are needed.",
     ],
   },

@@ -63,16 +63,7 @@ export const formatBugReportRuntimeContextLines = (value: unknown): string[] => 
   const reminders = isRecord(value.reminders) ? value.reminders : null;
   if (reminders) {
     appendCompactLine(lines, "Reminders", [
-      ["view", normalizeCompactValue(reminders.paymentListView)],
       ["focus", normalizeCompactValue(reminders.reminderFocusFilter)],
-      [
-        "pausedOnly",
-        typeof reminders.showPausedSubscriptionsOnly === "boolean"
-          ? reminders.showPausedSubscriptionsOnly
-            ? "on"
-            : "off"
-          : null,
-      ],
       ["reason", normalizeReason(reminders.entryFlowContextReason)],
       ["at", normalizeCompactValue(reminders.updatedAt)],
     ]);
@@ -94,4 +85,3 @@ export const formatBugReportRuntimeContextLines = (value: unknown): string[] => 
 
   return lines.slice(0, 4);
 };
-

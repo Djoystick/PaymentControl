@@ -18,9 +18,7 @@ test("formatBugReportRuntimeContextLines: builds compact stable lines", () => {
       updatedAt: "2026-04-04T11:59:00.000Z",
     },
     reminders: {
-      paymentListView: "payments",
       reminderFocusFilter: "action_now",
-      showPausedSubscriptionsOnly: false,
       entryFlowContextReason: "Focused on action-now cards for this session.",
       updatedAt: "2026-04-04T11:59:20.000Z",
     },
@@ -38,7 +36,7 @@ test("formatBugReportRuntimeContextLines: builds compact stable lines", () => {
   );
   assert.equal(
     lines[1],
-    "Reminders: view=payments | focus=action_now | pausedOnly=off | reason=Focused on action-now cards for this session. | at=2026-04-04T11:59:20.000Z",
+    "Reminders: focus=action_now | reason=Focused on action-now cards for this session. | at=2026-04-04T11:59:20.000Z",
   );
   assert.equal(
     lines[2],
@@ -59,4 +57,3 @@ test("formatBugReportRuntimeContextLines: clamps verbose reasons", () => {
   assert.ok(runtimeLine.startsWith("Runtime: tab=home | reason="));
   assert.ok(runtimeLine.length < 240);
 });
-
