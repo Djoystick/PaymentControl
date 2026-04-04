@@ -1,5 +1,6 @@
 ﻿import type {
   TravelCreateExpenseInput,
+  TravelCreateReceiptDraftInput,
   TravelCreateTripInput,
   TravelManualSplitInput,
   TravelSplitMode,
@@ -35,6 +36,19 @@ const normalizeAmount = (value: unknown): number | null => {
   }
 
   return Number(numeric.toFixed(2));
+};
+
+const normalizeConversionRate = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return null;
+  }
+
+  return Number(numeric.toFixed(6));
 };
 
 const normalizeStringArray = (value: unknown): string[] => {
@@ -125,6 +139,23 @@ const normalizeSpentAt = (value: unknown): string | null => {
   return parsed.toISOString();
 };
 
+const normalizeReceiptDraftId = (value: unknown): string | null => {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  return trimmed;
+};
+
 export const validateTravelCreateTripInput = (
   body: Record<string, unknown>,
 ): ValidationOk<TravelCreateTripInput> | ValidationError => {
@@ -195,6 +226,27 @@ export const validateTravelCreateExpenseInput = (
     };
   }
 
+  const expenseCurrency = normalizeCurrency(body.expenseCurrency);
+  if (!expenseCurrency) {
+    return {
+      ok: false,
+      message: "Expense currency must be a 3-letter code.",
+    };
+  }
+
+  const conversionRate = normalizeConversionRate(body.conversionRate);
+  if (
+    body.conversionRate !== undefined &&
+    body.conversionRate !== null &&
+    body.conversionRate !== "" &&
+    !conversionRate
+  ) {
+    return {
+      ok: false,
+      message: "Conversion rate must be a positive number.",
+    };
+  }
+
   const description = normalizeText(body.description);
   if (!description || description.length > 240) {
     return {
@@ -224,8 +276,14 @@ export const validateTravelCreateExpenseInput = (
   const fullAmountMemberId = fullAmountMemberIdValue || null;
   const manualSplits = normalizeManualSplits(body.manualSplits);
   const spentAt = normalizeSpentAt(body.spentAt);
+  const receiptDraftId = normalizeReceiptDraftId(body.receiptDraftId);
 
-  if (body.spentAt !== undefined && body.spentAt !== null && body.spentAt !== "" && !spentAt) {
+  if (
+    body.spentAt !== undefined &&
+    body.spentAt !== null &&
+    body.spentAt !== "" &&
+    !spentAt
+  ) {
     return {
       ok: false,
       message: "Expense date is invalid.",
@@ -236,6 +294,8 @@ export const validateTravelCreateExpenseInput = (
     ok: true,
     data: {
       amount,
+      expenseCurrency,
+      conversionRate,
       paidByMemberId,
       description,
       category,
@@ -244,6 +304,110 @@ export const validateTravelCreateExpenseInput = (
       fullAmountMemberId,
       manualSplits,
       spentAt,
+      receiptDraftId,
+    },
+  };
+};
+
+const RECEIPT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const RECEIPT_IMAGE_DATA_URL_MAX_LENGTH = 7 * 1024 * 1024;
+
+const normalizeImageDataUrl = (value: unknown): string => {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("data:image/")) {
+    return "";
+  }
+
+  if (trimmed.length > RECEIPT_IMAGE_DATA_URL_MAX_LENGTH) {
+    return "";
+  }
+
+  return trimmed;
+};
+
+const normalizeImageMimeType = (value: unknown): string => {
+  const raw = normalizeText(value).toLowerCase();
+  if (!raw.startsWith("image/")) {
+    return "";
+  }
+
+  if (raw.length > 120) {
+    return "";
+  }
+
+  return raw;
+};
+
+const normalizeImageFileName = (value: unknown): string | null => {
+  const fileName = normalizeText(value);
+  if (!fileName) {
+    return null;
+  }
+
+  return fileName.slice(0, 180);
+};
+
+const estimateImageDataUrlBytes = (dataUrl: string): number => {
+  const commaIndex = dataUrl.indexOf(",");
+  if (commaIndex < 0) {
+    return 0;
+  }
+
+  const base64Part = dataUrl.slice(commaIndex + 1).replace(/\s+/g, "");
+  if (!base64Part) {
+    return 0;
+  }
+
+  const padding =
+    base64Part.endsWith("==") ? 2 : base64Part.endsWith("=") ? 1 : 0;
+
+  return Math.max(0, Math.floor((base64Part.length * 3) / 4) - padding);
+};
+
+export const validateTravelCreateReceiptDraftInput = (
+  body: Record<string, unknown>,
+): ValidationOk<TravelCreateReceiptDraftInput> | ValidationError => {
+  const imageDataUrl = normalizeImageDataUrl(body.imageDataUrl);
+  if (!imageDataUrl) {
+    return {
+      ok: false,
+      message: "Receipt image is missing or invalid.",
+    };
+  }
+
+  const imageMimeType = normalizeImageMimeType(body.imageMimeType);
+  if (!imageMimeType) {
+    return {
+      ok: false,
+      message: "Receipt image type must be image/*.",
+    };
+  }
+
+  const estimatedBytes = estimateImageDataUrlBytes(imageDataUrl);
+  if (estimatedBytes <= 0) {
+    return {
+      ok: false,
+      message: "Receipt image data could not be read.",
+    };
+  }
+
+  if (estimatedBytes > RECEIPT_IMAGE_MAX_BYTES) {
+    return {
+      ok: false,
+      message: "Receipt image is too large. Max size is 5 MB.",
+    };
+  }
+
+  return {
+    ok: true,
+    data: {
+      imageDataUrl,
+      imageMimeType,
+      imageFileName: normalizeImageFileName(body.imageFileName),
     },
   };
 };

@@ -1,18 +1,31 @@
 ﻿"use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ChangeEvent,
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { WorkspaceSummaryPayload } from "@/lib/auth/types";
+import { normalizeTravelExpenseAmount } from "@/lib/travel/currency";
 import {
   createTravelExpense,
+  createTravelReceiptDraft,
   createTravelTrip,
+  deleteTravelReceiptDraft,
   deleteTravelExpense,
   listTravelTrips,
   mutateTravelTripClosure,
+  parseTravelReceiptDraft,
   readTravelTripDetail,
   updateTravelSettlementItemStatus,
   updateTravelExpense,
 } from "@/lib/travel/client";
 import type {
+  TravelReceiptDraftPayload,
   TravelSettlementTransferPayload,
   TravelSplitMode,
   TravelTripExpensePayload,
@@ -32,6 +45,8 @@ type FeedbackTone = "info" | "success" | "error";
 
 type ExpenseDraft = {
   amount: string;
+  expenseCurrency: string;
+  conversionRate: string;
   paidByMemberId: string;
   description: string;
   category: string;
@@ -44,6 +59,8 @@ type ExpenseDraft = {
 
 const defaultExpenseDraft: ExpenseDraft = {
   amount: "",
+  expenseCurrency: "",
+  conversionRate: "",
   paidByMemberId: "",
   description: "",
   category: "General",
@@ -56,6 +73,8 @@ const defaultExpenseDraft: ExpenseDraft = {
 
 type TravelExpenseDefaultsSnapshot = {
   paidByMemberId: string;
+  expenseCurrency: string;
+  conversionRate: string;
   category: string;
   splitMode: TravelSplitMode;
   selectedMemberIds: string[];
@@ -63,7 +82,7 @@ type TravelExpenseDefaultsSnapshot = {
 };
 
 const TRAVEL_EXPENSE_DEFAULTS_STORAGE_KEY =
-  "payment_control_travel_expense_defaults_v28d";
+  "payment_control_travel_expense_defaults_v28f";
 
 const splitMemberNames = (value: string): string[] => {
   const parts = value
@@ -99,6 +118,10 @@ const formatAmount = (amount: number, currency: string): string => {
   return `${amount.toFixed(2)} ${currency}`;
 };
 
+const formatRateInputValue = (value: number): string => {
+  return value.toFixed(6).replace(/\.?0+$/, "");
+};
+
 const getTripStatusLabel = (trip: TravelTripPayload, tr: (text: string) => string): string => {
   if (trip.status === "closed") {
     return tr("Closed");
@@ -109,6 +132,25 @@ const getTripStatusLabel = (trip: TravelTripPayload, tr: (text: string) => strin
   }
 
   return tr("Active");
+};
+
+const getReceiptDraftStatusLabel = (
+  status: TravelReceiptDraftPayload["status"],
+  tr: (text: string) => string,
+): string => {
+  if (status === "parsed") {
+    return tr("Parsed");
+  }
+
+  if (status === "ocr_failed") {
+    return tr("Needs retry");
+  }
+
+  if (status === "finalized") {
+    return tr("Linked");
+  }
+
+  return tr("Draft");
 };
 
 const mergeTripListWithDetail = (
@@ -175,6 +217,13 @@ const createExpenseDraftFromDefaults = (
 
   return {
     amount: "",
+    expenseCurrency:
+      defaults?.expenseCurrency && /^[A-Z]{3}$/.test(defaults.expenseCurrency)
+        ? defaults.expenseCurrency
+        : trip.baseCurrency,
+    conversionRate: defaults?.conversionRate && Number(defaults.conversionRate) > 0
+      ? defaults.conversionRate
+      : "1",
     paidByMemberId:
       defaults?.paidByMemberId && memberIds.includes(defaults.paidByMemberId)
         ? defaults.paidByMemberId
@@ -216,7 +265,12 @@ const createExpenseDraftFromExistingExpense = (
       : expense.paidByMemberId;
 
   return {
-    amount: expense.amount.toFixed(2),
+    amount: expense.sourceAmount.toFixed(2),
+    expenseCurrency: expense.sourceCurrency,
+    conversionRate:
+      expense.sourceCurrency === trip.baseCurrency
+        ? "1"
+        : formatRateInputValue(expense.conversionRate),
     paidByMemberId: memberIds.includes(expense.paidByMemberId)
       ? expense.paidByMemberId
       : firstMemberId,
@@ -229,6 +283,49 @@ const createExpenseDraftFromExistingExpense = (
       : firstMemberId,
     manualSharesByMemberId,
     spentAt: toDateInputValue(expense.spentAt),
+  };
+};
+
+const createExpenseDraftFromReceiptSuggestion = (params: {
+  trip: TravelTripPayload;
+  currentDraft: ExpenseDraft;
+  receiptDraft: TravelReceiptDraftPayload;
+}): ExpenseDraft => {
+  const memberIds = params.trip.members.map((member) => member.id);
+  const firstMemberId = memberIds[0] ?? "";
+  const currentSplitMode = params.currentDraft.splitMode;
+
+  const sourceCurrency =
+    params.receiptDraft.ocrSuggestedCurrency ?? params.trip.baseCurrency;
+  const sourceAmount = params.receiptDraft.ocrSuggestedAmount;
+  const suggestedRate = params.receiptDraft.ocrSuggestedConversionRate;
+  const nextConversionRate =
+    sourceCurrency === params.trip.baseCurrency
+      ? "1"
+      : suggestedRate && suggestedRate > 0
+        ? formatRateInputValue(suggestedRate)
+        : params.currentDraft.conversionRate || "1";
+
+  return {
+    ...params.currentDraft,
+    amount: sourceAmount && sourceAmount > 0 ? sourceAmount.toFixed(2) : "",
+    expenseCurrency: sourceCurrency,
+    conversionRate: nextConversionRate,
+    description:
+      params.receiptDraft.ocrSuggestedDescription ??
+      params.receiptDraft.ocrSuggestedMerchant ??
+      params.currentDraft.description,
+    category: params.receiptDraft.ocrSuggestedCategory ?? params.currentDraft.category,
+    spentAt: params.receiptDraft.ocrSuggestedSpentAt
+      ? toDateInputValue(params.receiptDraft.ocrSuggestedSpentAt)
+      : params.currentDraft.spentAt,
+    paidByMemberId: memberIds.includes(params.currentDraft.paidByMemberId)
+      ? params.currentDraft.paidByMemberId
+      : firstMemberId,
+    selectedMemberIds:
+      currentSplitMode === "equal_selected" && params.currentDraft.selectedMemberIds.length > 0
+        ? params.currentDraft.selectedMemberIds
+        : memberIds,
   };
 };
 
@@ -247,6 +344,13 @@ export function TravelGroupExpensesSection({
   const [isCreatingExpense, setIsCreatingExpense] = useState(false);
   const [isUpdatingExpense, setIsUpdatingExpense] = useState(false);
   const [isDeletingExpenseId, setIsDeletingExpenseId] = useState<string | null>(null);
+  const [isCreatingReceiptDraft, setIsCreatingReceiptDraft] = useState(false);
+  const [isParsingReceiptDraftId, setIsParsingReceiptDraftId] = useState<string | null>(
+    null,
+  );
+  const [isDeletingReceiptDraftId, setIsDeletingReceiptDraftId] = useState<string | null>(
+    null,
+  );
   const [isClosureMutating, setIsClosureMutating] = useState(false);
   const [isSettlementMutatingId, setIsSettlementMutatingId] = useState<string | null>(
     null,
@@ -265,6 +369,9 @@ export function TravelGroupExpensesSection({
   const [tripMembersInput, setTripMembersInput] = useState("");
   const [expenseDraft, setExpenseDraft] = useState<ExpenseDraft>(defaultExpenseDraft);
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
+  const [attachedReceiptDraftId, setAttachedReceiptDraftId] = useState<string | null>(
+    null,
+  );
   const [expenseHistorySort, setExpenseHistorySort] = useState<"newest" | "highest">(
     "newest",
   );
@@ -323,6 +430,15 @@ export function TravelGroupExpensesSection({
         return {
           paidByMemberId:
             typeof typed.paidByMemberId === "string" ? typed.paidByMemberId : "",
+          expenseCurrency:
+            typeof typed.expenseCurrency === "string" &&
+            /^[A-Z]{3}$/.test(typed.expenseCurrency)
+              ? typed.expenseCurrency
+              : "",
+          conversionRate:
+            typeof typed.conversionRate === "string" && Number(typed.conversionRate) > 0
+              ? typed.conversionRate
+              : "1",
           category: typeof typed.category === "string" ? typed.category : "General",
           splitMode,
           selectedMemberIds: Array.isArray(typed.selectedMemberIds)
@@ -380,6 +496,50 @@ export function TravelGroupExpensesSection({
   const isExpenseSaveInProgress = isCreatingExpense || isUpdatingExpense;
   const isEditingExpense = editingExpenseId !== null;
   const isTripEditable = selectedTrip?.status === "active";
+  const normalizedExpenseCurrency = expenseDraft.expenseCurrency.trim().toUpperCase();
+  const isCrossCurrencyDraft =
+    !!selectedTrip &&
+    !!normalizedExpenseCurrency &&
+    normalizedExpenseCurrency !== selectedTrip.baseCurrency;
+  const normalizedAmountPreview = useMemo(() => {
+    if (!selectedTrip) {
+      return null;
+    }
+
+    const amount = Number(expenseDraft.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return null;
+    }
+
+    if (!/^[A-Z]{3}$/.test(normalizedExpenseCurrency)) {
+      return null;
+    }
+
+    const conversionRate =
+      expenseDraft.conversionRate.trim().length > 0
+        ? Number(expenseDraft.conversionRate)
+        : null;
+    const normalized = normalizeTravelExpenseAmount({
+      sourceAmount: amount,
+      sourceCurrency: normalizedExpenseCurrency,
+      tripCurrency: selectedTrip.baseCurrency,
+      conversionRate:
+        conversionRate !== null && Number.isFinite(conversionRate)
+          ? conversionRate
+          : null,
+    });
+
+    if (!normalized.ok) {
+      return null;
+    }
+
+    return normalized.data;
+  }, [
+    expenseDraft.amount,
+    expenseDraft.conversionRate,
+    normalizedExpenseCurrency,
+    selectedTrip,
+  ]);
 
   const sortedRecentExpenses = useMemo(() => {
     if (!selectedTrip) {
@@ -432,6 +592,37 @@ export function TravelGroupExpensesSection({
 
     return selectedTrip.summary.settlements;
   }, [selectedTrip]);
+
+  const receiptDrafts = useMemo(() => {
+    if (!selectedTrip) {
+      return [] as TravelReceiptDraftPayload[];
+    }
+
+    return selectedTrip.receiptDrafts;
+  }, [selectedTrip]);
+
+  const pendingReceiptDraftCount = useMemo(() => {
+    return receiptDrafts.filter((draft) => draft.status !== "finalized").length;
+  }, [receiptDrafts]);
+
+  const attachedReceiptDraft = useMemo(() => {
+    if (!attachedReceiptDraftId) {
+      return null;
+    }
+
+    return receiptDrafts.find((draft) => draft.id === attachedReceiptDraftId) ?? null;
+  }, [attachedReceiptDraftId, receiptDrafts]);
+
+  const finalizedReceiptByExpenseId = useMemo(() => {
+    const next = new Map<string, TravelReceiptDraftPayload>();
+    for (const receiptDraft of receiptDrafts) {
+      if (receiptDraft.status === "finalized" && receiptDraft.finalizedExpenseId) {
+        next.set(receiptDraft.finalizedExpenseId, receiptDraft);
+      }
+    }
+
+    return next;
+  }, [receiptDrafts]);
 
   const focusExpenseForm = useCallback(() => {
     if (typeof window === "undefined") {
@@ -557,6 +748,7 @@ export function TravelGroupExpensesSection({
       setEditingExpenseId(null);
       setPendingDeleteExpenseId(null);
       setAllowCloseWithUnsettledConfirm(false);
+      setAttachedReceiptDraftId(null);
       setExpenseDraft(defaultExpenseDraft);
       return;
     }
@@ -574,13 +766,31 @@ export function TravelGroupExpensesSection({
       }
 
       setExpenseDraft(createExpenseDraftFromExistingExpense(selectedTrip, editingExpense));
+      setAttachedReceiptDraftId(null);
       return;
+    }
+
+    if (
+      attachedReceiptDraftId &&
+      !selectedTrip.receiptDrafts.some((draft) => draft.id === attachedReceiptDraftId)
+    ) {
+      setAttachedReceiptDraftId(null);
+    }
+
+    if (attachedReceiptDraft?.status === "finalized") {
+      setAttachedReceiptDraftId(null);
     }
 
     setPendingDeleteExpenseId(null);
     setAllowCloseWithUnsettledConfirm(false);
     resetExpenseDraftToDefaults(selectedTrip);
-  }, [editingExpenseId, resetExpenseDraftToDefaults, selectedTrip]);
+  }, [
+    attachedReceiptDraft,
+    attachedReceiptDraftId,
+    editingExpenseId,
+    resetExpenseDraftToDefaults,
+    selectedTrip,
+  ]);
 
   const submitTripCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -647,6 +857,32 @@ export function TravelGroupExpensesSection({
       return;
     }
 
+    const expenseCurrency = expenseDraft.expenseCurrency.trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(expenseCurrency)) {
+      setFeedbackTone("error");
+      setFeedback(tr("Expense currency must be a 3-letter code."));
+      return;
+    }
+
+    const conversionRateInput =
+      expenseDraft.conversionRate.trim().length > 0
+        ? Number(expenseDraft.conversionRate)
+        : null;
+    const normalizedAmount = normalizeTravelExpenseAmount({
+      sourceAmount: amount,
+      sourceCurrency: expenseCurrency,
+      tripCurrency: selectedTrip.baseCurrency,
+      conversionRate:
+        conversionRateInput !== null && Number.isFinite(conversionRateInput)
+          ? conversionRateInput
+          : null,
+    });
+    if (!normalizedAmount.ok) {
+      setFeedbackTone("error");
+      setFeedback(tr(normalizedAmount.message));
+      return;
+    }
+
     const manualSplits = buildManualSplitsFromDraft(selectedTrip);
     const spentAtIso = expenseDraft.spentAt
       ? new Date(`${expenseDraft.spentAt}T12:00:00.000Z`).toISOString()
@@ -656,6 +892,8 @@ export function TravelGroupExpensesSection({
       initData,
       tripId: selectedTrip.id,
       amount,
+      expenseCurrency: normalizedAmount.data.sourceCurrency,
+      conversionRate: normalizedAmount.data.conversionRate,
       paidByMemberId: expenseDraft.paidByMemberId,
       description: expenseDraft.description,
       category: expenseDraft.category,
@@ -664,10 +902,13 @@ export function TravelGroupExpensesSection({
       fullAmountMemberId: expenseDraft.fullAmountMemberId || null,
       manualSplits,
       spentAt: spentAtIso,
+      receiptDraftId: !isEditingExpense ? attachedReceiptDraftId : null,
     };
 
     const defaultsSnapshot: TravelExpenseDefaultsSnapshot = {
       paidByMemberId: payload.paidByMemberId,
+      expenseCurrency: payload.expenseCurrency,
+      conversionRate: String(payload.conversionRate),
       category: payload.category,
       splitMode: payload.splitMode,
       selectedMemberIds: [...payload.selectedMemberIds],
@@ -701,6 +942,7 @@ export function TravelGroupExpensesSection({
       setTrips((current) => mergeTripListWithDetail(current, result.trip));
       setEditingExpenseId(null);
       setPendingDeleteExpenseId(null);
+      setAttachedReceiptDraftId(null);
       setExpenseDraft(createExpenseDraftFromDefaults(result.trip, defaultsSnapshot));
       setFeedbackTone("success");
       setFeedback(
@@ -742,6 +984,7 @@ export function TravelGroupExpensesSection({
       }
 
       setPendingDeleteExpenseId(null);
+      setAttachedReceiptDraftId(null);
       setEditingExpenseId(expense.id);
       setExpenseDraft(createExpenseDraftFromExistingExpense(selectedTrip, expense));
       setFeedbackTone("info");
@@ -943,6 +1186,174 @@ export function TravelGroupExpensesSection({
       }
     },
     [initData, isClosureMutating, isSettlementMutatingId, selectedTrip, tr],
+  );
+
+  const captureReceiptDraft = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const inputElement = event.currentTarget;
+      const selectedFile = inputElement.files?.[0] ?? null;
+      inputElement.value = "";
+
+      if (!selectedTrip || !selectedFile || isCreatingReceiptDraft) {
+        return;
+      }
+
+      if (selectedTrip.status !== "active") {
+        setFeedbackTone("error");
+        setFeedback(tr("Trip is not active. Reopen trip editing to add new receipt drafts."));
+        return;
+      }
+
+      setFeedback(null);
+      setIsCreatingReceiptDraft(true);
+      try {
+        const result = await createTravelReceiptDraft({
+          initData,
+          tripId: selectedTrip.id,
+          receiptImage: selectedFile,
+        });
+
+        if (!result.ok) {
+          setFeedbackTone("error");
+          setFeedback(result.error.message);
+          return;
+        }
+
+        setSelectedTrip(result.trip);
+        setTrips((current) => mergeTripListWithDetail(current, result.trip));
+        setFeedbackTone("success");
+        setFeedback(
+          tr("Receipt draft saved. You can parse now or continue later."),
+        );
+      } catch {
+        setFeedbackTone("error");
+        setFeedback(tr("Failed to save receipt draft."));
+      } finally {
+        setIsCreatingReceiptDraft(false);
+      }
+    },
+    [initData, isCreatingReceiptDraft, selectedTrip, tr],
+  );
+
+  const parseReceiptDraft = useCallback(
+    async (receiptDraftId: string) => {
+      if (!selectedTrip || isParsingReceiptDraftId || isCreatingReceiptDraft) {
+        return;
+      }
+
+      setFeedback(null);
+      setIsParsingReceiptDraftId(receiptDraftId);
+      try {
+        const result = await parseTravelReceiptDraft({
+          initData,
+          tripId: selectedTrip.id,
+          receiptDraftId,
+        });
+
+        if (!result.ok) {
+          setFeedbackTone("error");
+          setFeedback(result.error.message);
+          return;
+        }
+
+        setSelectedTrip(result.trip);
+        setTrips((current) => mergeTripListWithDetail(current, result.trip));
+        setFeedbackTone("success");
+        setFeedback(
+          tr("OCR prefill is ready. Review fields before saving expense."),
+        );
+      } catch {
+        setFeedbackTone("error");
+        setFeedback(tr("Failed to parse receipt draft."));
+      } finally {
+        setIsParsingReceiptDraftId(null);
+      }
+    },
+    [initData, isCreatingReceiptDraft, isParsingReceiptDraftId, selectedTrip, tr],
+  );
+
+  const applyReceiptPrefillToExpenseForm = useCallback(
+    (receiptDraft: TravelReceiptDraftPayload) => {
+      if (!selectedTrip || selectedTrip.status !== "active") {
+        setFeedbackTone("error");
+        setFeedback(tr("Trip is not active. Reopen trip editing to add or update expenses."));
+        return;
+      }
+
+      if (receiptDraft.status === "finalized") {
+        setFeedbackTone("info");
+        setFeedback(tr("This receipt draft is already linked to saved expense."));
+        return;
+      }
+
+      setEditingExpenseId(null);
+      setPendingDeleteExpenseId(null);
+      setAttachedReceiptDraftId(receiptDraft.id);
+      setExpenseDraft((current) =>
+        createExpenseDraftFromReceiptSuggestion({
+          trip: selectedTrip,
+          currentDraft: current,
+          receiptDraft,
+        }),
+      );
+      setFeedbackTone("info");
+      setFeedback(
+        tr("Receipt prefill applied. Confirm payer/split and save expense manually."),
+      );
+      focusExpenseForm();
+    },
+    [focusExpenseForm, selectedTrip, tr],
+  );
+
+  const deleteReceiptDraft = useCallback(
+    async (receiptDraftId: string) => {
+      if (!selectedTrip || isDeletingReceiptDraftId || isCreatingReceiptDraft) {
+        return;
+      }
+
+      if (selectedTrip.status !== "active") {
+        setFeedbackTone("error");
+        setFeedback(tr("Trip is not active. Reopen trip editing to manage receipt drafts."));
+        return;
+      }
+
+      setFeedback(null);
+      setIsDeletingReceiptDraftId(receiptDraftId);
+      try {
+        const result = await deleteTravelReceiptDraft({
+          initData,
+          tripId: selectedTrip.id,
+          receiptDraftId,
+        });
+
+        if (!result.ok) {
+          setFeedbackTone("error");
+          setFeedback(result.error.message);
+          return;
+        }
+
+        setSelectedTrip(result.trip);
+        setTrips((current) => mergeTripListWithDetail(current, result.trip));
+        if (attachedReceiptDraftId === receiptDraftId) {
+          setAttachedReceiptDraftId(null);
+        }
+        setFeedbackTone("success");
+        setFeedback(tr("Receipt draft removed."));
+      } catch {
+        setFeedbackTone("error");
+        setFeedback(tr("Failed to delete receipt draft."));
+      } finally {
+        setIsDeletingReceiptDraftId(null);
+      }
+    },
+    [
+      attachedReceiptDraftId,
+      initData,
+      isCreatingReceiptDraft,
+      isDeletingReceiptDraftId,
+      selectedTrip,
+      tr,
+    ],
   );
 
   const scrollToHistory = useCallback(() => {
@@ -1213,6 +1624,9 @@ export function TravelGroupExpensesSection({
                       : tr("Settle open transfers before closing trip.")}
                   </p>
                 )}
+                <p className="mt-1 text-[11px] text-app-text-muted">
+                  {tr("Trip totals and settlements are calculated in base currency.")}
+                </p>
                 <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                   <button
                     type="button"
@@ -1311,6 +1725,147 @@ export function TravelGroupExpensesSection({
                 )}
               </div>
 
+              <div className="pc-surface pc-surface-soft">
+                <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                  <AppIcon name="template" className="h-3.5 w-3.5" />
+                  {tr("Receipt drafts")}
+                </p>
+                <p className="mt-1 text-[11px] text-app-text-muted">
+                  {tr("Save now, parse later. OCR suggests fields, but you always confirm before saving expense.")}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <label
+                    className={`pc-btn-secondary ${isTripEditable ? "cursor-pointer" : "cursor-not-allowed opacity-70"}`}
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      disabled={
+                        !isTripEditable ||
+                        isCreatingReceiptDraft ||
+                        isParsingReceiptDraftId !== null ||
+                        isDeletingReceiptDraftId !== null
+                      }
+                      onChange={captureReceiptDraft}
+                      className="sr-only"
+                    />
+                    <AppIcon name="add" className="h-3.5 w-3.5" />
+                    {isCreatingReceiptDraft ? tr("Saving...") : tr("Add receipt photo")}
+                  </label>
+                  <span className="text-[11px] text-app-text-muted">
+                    {tr("Open drafts")}: {pendingReceiptDraftCount}
+                  </span>
+                </div>
+                {receiptDrafts.length === 0 ? (
+                  <p className="mt-2 text-xs text-app-text-muted">
+                    {tr("No receipt drafts yet. Capture a receipt when you pay, parse later when convenient.")}
+                  </p>
+                ) : (
+                  <div className="mt-2 space-y-2">
+                    {receiptDrafts.map((receiptDraft) => {
+                      const isParsed = receiptDraft.status === "parsed";
+                      const isFinalized = receiptDraft.status === "finalized";
+                      const canParse = !isFinalized && isTripEditable;
+                      const canApply = !isFinalized && isTripEditable;
+                      const canDelete = !isFinalized && isTripEditable;
+
+                      return (
+                        <div key={receiptDraft.id} className="pc-state-card px-3 py-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="truncate text-xs font-semibold text-app-text">
+                              {receiptDraft.imageFileName ?? tr("Receipt photo")}
+                            </p>
+                            <span
+                              className={`pc-status-pill ${
+                                receiptDraft.status === "parsed"
+                                  ? "pc-status-pill-success"
+                                  : receiptDraft.status === "ocr_failed"
+                                    ? "pc-status-pill-error"
+                                    : receiptDraft.status === "finalized"
+                                      ? "pc-status-pill-warning"
+                                      : ""
+                              }`}
+                            >
+                              {getReceiptDraftStatusLabel(receiptDraft.status, tr)}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-[11px] text-app-text-muted">
+                            {tr("Saved at")}: {formatDateTime(receiptDraft.createdAt)}
+                          </p>
+                          {isParsed && (
+                            <p className="mt-1 text-[11px] text-app-text-muted">
+                              {receiptDraft.ocrSuggestedAmount && receiptDraft.ocrSuggestedCurrency
+                                ? `${tr("OCR amount")}: ${formatAmount(
+                                    receiptDraft.ocrSuggestedAmount,
+                                    receiptDraft.ocrSuggestedCurrency,
+                                  )}. `
+                                : ""}
+                              {receiptDraft.ocrSuggestedDescription
+                                ? `${tr("OCR description")}: ${receiptDraft.ocrSuggestedDescription}.`
+                                : tr("OCR parsed the receipt. Review details in expense form before saving.")}
+                            </p>
+                          )}
+                          {receiptDraft.status === "ocr_failed" && receiptDraft.ocrLastError && (
+                            <p className="mt-1 text-[11px] text-app-text-muted">
+                              {tr("Last OCR error")}: {tr(receiptDraft.ocrLastError)}
+                            </p>
+                          )}
+                          {isFinalized && (
+                            <p className="mt-1 text-[11px] text-app-text-muted">
+                              {tr("Linked expense id")}: {receiptDraft.finalizedExpenseId}
+                            </p>
+                          )}
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => void parseReceiptDraft(receiptDraft.id)}
+                              disabled={
+                                !canParse ||
+                                isParsingReceiptDraftId !== null ||
+                                isCreatingReceiptDraft ||
+                                isDeletingReceiptDraftId !== null
+                              }
+                              className="pc-btn-secondary"
+                            >
+                              <AppIcon name="refresh" className="h-3.5 w-3.5" />
+                              {isParsingReceiptDraftId === receiptDraft.id
+                                ? tr("Parsing...")
+                                : tr("Run OCR prefill")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => applyReceiptPrefillToExpenseForm(receiptDraft)}
+                              disabled={!canApply}
+                              className="pc-btn-secondary"
+                            >
+                              <AppIcon name="edit" className="h-3.5 w-3.5" />
+                              {tr("Use in expense form")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void deleteReceiptDraft(receiptDraft.id)}
+                              disabled={
+                                !canDelete ||
+                                isDeletingReceiptDraftId !== null ||
+                                isCreatingReceiptDraft ||
+                                isParsingReceiptDraftId !== null
+                              }
+                              className="pc-btn-danger"
+                            >
+                              <AppIcon name="archive" className="h-3.5 w-3.5" />
+                              {isDeletingReceiptDraftId === receiptDraft.id
+                                ? tr("Deleting...")
+                                : tr("Delete draft")}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
               {isTripEditable ? (
                 <form
                   ref={expenseFormRef}
@@ -1344,6 +1899,29 @@ export function TravelGroupExpensesSection({
                     </div>
                   </div>
                 )}
+                {attachedReceiptDraft && !isEditingExpense && (
+                  <div className="rounded-xl border border-app-border bg-app-surface/80 px-3 py-2">
+                    <p className="text-xs font-semibold text-app-text">
+                      {tr("Receipt draft attached to this expense save")}
+                    </p>
+                    <p className="mt-1 text-[11px] text-app-text-muted">
+                      {tr("You can edit every field. Expense will be created only after manual confirmation.")}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <span className="pc-chip">
+                        {attachedReceiptDraft.imageFileName ?? tr("Receipt photo")}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setAttachedReceiptDraftId(null)}
+                        disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
+                        className="pc-btn-secondary"
+                      >
+                        {tr("Detach receipt draft")}
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div className="space-y-1">
                     <p className="text-xs font-semibold text-app-text">{tr("Amount")}</p>
@@ -1365,26 +1943,66 @@ export function TravelGroupExpensesSection({
                     />
                   </div>
                   <div className="space-y-1">
-                    <p className="text-xs font-semibold text-app-text">{tr("Paid by")}</p>
-                    <select
-                      disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
-                      value={expenseDraft.paidByMemberId}
+                    <p className="text-xs font-semibold text-app-text">{tr("Expense currency")}</p>
+                    <input
+                      type="text"
+                      value={expenseDraft.expenseCurrency}
                       onChange={(event) =>
                         setExpenseDraft((current) => ({
                           ...current,
-                          paidByMemberId: event.target.value,
+                          expenseCurrency: event.target.value
+                            .replace(/[^A-Za-z]/g, "")
+                            .slice(0, 3)
+                            .toUpperCase(),
                         }))
                       }
-                      className="pc-select"
-                    >
-                      {selectedTrip.members.map((member) => (
-                        <option key={member.id} value={member.id}>
-                          {member.displayName}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder={selectedTrip.baseCurrency}
+                      maxLength={3}
+                      disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
+                      className="pc-input uppercase"
+                    />
                   </div>
                 </div>
+                {isCrossCurrencyDraft ? (
+                  <div className="pc-state-card space-y-1">
+                    <p className="text-xs font-semibold text-app-text">
+                      {tr("Conversion rate to trip currency")}
+                    </p>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.000001"
+                      disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
+                      value={expenseDraft.conversionRate}
+                      onChange={(event) =>
+                        setExpenseDraft((current) => ({
+                          ...current,
+                          conversionRate: event.target.value,
+                        }))
+                      }
+                      className="pc-input"
+                      placeholder={tr("How many trip-currency units for 1 source-currency unit")}
+                    />
+                    {normalizedAmountPreview ? (
+                      <p className="text-[11px] text-app-text-muted">
+                        {tr("Will be saved as")}:{" "}
+                        {formatAmount(
+                          normalizedAmountPreview.tripAmount,
+                          selectedTrip.baseCurrency,
+                        )}{" "}
+                        ({tr("Rate")}: {normalizedAmountPreview.conversionRate.toFixed(6)})
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-app-text-muted">
+                        {tr("Set a positive conversion rate to calculate trip-currency amount.")}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-app-text-muted">
+                    {tr("Same as trip currency. Conversion is not required.")}
+                  </p>
+                )}
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div className="space-y-1">
                     <p className="text-xs font-semibold text-app-text">{tr("Description")}</p>
@@ -1425,20 +2043,42 @@ export function TravelGroupExpensesSection({
                     </select>
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-app-text">{tr("Expense date (optional)")}</p>
-                  <input
-                    type="date"
-                    disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
-                    value={expenseDraft.spentAt}
-                    onChange={(event) =>
-                      setExpenseDraft((current) => ({
-                        ...current,
-                        spentAt: event.target.value,
-                      }))
-                    }
-                    className="pc-input"
-                  />
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-app-text">{tr("Paid by")}</p>
+                    <select
+                      disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
+                      value={expenseDraft.paidByMemberId}
+                      onChange={(event) =>
+                        setExpenseDraft((current) => ({
+                          ...current,
+                          paidByMemberId: event.target.value,
+                        }))
+                      }
+                      className="pc-select"
+                    >
+                      {selectedTrip.members.map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {member.displayName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-app-text">{tr("Expense date (optional)")}</p>
+                    <input
+                      type="date"
+                      disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
+                      value={expenseDraft.spentAt}
+                      onChange={(event) =>
+                        setExpenseDraft((current) => ({
+                          ...current,
+                          spentAt: event.target.value,
+                        }))
+                      }
+                      className="pc-input"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs font-semibold text-app-text">{tr("Split mode")}</p>
@@ -1545,7 +2185,9 @@ export function TravelGroupExpensesSection({
                       </div>
                     ))}
                     <p className="text-[11px] text-app-text-muted">
-                      {tr("For manual mode, entered amounts must equal full expense amount.")}
+                      {tr(
+                        "For manual mode, entered amounts must equal full expense amount in trip currency.",
+                      )}
                     </p>
                   </div>
                 )}
@@ -1584,6 +2226,9 @@ export function TravelGroupExpensesSection({
                 </p>
                 <p className="mt-1 text-[11px] text-app-text-muted">
                   {tr("Positive balance means member should receive money back. Negative means member should pay.")}
+                </p>
+                <p className="mt-1 text-[11px] text-app-text-muted">
+                  {tr("Balances below use trip base currency totals.")}
                 </p>
                 <div className="mt-2 space-y-1">
                   {selectedTrip.summary.balances.map((balance) => (
@@ -1807,12 +2452,28 @@ export function TravelGroupExpensesSection({
                           editingExpenseId === expense.id ? "border-app-accent" : ""
                         }`}
                       >
+                        {(() => {
+                          const linkedReceiptDraft = finalizedReceiptByExpenseId.get(expense.id);
+                          return (
+                            <>
                         <div className="flex items-center justify-between gap-2">
                           <p className="text-sm font-semibold text-app-text">{expense.description}</p>
                           <span className="pc-status-pill">
-                            {formatAmount(expense.amount, expense.currency)}
+                            {formatAmount(expense.sourceAmount, expense.sourceCurrency)}
                           </span>
                         </div>
+                        {linkedReceiptDraft && (
+                          <p className="mt-1 text-[11px] text-app-text-muted">
+                            {tr("Receipt attached")}:{" "}
+                            {linkedReceiptDraft.imageFileName ?? tr("Receipt photo")}
+                          </p>
+                        )}
+                        {expense.sourceCurrency !== expense.currency && (
+                          <p className="mt-1 text-[11px] text-app-text-muted">
+                            {tr("Converted")}: {formatAmount(expense.amount, expense.currency)} (
+                            {tr("Rate")}: {expense.conversionRate.toFixed(6)})
+                          </p>
+                        )}
                         <p className="mt-1 text-xs text-app-text-muted">
                           {tr("Paid by")}: {expense.paidByMemberDisplayName}. {tr("Category")}: {expense.category}.
                         </p>
@@ -1821,7 +2482,10 @@ export function TravelGroupExpensesSection({
                         </p>
                         <p className="mt-1 text-[11px] text-app-text-muted">
                           {tr("Split")}: {expense.splits
-                            .map((split) => `${split.memberDisplayName} ${split.shareAmount.toFixed(2)}`)
+                            .map(
+                              (split) =>
+                                `${split.memberDisplayName} ${split.shareAmount.toFixed(2)} ${selectedTrip.baseCurrency}`,
+                            )
                             .join(", ")}
                         </p>
                         <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
@@ -1892,6 +2556,9 @@ export function TravelGroupExpensesSection({
                             </div>
                           </div>
                         )}
+                            </>
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>

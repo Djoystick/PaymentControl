@@ -46,6 +46,11 @@ export const serverEnv = {
   supporterBadgeOwnerTelegramUserIds: readTelegramUserIdList(
     "SUPPORTER_BADGE_OWNER_TELEGRAM_USER_IDS",
   ),
+  travelReceiptOcrOpenAiApiKey: readServerEnv(
+    "TRAVEL_RECEIPT_OCR_OPENAI_API_KEY",
+  ),
+  travelReceiptOcrOpenAiModel:
+    readServerEnv("TRAVEL_RECEIPT_OCR_OPENAI_MODEL") || "gpt-4o-mini",
 } as const;
 
 export const isSupabaseServerConfigured = Boolean(

@@ -13,7 +13,7 @@ type CreateTravelTripBody = {
   memberNames?: unknown;
 };
 
-const codeToStatus: Record<TravelApiError["error"]["code"], number> = {
+const codeToStatus: Partial<Record<TravelApiError["error"]["code"], number>> = {
   TELEGRAM_INIT_DATA_MISSING: 400,
   TELEGRAM_INIT_DATA_INVALID: 401,
   TELEGRAM_INIT_DATA_EXPIRED: 401,
@@ -108,3 +108,4 @@ export async function POST(request: Request) {
     trip,
   });
 }
+

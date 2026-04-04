@@ -1,13 +1,18 @@
 ﻿import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { normalizeTravelExpenseAmount } from "@/lib/travel/currency";
 import { buildTravelSettlementOverview } from "@/lib/travel/finalization";
+import { runTravelReceiptOcr } from "@/lib/travel/receipt-ocr";
 import {
   buildTravelTripSummary,
   resolveTravelExpenseSplits,
   type TravelSplitEngineMember,
 } from "@/lib/travel/split";
 import type {
+  TravelCreateReceiptDraftInput,
   TravelCreateExpenseInput,
+  TravelReceiptDraftPayload,
+  TravelReceiptDraftStatus,
   TravelCreateTripInput,
   TravelSettlementItemStatus,
   TravelTripExpensePayload,
@@ -33,6 +38,31 @@ type TravelTripRow = {
   updated_at: string;
 };
 
+type TravelReceiptDraftRow = {
+  id: string;
+  trip_id: string;
+  workspace_id: string;
+  created_by_profile_id: string | null;
+  status: TravelReceiptDraftStatus;
+  image_data_url: string;
+  image_mime_type: string;
+  image_file_name: string | null;
+  ocr_raw_text: string | null;
+  ocr_suggested_amount: number | string | null;
+  ocr_suggested_currency: string | null;
+  ocr_suggested_spent_at: string | null;
+  ocr_suggested_merchant: string | null;
+  ocr_suggested_description: string | null;
+  ocr_suggested_category: string | null;
+  ocr_suggested_conversion_rate: number | string | null;
+  ocr_last_error: string | null;
+  parsed_at: string | null;
+  finalized_at: string | null;
+  finalized_expense_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 type TravelTripMemberRow = {
   id: string;
   trip_id: string;
@@ -47,6 +77,9 @@ type TravelTripExpenseRow = {
   id: string;
   trip_id: string;
   paid_by_member_id: string;
+  source_amount: number | string | null;
+  source_currency: string | null;
+  conversion_rate: number | string | null;
   amount: number | string;
   currency: string;
   description: string;
@@ -92,11 +125,13 @@ const tripSelection =
 const memberSelection =
   "id, trip_id, profile_id, telegram_user_id, display_name, created_at, updated_at";
 const expenseSelection =
-  "id, trip_id, paid_by_member_id, amount, currency, description, category, split_mode, spent_at, created_at, updated_at";
+  "id, trip_id, paid_by_member_id, source_amount, source_currency, conversion_rate, amount, currency, description, category, split_mode, spent_at, created_at, updated_at";
 const splitSelection =
   "id, expense_id, member_id, share_amount, created_at, updated_at";
 const settlementSelection =
   "id, trip_id, from_member_id, to_member_id, amount, status, settled_at, created_at, updated_at";
+const receiptSelection =
+  "id, trip_id, workspace_id, created_by_profile_id, status, image_data_url, image_mime_type, image_file_name, ocr_raw_text, ocr_suggested_amount, ocr_suggested_currency, ocr_suggested_spent_at, ocr_suggested_merchant, ocr_suggested_description, ocr_suggested_category, ocr_suggested_conversion_rate, ocr_last_error, parsed_at, finalized_at, finalized_expense_id, created_at, updated_at";
 
 const toAmount = (value: number | string): number => {
   const numeric = Number(value);
@@ -150,12 +185,28 @@ const toExpensePayload = (params: {
       left.memberDisplayName.localeCompare(right.memberDisplayName),
     );
 
+  const parsedConversionRate =
+    params.row.conversion_rate === null
+      ? null
+      : Number(params.row.conversion_rate);
+
   return {
     id: params.row.id,
     tripId: params.row.trip_id,
     paidByMemberId: params.row.paid_by_member_id,
     paidByMemberDisplayName:
       params.memberNameById.get(params.row.paid_by_member_id) ?? "Unknown member",
+    sourceAmount:
+      params.row.source_amount === null
+        ? toAmount(params.row.amount)
+        : toAmount(params.row.source_amount),
+    sourceCurrency: params.row.source_currency ?? params.row.currency,
+    conversionRate:
+      parsedConversionRate !== null &&
+      Number.isFinite(parsedConversionRate) &&
+      parsedConversionRate > 0
+        ? Number(parsedConversionRate.toFixed(6))
+        : 1,
     amount: toAmount(params.row.amount),
     currency: params.row.currency,
     description: params.row.description,
@@ -186,6 +237,44 @@ const toSettlementItemPayload = (params: {
     settledAt: params.row.settled_at,
     createdAt: params.row.created_at,
     updatedAt: params.row.updated_at,
+  };
+};
+
+const toReceiptDraftPayload = (
+  row: TravelReceiptDraftRow,
+): TravelReceiptDraftPayload => {
+  const parsedRate =
+    row.ocr_suggested_conversion_rate === null
+      ? null
+      : Number(row.ocr_suggested_conversion_rate);
+
+  return {
+    id: row.id,
+    tripId: row.trip_id,
+    workspaceId: row.workspace_id,
+    createdByProfileId: row.created_by_profile_id,
+    status: row.status,
+    imageDataUrl: row.image_data_url,
+    imageMimeType: row.image_mime_type,
+    imageFileName: row.image_file_name,
+    ocrRawText: row.ocr_raw_text,
+    ocrSuggestedAmount:
+      row.ocr_suggested_amount === null ? null : toAmount(row.ocr_suggested_amount),
+    ocrSuggestedCurrency: row.ocr_suggested_currency,
+    ocrSuggestedSpentAt: row.ocr_suggested_spent_at,
+    ocrSuggestedMerchant: row.ocr_suggested_merchant,
+    ocrSuggestedDescription: row.ocr_suggested_description,
+    ocrSuggestedCategory: row.ocr_suggested_category,
+    ocrSuggestedConversionRate:
+      parsedRate !== null && Number.isFinite(parsedRate) && parsedRate > 0
+        ? Number(parsedRate.toFixed(6))
+        : null,
+    ocrLastError: row.ocr_last_error,
+    parsedAt: row.parsed_at,
+    finalizedAt: row.finalized_at,
+    finalizedExpenseId: row.finalized_expense_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 };
 
@@ -328,6 +417,51 @@ const readTripSettlementItemById = async (params: {
   return data;
 };
 
+const readTripReceiptDrafts = async (
+  tripId: string,
+): Promise<TravelReceiptDraftRow[] | null> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("travel_receipt_drafts")
+    .select(receiptSelection)
+    .eq("trip_id", tripId)
+    .order("created_at", { ascending: false })
+    .returns<TravelReceiptDraftRow[]>();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data;
+};
+
+const readTripReceiptDraftById = async (params: {
+  tripId: string;
+  receiptDraftId: string;
+}): Promise<TravelReceiptDraftRow | null> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("travel_receipt_drafts")
+    .select(receiptSelection)
+    .eq("trip_id", params.tripId)
+    .eq("id", params.receiptDraftId)
+    .maybeSingle<TravelReceiptDraftRow>();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data;
+};
+
 const buildTripPayload = async (
   tripRow: TravelTripRow,
 ): Promise<TravelTripPayload | null> => {
@@ -348,6 +482,11 @@ const buildTripPayload = async (
 
   const settlementRows = await readTripSettlementItems(tripRow.id);
   if (!settlementRows) {
+    return null;
+  }
+
+  const receiptRows = await readTripReceiptDrafts(tripRow.id);
+  if (!receiptRows) {
     return null;
   }
 
@@ -400,6 +539,8 @@ const buildTripPayload = async (
     settlementItems,
   });
 
+  const receiptDrafts = receiptRows.map(toReceiptDraftPayload);
+
   return {
     id: tripRow.id,
     workspaceId: tripRow.workspace_id,
@@ -414,6 +555,7 @@ const buildTripPayload = async (
     updatedAt: tripRow.updated_at,
     members: memberPayloads,
     recentExpenses: expensePayloads,
+    receiptDrafts,
     summary: {
       totalExpensesCount: calculatedSummary.totalExpensesCount,
       totalSpent: calculatedSummary.totalSpent,
@@ -610,6 +752,47 @@ export const createTravelTripForWorkspace = async (params: {
   return getTravelTripByWorkspaceAndId(params.workspaceId, createdTrip.id);
 };
 
+export type TravelReceiptDraftCreateResult =
+  | {
+      ok: true;
+      receiptDraft: TravelReceiptDraftPayload;
+      trip: TravelTripPayload;
+    }
+  | {
+      ok: false;
+      reason: "TRIP_NOT_FOUND" | "TRIP_NOT_ACTIVE" | "VALIDATION_FAILED" | "CREATE_FAILED";
+      message: string;
+    };
+
+export type TravelReceiptDraftParseResult =
+  | {
+      ok: true;
+      receiptDraft: TravelReceiptDraftPayload;
+      trip: TravelTripPayload;
+    }
+  | {
+      ok: false;
+      reason:
+        | "TRIP_NOT_FOUND"
+        | "RECEIPT_NOT_FOUND"
+        | "VALIDATION_FAILED"
+        | "OCR_UNAVAILABLE"
+        | "PARSE_FAILED";
+      message: string;
+    };
+
+export type TravelReceiptDraftDeleteResult =
+  | {
+      ok: true;
+      trip: TravelTripPayload;
+      deletedReceiptDraftId: string;
+    }
+  | {
+      ok: false;
+      reason: "TRIP_NOT_FOUND" | "TRIP_NOT_ACTIVE" | "RECEIPT_NOT_FOUND" | "DELETE_FAILED";
+      message: string;
+    };
+
 export type CreateTravelExpenseResult =
   | {
       ok: true;
@@ -684,6 +867,311 @@ export type TravelSettlementItemStatusResult =
       message: string;
     };
 
+const finalizeTravelReceiptDraftForTripExpense = async (params: {
+  tripId: string;
+  receiptDraftId: string;
+  expenseId: string;
+}): Promise<boolean> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return false;
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("travel_receipt_drafts")
+    .update({
+      status: "finalized" satisfies TravelReceiptDraftStatus,
+      finalized_expense_id: params.expenseId,
+      finalized_at: now,
+      updated_at: now,
+    })
+    .eq("trip_id", params.tripId)
+    .eq("id", params.receiptDraftId)
+    .neq("status", "finalized");
+
+  return !error;
+};
+
+export const createTravelReceiptDraftForTrip = async (params: {
+  workspaceId: string;
+  profileId: string;
+  tripId: string;
+  input: TravelCreateReceiptDraftInput;
+}): Promise<TravelReceiptDraftCreateResult> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return {
+      ok: false,
+      reason: "CREATE_FAILED",
+      message: "Supabase server configuration is missing.",
+    };
+  }
+
+  const tripRow = await readTripRowByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!tripRow) {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_FOUND",
+      message: "Trip was not found in current workspace.",
+    };
+  }
+
+  if (tripRow.status !== "active") {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_ACTIVE",
+      message: "Trip is not active. Reopen trip editing to add new receipt drafts.",
+    };
+  }
+
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("travel_receipt_drafts")
+    .insert({
+      trip_id: params.tripId,
+      workspace_id: params.workspaceId,
+      created_by_profile_id: params.profileId,
+      status: "draft" satisfies TravelReceiptDraftStatus,
+      image_data_url: params.input.imageDataUrl,
+      image_mime_type: params.input.imageMimeType,
+      image_file_name: params.input.imageFileName,
+      updated_at: now,
+    })
+    .select(receiptSelection)
+    .single<TravelReceiptDraftRow>();
+
+  if (error || !data) {
+    return {
+      ok: false,
+      reason: "CREATE_FAILED",
+      message: "Failed to save receipt draft.",
+    };
+  }
+
+  await touchTripUpdatedAt(params.tripId);
+
+  const trip = await getTravelTripByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!trip) {
+    return {
+      ok: false,
+      reason: "CREATE_FAILED",
+      message: "Receipt draft saved but failed to refresh trip snapshot.",
+    };
+  }
+
+  return {
+    ok: true,
+    receiptDraft: toReceiptDraftPayload(data),
+    trip,
+  };
+};
+
+export const parseTravelReceiptDraftForTrip = async (params: {
+  workspaceId: string;
+  tripId: string;
+  receiptDraftId: string;
+}): Promise<TravelReceiptDraftParseResult> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return {
+      ok: false,
+      reason: "PARSE_FAILED",
+      message: "Supabase server configuration is missing.",
+    };
+  }
+
+  const tripRow = await readTripRowByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!tripRow) {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_FOUND",
+      message: "Trip was not found in current workspace.",
+    };
+  }
+
+  const receiptRow = await readTripReceiptDraftById({
+    tripId: params.tripId,
+    receiptDraftId: params.receiptDraftId,
+  });
+
+  if (!receiptRow) {
+    return {
+      ok: false,
+      reason: "RECEIPT_NOT_FOUND",
+      message: "Receipt draft was not found.",
+    };
+  }
+
+  if (receiptRow.status === "finalized") {
+    return {
+      ok: false,
+      reason: "VALIDATION_FAILED",
+      message: "Receipt draft is already finalized and linked to saved expense.",
+    };
+  }
+
+  const ocrResult = await runTravelReceiptOcr({
+    imageDataUrl: receiptRow.image_data_url,
+    tripCurrency: tripRow.base_currency,
+  });
+
+  if (!ocrResult.ok) {
+    if (!ocrResult.unavailable) {
+      const now = new Date().toISOString();
+      await supabase
+        .from("travel_receipt_drafts")
+        .update({
+          status: "ocr_failed" satisfies TravelReceiptDraftStatus,
+          ocr_last_error: ocrResult.message,
+          parsed_at: now,
+          updated_at: now,
+        })
+        .eq("trip_id", params.tripId)
+        .eq("id", params.receiptDraftId);
+    }
+
+    return {
+      ok: false,
+      reason: ocrResult.unavailable ? "OCR_UNAVAILABLE" : "PARSE_FAILED",
+      message: ocrResult.message,
+    };
+  }
+
+  const now = new Date().toISOString();
+  const descriptionFromOcr =
+    ocrResult.data.description ?? ocrResult.data.merchant ?? null;
+  const { data, error } = await supabase
+    .from("travel_receipt_drafts")
+    .update({
+      status: "parsed" satisfies TravelReceiptDraftStatus,
+      ocr_raw_text: ocrResult.data.rawText,
+      ocr_suggested_amount: ocrResult.data.sourceAmount,
+      ocr_suggested_currency: ocrResult.data.sourceCurrency,
+      ocr_suggested_spent_at: ocrResult.data.spentAt,
+      ocr_suggested_merchant: ocrResult.data.merchant,
+      ocr_suggested_description: descriptionFromOcr,
+      ocr_suggested_category: ocrResult.data.category,
+      ocr_suggested_conversion_rate: ocrResult.data.conversionRate,
+      ocr_last_error: null,
+      parsed_at: now,
+      updated_at: now,
+    })
+    .eq("trip_id", params.tripId)
+    .eq("id", params.receiptDraftId)
+    .select(receiptSelection)
+    .single<TravelReceiptDraftRow>();
+
+  if (error || !data) {
+    return {
+      ok: false,
+      reason: "PARSE_FAILED",
+      message: "OCR result was created but failed to update receipt draft.",
+    };
+  }
+
+  await touchTripUpdatedAt(params.tripId);
+
+  const trip = await getTravelTripByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!trip) {
+    return {
+      ok: false,
+      reason: "PARSE_FAILED",
+      message: "Receipt draft parsed but failed to refresh trip snapshot.",
+    };
+  }
+
+  return {
+    ok: true,
+    receiptDraft: toReceiptDraftPayload(data),
+    trip,
+  };
+};
+
+export const deleteTravelReceiptDraftForTrip = async (params: {
+  workspaceId: string;
+  tripId: string;
+  receiptDraftId: string;
+}): Promise<TravelReceiptDraftDeleteResult> => {
+  const supabase = createSupabaseServerClient();
+  if (!supabase) {
+    return {
+      ok: false,
+      reason: "DELETE_FAILED",
+      message: "Supabase server configuration is missing.",
+    };
+  }
+
+  const tripRow = await readTripRowByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!tripRow) {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_FOUND",
+      message: "Trip was not found in current workspace.",
+    };
+  }
+
+  if (tripRow.status !== "active") {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_ACTIVE",
+      message: "Trip is not active. Reopen trip editing to manage receipt drafts.",
+    };
+  }
+
+  const receiptRow = await readTripReceiptDraftById({
+    tripId: params.tripId,
+    receiptDraftId: params.receiptDraftId,
+  });
+
+  if (!receiptRow) {
+    return {
+      ok: false,
+      reason: "RECEIPT_NOT_FOUND",
+      message: "Receipt draft was not found.",
+    };
+  }
+
+  if (receiptRow.status === "finalized") {
+    return {
+      ok: false,
+      reason: "TRIP_NOT_ACTIVE",
+      message: "Finalized receipt draft is linked to saved expense and cannot be deleted.",
+    };
+  }
+
+  const { error } = await supabase
+    .from("travel_receipt_drafts")
+    .delete()
+    .eq("trip_id", params.tripId)
+    .eq("id", params.receiptDraftId);
+
+  if (error) {
+    return {
+      ok: false,
+      reason: "DELETE_FAILED",
+      message: "Failed to delete receipt draft.",
+    };
+  }
+
+  await touchTripUpdatedAt(params.tripId);
+
+  const trip = await getTravelTripByWorkspaceAndId(params.workspaceId, params.tripId);
+  if (!trip) {
+    return {
+      ok: false,
+      reason: "DELETE_FAILED",
+      message: "Receipt draft deleted but failed to refresh trip snapshot.",
+    };
+  }
+
+  return {
+    ok: true,
+    trip,
+    deletedReceiptDraftId: params.receiptDraftId,
+  };
+};
+
 export const createTravelExpenseForTrip = async (params: {
   workspaceId: string;
   profileId: string;
@@ -737,8 +1225,54 @@ export const createTravelExpenseForTrip = async (params: {
     };
   }
 
+  let receiptDraftRow: TravelReceiptDraftRow | null = null;
+  if (params.input.receiptDraftId) {
+    receiptDraftRow = await readTripReceiptDraftById({
+      tripId: params.tripId,
+      receiptDraftId: params.input.receiptDraftId,
+    });
+
+    if (!receiptDraftRow) {
+      return {
+        ok: false,
+        reason: "VALIDATION_FAILED",
+        message: "Receipt draft was not found.",
+      };
+    }
+
+    if (receiptDraftRow.workspace_id !== params.workspaceId) {
+      return {
+        ok: false,
+        reason: "VALIDATION_FAILED",
+        message: "Receipt draft does not belong to current workspace.",
+      };
+    }
+
+    if (receiptDraftRow.status === "finalized") {
+      return {
+        ok: false,
+        reason: "VALIDATION_FAILED",
+        message: "Receipt draft is already finalized and linked to saved expense.",
+      };
+    }
+  }
+
+  const normalizedAmount = normalizeTravelExpenseAmount({
+    sourceAmount: params.input.amount,
+    sourceCurrency: params.input.expenseCurrency,
+    tripCurrency: tripRow.base_currency,
+    conversionRate: params.input.conversionRate,
+  });
+  if (!normalizedAmount.ok) {
+    return {
+      ok: false,
+      reason: "VALIDATION_FAILED",
+      message: normalizedAmount.message,
+    };
+  }
+
   const splitResult = resolveTravelExpenseSplits({
-    totalAmount: params.input.amount,
+    totalAmount: normalizedAmount.data.tripAmount,
     splitMode: params.input.splitMode,
     members: memberPayloads.map((member): TravelSplitEngineMember => ({
       id: member.id,
@@ -765,7 +1299,10 @@ export const createTravelExpenseForTrip = async (params: {
     .insert({
       trip_id: params.tripId,
       paid_by_member_id: params.input.paidByMemberId,
-      amount: params.input.amount,
+      source_amount: normalizedAmount.data.sourceAmount,
+      source_currency: normalizedAmount.data.sourceCurrency,
+      conversion_rate: normalizedAmount.data.conversionRate,
+      amount: normalizedAmount.data.tripAmount,
       currency: tripRow.base_currency,
       description: params.input.description,
       category: params.input.category,
@@ -804,6 +1341,23 @@ export const createTravelExpenseForTrip = async (params: {
       reason: "CREATE_FAILED",
       message: "Failed to save expense split rows.",
     };
+  }
+
+  if (receiptDraftRow && params.input.receiptDraftId) {
+    const finalizeOk = await finalizeTravelReceiptDraftForTripExpense({
+      tripId: params.tripId,
+      receiptDraftId: params.input.receiptDraftId,
+      expenseId: createdExpense.id,
+    });
+
+    if (!finalizeOk) {
+      await supabase.from("travel_trip_expenses").delete().eq("id", createdExpense.id);
+      return {
+        ok: false,
+        reason: "CREATE_FAILED",
+        message: "Failed to finalize receipt draft linkage for created expense.",
+      };
+    }
   }
 
   await touchTripUpdatedAt(params.tripId);
@@ -902,8 +1456,22 @@ export const updateTravelExpenseForTrip = async (params: {
     };
   }
 
+  const normalizedAmount = normalizeTravelExpenseAmount({
+    sourceAmount: params.input.amount,
+    sourceCurrency: params.input.expenseCurrency,
+    tripCurrency: tripRow.base_currency,
+    conversionRate: params.input.conversionRate,
+  });
+  if (!normalizedAmount.ok) {
+    return {
+      ok: false,
+      reason: "VALIDATION_FAILED",
+      message: normalizedAmount.message,
+    };
+  }
+
   const splitResult = resolveTravelExpenseSplits({
-    totalAmount: params.input.amount,
+    totalAmount: normalizedAmount.data.tripAmount,
     splitMode: params.input.splitMode,
     members: memberPayloads.map((member): TravelSplitEngineMember => ({
       id: member.id,
@@ -938,7 +1506,10 @@ export const updateTravelExpenseForTrip = async (params: {
     .from("travel_trip_expenses")
     .update({
       paid_by_member_id: params.input.paidByMemberId,
-      amount: params.input.amount,
+      source_amount: normalizedAmount.data.sourceAmount,
+      source_currency: normalizedAmount.data.sourceCurrency,
+      conversion_rate: normalizedAmount.data.conversionRate,
+      amount: normalizedAmount.data.tripAmount,
       currency: tripRow.base_currency,
       description: params.input.description,
       category: params.input.category,
@@ -1449,3 +2020,4 @@ export const updateTravelSettlementItemStatusForTrip = async (params: {
     status: nextStatus,
   };
 };
+

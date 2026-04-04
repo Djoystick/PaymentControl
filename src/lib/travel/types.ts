@@ -12,6 +12,11 @@ export type TravelSplitMode =
 export type TravelTripStatus = "active" | "closing" | "closed";
 
 export type TravelSettlementItemStatus = "open" | "settled";
+export type TravelReceiptDraftStatus =
+  | "draft"
+  | "parsed"
+  | "ocr_failed"
+  | "finalized";
 
 export type TravelTripMemberPayload = {
   id: string;
@@ -34,6 +39,9 @@ export type TravelTripExpensePayload = {
   tripId: string;
   paidByMemberId: string;
   paidByMemberDisplayName: string;
+  sourceAmount: number;
+  sourceCurrency: string;
+  conversionRate: number;
   amount: number;
   currency: string;
   description: string;
@@ -75,6 +83,31 @@ export type TravelTripSettlementItemPayload = {
   updatedAt: string;
 };
 
+export type TravelReceiptDraftPayload = {
+  id: string;
+  tripId: string;
+  workspaceId: string;
+  createdByProfileId: string | null;
+  status: TravelReceiptDraftStatus;
+  imageDataUrl: string;
+  imageMimeType: string;
+  imageFileName: string | null;
+  ocrRawText: string | null;
+  ocrSuggestedAmount: number | null;
+  ocrSuggestedCurrency: string | null;
+  ocrSuggestedSpentAt: string | null;
+  ocrSuggestedMerchant: string | null;
+  ocrSuggestedDescription: string | null;
+  ocrSuggestedCategory: string | null;
+  ocrSuggestedConversionRate: number | null;
+  ocrLastError: string | null;
+  parsedAt: string | null;
+  finalizedAt: string | null;
+  finalizedExpenseId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type TravelTripSummaryPayload = {
   totalExpensesCount: number;
   totalSpent: number;
@@ -104,6 +137,7 @@ export type TravelTripPayload = {
   updatedAt: string;
   members: TravelTripMemberPayload[];
   recentExpenses: TravelTripExpensePayload[];
+  receiptDrafts: TravelReceiptDraftPayload[];
   summary: TravelTripSummaryPayload;
 };
 
@@ -134,6 +168,8 @@ export type TravelManualSplitInput = {
 
 export type TravelCreateExpenseInput = {
   amount: number;
+  expenseCurrency: string;
+  conversionRate: number | null;
   paidByMemberId: string;
   description: string;
   category: string;
@@ -142,6 +178,13 @@ export type TravelCreateExpenseInput = {
   fullAmountMemberId: string | null;
   manualSplits: TravelManualSplitInput[];
   spentAt: string | null;
+  receiptDraftId: string | null;
+};
+
+export type TravelCreateReceiptDraftInput = {
+  imageDataUrl: string;
+  imageMimeType: string;
+  imageFileName: string | null;
 };
 
 export type TravelTripClosureAction = "start" | "close" | "reopen";
@@ -182,6 +225,12 @@ export type TravelApiErrorCode =
   | "TRAVEL_EXPENSE_CREATE_FAILED"
   | "TRAVEL_EXPENSE_UPDATE_FAILED"
   | "TRAVEL_EXPENSE_DELETE_FAILED"
+  | "TRAVEL_RECEIPT_VALIDATION_FAILED"
+  | "TRAVEL_RECEIPT_CREATE_FAILED"
+  | "TRAVEL_RECEIPT_NOT_FOUND"
+  | "TRAVEL_RECEIPT_PARSE_FAILED"
+  | "TRAVEL_RECEIPT_DELETE_FAILED"
+  | "TRAVEL_OCR_UNAVAILABLE"
   | "TRAVEL_SETTLEMENT_NOT_FOUND"
   | "TRAVEL_SETTLEMENT_UPDATE_FAILED";
 
@@ -251,5 +300,23 @@ export type TravelSettlementMutateResponse =
       trip: TravelTripPayload;
       settlementItemId: string;
       status: TravelSettlementItemStatus;
+    }
+  | TravelApiError;
+
+export type TravelReceiptDraftMutateResponse =
+  | {
+      ok: true;
+      workspace: WorkspaceSummaryPayload;
+      trip: TravelTripPayload;
+      receiptDraft: TravelReceiptDraftPayload;
+    }
+  | TravelApiError;
+
+export type TravelReceiptDraftDeleteResponse =
+  | {
+      ok: true;
+      workspace: WorkspaceSummaryPayload;
+      trip: TravelTripPayload;
+      deletedReceiptDraftId: string;
     }
   | TravelApiError;

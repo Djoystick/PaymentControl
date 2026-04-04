@@ -15,6 +15,8 @@ import type {
 type UpdateTravelExpenseBody = {
   initData?: string;
   amount?: unknown;
+  expenseCurrency?: unknown;
+  conversionRate?: unknown;
   paidByMemberId?: unknown;
   description?: unknown;
   category?: unknown;
@@ -23,6 +25,7 @@ type UpdateTravelExpenseBody = {
   fullAmountMemberId?: unknown;
   manualSplits?: unknown;
   spentAt?: unknown;
+  receiptDraftId?: unknown;
 };
 
 type DeleteTravelExpenseBody = {
@@ -33,7 +36,7 @@ type RouteContext = {
   params: Promise<{ tripId: string; expenseId: string }>;
 };
 
-const codeToStatus: Record<TravelApiError["error"]["code"], number> = {
+const codeToStatus: Partial<Record<TravelApiError["error"]["code"], number>> = {
   TELEGRAM_INIT_DATA_MISSING: 400,
   TELEGRAM_INIT_DATA_INVALID: 401,
   TELEGRAM_INIT_DATA_EXPIRED: 401,
@@ -125,6 +128,8 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   const validationResult = validateTravelCreateExpenseInput({
     amount: body.amount,
+    expenseCurrency: body.expenseCurrency,
+    conversionRate: body.conversionRate,
     paidByMemberId: body.paidByMemberId,
     description: body.description,
     category: body.category,
@@ -133,6 +138,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     fullAmountMemberId: body.fullAmountMemberId,
     manualSplits: body.manualSplits,
     spentAt: body.spentAt,
+    receiptDraftId: body.receiptDraftId,
   });
 
   if (!validationResult.ok) {

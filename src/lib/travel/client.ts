@@ -1,6 +1,8 @@
 ﻿"use client";
 
 import type {
+  TravelReceiptDraftDeleteResponse,
+  TravelReceiptDraftMutateResponse,
   TravelExpenseDeleteResponse,
   TravelExpenseMutateResponse,
   TravelSettlementMutateResponse,
@@ -64,6 +66,8 @@ export const createTravelExpense = async (params: {
   initData: string;
   tripId: string;
   amount: number;
+  expenseCurrency: string;
+  conversionRate: number | null;
   paidByMemberId: string;
   description: string;
   category: string;
@@ -72,12 +76,15 @@ export const createTravelExpense = async (params: {
   fullAmountMemberId: string | null;
   manualSplits: Array<{ memberId: string; amount: number }>;
   spentAt?: string | null;
+  receiptDraftId?: string | null;
 }): Promise<TravelExpenseMutateResponse> => {
   return postJson<TravelExpenseMutateResponse>(
     `/api/travel/trips/${params.tripId}/expenses`,
     {
       initData: params.initData,
       amount: params.amount,
+      expenseCurrency: params.expenseCurrency,
+      conversionRate: params.conversionRate,
       paidByMemberId: params.paidByMemberId,
       description: params.description,
       category: params.category,
@@ -86,6 +93,7 @@ export const createTravelExpense = async (params: {
       fullAmountMemberId: params.fullAmountMemberId,
       manualSplits: params.manualSplits,
       spentAt: params.spentAt ?? null,
+      receiptDraftId: params.receiptDraftId ?? null,
     },
   );
 };
@@ -95,6 +103,8 @@ export const updateTravelExpense = async (params: {
   tripId: string;
   expenseId: string;
   amount: number;
+  expenseCurrency: string;
+  conversionRate: number | null;
   paidByMemberId: string;
   description: string;
   category: string;
@@ -103,6 +113,7 @@ export const updateTravelExpense = async (params: {
   fullAmountMemberId: string | null;
   manualSplits: Array<{ memberId: string; amount: number }>;
   spentAt?: string | null;
+  receiptDraftId?: string | null;
 }): Promise<TravelExpenseMutateResponse> => {
   const response = await fetch(
     `/api/travel/trips/${params.tripId}/expenses/${params.expenseId}`,
@@ -114,6 +125,8 @@ export const updateTravelExpense = async (params: {
       body: JSON.stringify({
         initData: params.initData,
         amount: params.amount,
+        expenseCurrency: params.expenseCurrency,
+        conversionRate: params.conversionRate,
         paidByMemberId: params.paidByMemberId,
         description: params.description,
         category: params.category,
@@ -122,6 +135,7 @@ export const updateTravelExpense = async (params: {
         fullAmountMemberId: params.fullAmountMemberId,
         manualSplits: params.manualSplits,
         spentAt: params.spentAt ?? null,
+        receiptDraftId: params.receiptDraftId ?? null,
       }),
     },
   );
@@ -187,4 +201,64 @@ export const updateTravelSettlementItemStatus = async (params: {
   );
 
   return (await response.json()) as TravelSettlementMutateResponse;
+};
+
+export const createTravelReceiptDraft = async (params: {
+  initData: string;
+  tripId: string;
+  receiptImage: File;
+}): Promise<TravelReceiptDraftMutateResponse> => {
+  const formData = new FormData();
+  formData.set("initData", params.initData);
+  formData.set("receiptImage", params.receiptImage);
+
+  const response = await fetch(`/api/travel/trips/${params.tripId}/receipts`, {
+    method: "POST",
+    body: formData,
+  });
+
+  return (await response.json()) as TravelReceiptDraftMutateResponse;
+};
+
+export const parseTravelReceiptDraft = async (params: {
+  initData: string;
+  tripId: string;
+  receiptDraftId: string;
+}): Promise<TravelReceiptDraftMutateResponse> => {
+  const response = await fetch(
+    `/api/travel/trips/${params.tripId}/receipts/${params.receiptDraftId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        initData: params.initData,
+        action: "parse",
+      }),
+    },
+  );
+
+  return (await response.json()) as TravelReceiptDraftMutateResponse;
+};
+
+export const deleteTravelReceiptDraft = async (params: {
+  initData: string;
+  tripId: string;
+  receiptDraftId: string;
+}): Promise<TravelReceiptDraftDeleteResponse> => {
+  const response = await fetch(
+    `/api/travel/trips/${params.tripId}/receipts/${params.receiptDraftId}`,
+    {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        initData: params.initData,
+      }),
+    },
+  );
+
+  return (await response.json()) as TravelReceiptDraftDeleteResponse;
 };
