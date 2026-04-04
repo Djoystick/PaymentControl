@@ -50,10 +50,16 @@ const codeToStatus: Record<TravelApiError["error"]["code"], number> = {
   TRAVEL_TRIP_LIST_FAILED: 500,
   TRAVEL_TRIP_CREATE_FAILED: 500,
   TRAVEL_TRIP_NOT_FOUND: 404,
+  TRAVEL_TRIP_EDIT_LOCKED: 409,
+  TRAVEL_TRIP_CLOSURE_INVALID_STATE: 409,
+  TRAVEL_TRIP_CLOSURE_BLOCKED: 409,
+  TRAVEL_TRIP_CLOSURE_FAILED: 500,
   TRAVEL_EXPENSE_VALIDATION_FAILED: 400,
   TRAVEL_EXPENSE_CREATE_FAILED: 500,
   TRAVEL_EXPENSE_UPDATE_FAILED: 500,
   TRAVEL_EXPENSE_DELETE_FAILED: 500,
+  TRAVEL_SETTLEMENT_NOT_FOUND: 404,
+  TRAVEL_SETTLEMENT_UPDATE_FAILED: 500,
 };
 
 const jsonUpdateError = (
@@ -148,6 +154,10 @@ export async function PATCH(request: Request, context: RouteContext) {
       return jsonUpdateError("TRAVEL_TRIP_NOT_FOUND", updateResult.message);
     }
 
+    if (updateResult.reason === "TRIP_NOT_ACTIVE") {
+      return jsonUpdateError("TRAVEL_TRIP_EDIT_LOCKED", updateResult.message);
+    }
+
     if (updateResult.reason === "EXPENSE_NOT_FOUND") {
       return jsonUpdateError("TRAVEL_TRIP_NOT_FOUND", updateResult.message);
     }
@@ -207,6 +217,10 @@ export async function DELETE(request: Request, context: RouteContext) {
       return jsonDeleteError("TRAVEL_TRIP_NOT_FOUND", deleteResult.message);
     }
 
+    if (deleteResult.reason === "TRIP_NOT_ACTIVE") {
+      return jsonDeleteError("TRAVEL_TRIP_EDIT_LOCKED", deleteResult.message);
+    }
+
     if (deleteResult.reason === "EXPENSE_NOT_FOUND") {
       return jsonDeleteError("TRAVEL_TRIP_NOT_FOUND", deleteResult.message);
     }
@@ -221,4 +235,3 @@ export async function DELETE(request: Request, context: RouteContext) {
     deletedExpenseId: deleteResult.deletedExpenseId,
   });
 }
-

@@ -9,6 +9,10 @@ export type TravelSplitMode =
   | "full_one"
   | "manual_amounts";
 
+export type TravelTripStatus = "active" | "closing" | "closed";
+
+export type TravelSettlementItemStatus = "open" | "settled";
+
 export type TravelTripMemberPayload = {
   id: string;
   tripId: string;
@@ -57,11 +61,33 @@ export type TravelSettlementTransferPayload = {
   amount: number;
 };
 
+export type TravelTripSettlementItemPayload = {
+  id: string;
+  tripId: string;
+  fromMemberId: string;
+  fromMemberDisplayName: string;
+  toMemberId: string;
+  toMemberDisplayName: string;
+  amount: number;
+  status: TravelSettlementItemStatus;
+  settledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type TravelTripSummaryPayload = {
   totalExpensesCount: number;
   totalSpent: number;
   balances: TravelMemberBalancePayload[];
   settlements: TravelSettlementTransferPayload[];
+  recommendedSettlements: TravelSettlementTransferPayload[];
+  settledSettlements: TravelSettlementTransferPayload[];
+  unsettledSettlementCount: number;
+  settledSettlementCount: number;
+  unsettledSettlementTotal: number;
+  settledSettlementTotal: number;
+  readyForClosure: boolean;
+  settlementItems: TravelTripSettlementItemPayload[];
 };
 
 export type TravelTripPayload = {
@@ -71,6 +97,9 @@ export type TravelTripPayload = {
   baseCurrency: string;
   description: string | null;
   createdByProfileId: string | null;
+  status: TravelTripStatus;
+  closedAt: string | null;
+  closureUpdatedAt: string;
   createdAt: string;
   updatedAt: string;
   members: TravelTripMemberPayload[];
@@ -86,6 +115,8 @@ export type TravelTripListItemPayload = {
   memberCount: number;
   totalExpensesCount: number;
   totalSpent: number;
+  status: TravelTripStatus;
+  closedAt: string | null;
   updatedAt: string;
 };
 
@@ -112,6 +143,8 @@ export type TravelCreateExpenseInput = {
   manualSplits: TravelManualSplitInput[];
   spentAt: string | null;
 };
+
+export type TravelTripClosureAction = "start" | "close" | "reopen";
 
 export type TravelScopeResolutionSuccess = {
   ok: true;
@@ -141,10 +174,16 @@ export type TravelApiErrorCode =
   | "TRAVEL_TRIP_LIST_FAILED"
   | "TRAVEL_TRIP_CREATE_FAILED"
   | "TRAVEL_TRIP_NOT_FOUND"
+  | "TRAVEL_TRIP_EDIT_LOCKED"
+  | "TRAVEL_TRIP_CLOSURE_INVALID_STATE"
+  | "TRAVEL_TRIP_CLOSURE_BLOCKED"
+  | "TRAVEL_TRIP_CLOSURE_FAILED"
   | "TRAVEL_EXPENSE_VALIDATION_FAILED"
   | "TRAVEL_EXPENSE_CREATE_FAILED"
   | "TRAVEL_EXPENSE_UPDATE_FAILED"
-  | "TRAVEL_EXPENSE_DELETE_FAILED";
+  | "TRAVEL_EXPENSE_DELETE_FAILED"
+  | "TRAVEL_SETTLEMENT_NOT_FOUND"
+  | "TRAVEL_SETTLEMENT_UPDATE_FAILED";
 
 export type TravelApiError = {
   ok: false;
@@ -193,5 +232,24 @@ export type TravelExpenseDeleteResponse =
       workspace: WorkspaceSummaryPayload;
       trip: TravelTripPayload;
       deletedExpenseId: string;
+    }
+  | TravelApiError;
+
+export type TravelTripClosureMutateResponse =
+  | {
+      ok: true;
+      workspace: WorkspaceSummaryPayload;
+      trip: TravelTripPayload;
+      action: TravelTripClosureAction;
+    }
+  | TravelApiError;
+
+export type TravelSettlementMutateResponse =
+  | {
+      ok: true;
+      workspace: WorkspaceSummaryPayload;
+      trip: TravelTripPayload;
+      settlementItemId: string;
+      status: TravelSettlementItemStatus;
     }
   | TravelApiError;

@@ -7,14 +7,18 @@ import {
   createTravelTrip,
   deleteTravelExpense,
   listTravelTrips,
+  mutateTravelTripClosure,
   readTravelTripDetail,
+  updateTravelSettlementItemStatus,
   updateTravelExpense,
 } from "@/lib/travel/client";
 import type {
+  TravelSettlementTransferPayload,
   TravelSplitMode,
   TravelTripExpensePayload,
   TravelTripListItemPayload,
   TravelTripPayload,
+  TravelTripSettlementItemPayload,
 } from "@/lib/travel/types";
 import { useLocalization } from "@/lib/i18n/localization";
 import { AppIcon } from "@/components/app/app-icon";
@@ -95,6 +99,18 @@ const formatAmount = (amount: number, currency: string): string => {
   return `${amount.toFixed(2)} ${currency}`;
 };
 
+const getTripStatusLabel = (trip: TravelTripPayload, tr: (text: string) => string): string => {
+  if (trip.status === "closed") {
+    return tr("Closed");
+  }
+
+  if (trip.status === "closing") {
+    return tr("Finalizing");
+  }
+
+  return tr("Active");
+};
+
 const mergeTripListWithDetail = (
   list: TravelTripListItemPayload[],
   trip: TravelTripPayload,
@@ -107,6 +123,8 @@ const mergeTripListWithDetail = (
     memberCount: trip.members.length,
     totalExpensesCount: trip.summary.totalExpensesCount,
     totalSpent: trip.summary.totalSpent,
+    status: trip.status,
+    closedAt: trip.closedAt,
     updatedAt: trip.updatedAt,
   };
 
@@ -229,6 +247,12 @@ export function TravelGroupExpensesSection({
   const [isCreatingExpense, setIsCreatingExpense] = useState(false);
   const [isUpdatingExpense, setIsUpdatingExpense] = useState(false);
   const [isDeletingExpenseId, setIsDeletingExpenseId] = useState<string | null>(null);
+  const [isClosureMutating, setIsClosureMutating] = useState(false);
+  const [isSettlementMutatingId, setIsSettlementMutatingId] = useState<string | null>(
+    null,
+  );
+  const [allowCloseWithUnsettledConfirm, setAllowCloseWithUnsettledConfirm] =
+    useState(false);
   const [pendingDeleteExpenseId, setPendingDeleteExpenseId] = useState<string | null>(
     null,
   );
@@ -355,6 +379,7 @@ export function TravelGroupExpensesSection({
 
   const isExpenseSaveInProgress = isCreatingExpense || isUpdatingExpense;
   const isEditingExpense = editingExpenseId !== null;
+  const isTripEditable = selectedTrip?.status === "active";
 
   const sortedRecentExpenses = useMemo(() => {
     if (!selectedTrip) {
@@ -386,6 +411,27 @@ export function TravelGroupExpensesSection({
     });
     return next;
   }, [selectedTrip, expenseHistorySort]);
+
+  const settlementItemsByTransferKey = useMemo(() => {
+    if (!selectedTrip) {
+      return new Map<string, TravelTripSettlementItemPayload>();
+    }
+
+    return new Map(
+      selectedTrip.summary.settlementItems.map((item) => [
+        `${item.fromMemberId}:${item.toMemberId}`,
+        item,
+      ]),
+    );
+  }, [selectedTrip]);
+
+  const unresolvedSettlements = useMemo(() => {
+    if (!selectedTrip) {
+      return [] as TravelSettlementTransferPayload[];
+    }
+
+    return selectedTrip.summary.settlements;
+  }, [selectedTrip]);
 
   const focusExpenseForm = useCallback(() => {
     if (typeof window === "undefined") {
@@ -510,6 +556,7 @@ export function TravelGroupExpensesSection({
     if (!selectedTrip || selectedTrip.members.length === 0) {
       setEditingExpenseId(null);
       setPendingDeleteExpenseId(null);
+      setAllowCloseWithUnsettledConfirm(false);
       setExpenseDraft(defaultExpenseDraft);
       return;
     }
@@ -531,6 +578,7 @@ export function TravelGroupExpensesSection({
     }
 
     setPendingDeleteExpenseId(null);
+    setAllowCloseWithUnsettledConfirm(false);
     resetExpenseDraftToDefaults(selectedTrip);
   }, [editingExpenseId, resetExpenseDraftToDefaults, selectedTrip]);
 
@@ -583,6 +631,12 @@ export function TravelGroupExpensesSection({
   const submitExpense = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!selectedTrip || isExpenseSaveInProgress) {
+      return;
+    }
+
+    if (selectedTrip.status !== "active") {
+      setFeedbackTone("error");
+      setFeedback(tr("Trip is not active. Reopen trip editing to add or update expenses."));
       return;
     }
 
@@ -681,6 +735,12 @@ export function TravelGroupExpensesSection({
         return;
       }
 
+      if (selectedTrip.status !== "active") {
+        setFeedbackTone("error");
+        setFeedback(tr("Trip is not active. Reopen trip editing to add or update expenses."));
+        return;
+      }
+
       setPendingDeleteExpenseId(null);
       setEditingExpenseId(expense.id);
       setExpenseDraft(createExpenseDraftFromExistingExpense(selectedTrip, expense));
@@ -694,6 +754,8 @@ export function TravelGroupExpensesSection({
       isExpenseSaveInProgress,
       selectedTrip,
       tr,
+      setFeedback,
+      setFeedbackTone,
     ],
   );
 
@@ -718,6 +780,12 @@ export function TravelGroupExpensesSection({
   const deleteExpense = useCallback(
     async (expenseId: string) => {
       if (!selectedTrip || isExpenseSaveInProgress || isDeletingExpenseId) {
+        return;
+      }
+
+      if (selectedTrip.status !== "active") {
+        setFeedbackTone("error");
+        setFeedback(tr("Trip is not active. Reopen trip editing to add or update expenses."));
         return;
       }
 
@@ -761,6 +829,120 @@ export function TravelGroupExpensesSection({
       selectedTrip,
       tr,
     ],
+  );
+
+  const runTripClosureAction = useCallback(
+    async (action: "start" | "close" | "reopen", allowUnsettled = false) => {
+      if (!selectedTrip || isClosureMutating || isSettlementMutatingId) {
+        return;
+      }
+
+      setFeedback(null);
+      setIsClosureMutating(true);
+      try {
+        const result = await mutateTravelTripClosure({
+          initData,
+          tripId: selectedTrip.id,
+          action,
+          allowUnsettled,
+        });
+
+        if (!result.ok) {
+          if (result.error.code === "TRAVEL_TRIP_CLOSURE_BLOCKED" && action === "close") {
+            setAllowCloseWithUnsettledConfirm(true);
+          }
+          setFeedbackTone("error");
+          setFeedback(result.error.message);
+          return;
+        }
+
+        setSelectedTrip(result.trip);
+        setTrips((current) => mergeTripListWithDetail(current, result.trip));
+        setAllowCloseWithUnsettledConfirm(false);
+
+        if (result.trip.status !== "active") {
+          setEditingExpenseId(null);
+          setPendingDeleteExpenseId(null);
+        } else {
+          resetExpenseDraftToDefaults(result.trip);
+        }
+
+        setFeedbackTone("success");
+        if (result.action === "start") {
+          setFeedback(tr("Settlement finalization started. Mark transfers as settled and close trip when ready."));
+          return;
+        }
+
+        if (result.action === "close") {
+          setFeedback(tr("Trip closed. Expenses are now read-only and final settlement snapshot is saved."));
+          return;
+        }
+
+        setFeedback(tr("Trip reopened. You can edit expenses and continue the trip."));
+      } catch {
+        setFeedbackTone("error");
+        setFeedback(tr("Failed to update trip closure state."));
+      } finally {
+        setIsClosureMutating(false);
+      }
+    },
+    [
+      initData,
+      isClosureMutating,
+      isSettlementMutatingId,
+      resetExpenseDraftToDefaults,
+      selectedTrip,
+      tr,
+    ],
+  );
+
+  const toggleSettlementStatus = useCallback(
+    async (settlementItemId: string, markSettled: boolean) => {
+      if (!selectedTrip || isClosureMutating || isSettlementMutatingId) {
+        return;
+      }
+
+      if (selectedTrip.status !== "closing") {
+        setFeedbackTone("error");
+        setFeedback(tr("Settlement items can be updated only while trip is in finalization mode."));
+        return;
+      }
+
+      setFeedback(null);
+      setIsSettlementMutatingId(settlementItemId);
+      try {
+        const result = await updateTravelSettlementItemStatus({
+          initData,
+          tripId: selectedTrip.id,
+          settlementItemId,
+          markSettled,
+        });
+
+        if (!result.ok) {
+          setFeedbackTone("error");
+          setFeedback(result.error.message);
+          return;
+        }
+
+        setSelectedTrip(result.trip);
+        setTrips((current) => mergeTripListWithDetail(current, result.trip));
+        setAllowCloseWithUnsettledConfirm(false);
+        setFeedbackTone("success");
+        setFeedback(
+          tr(
+            markSettled
+              ? "Settlement marked as done."
+              : "Settlement returned to open list.",
+          ),
+        );
+      } catch {
+        setFeedbackTone("error");
+        setFeedback(tr("Failed to update settlement item."));
+      } finally {
+        setIsSettlementMutatingId(null);
+      }
+    },
+    [initData, isClosureMutating, isSettlementMutatingId, selectedTrip, tr],
   );
 
   const scrollToHistory = useCallback(() => {
@@ -913,7 +1095,26 @@ export function TravelGroupExpensesSection({
                       selectedTripId === trip.id ? "border-app-accent" : ""
                     }`}
                   >
-                    <p className="text-sm font-semibold text-app-text">{trip.title}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-app-text">{trip.title}</p>
+                      <span
+                        className={`pc-status-pill ${
+                          trip.status === "closed"
+                            ? "pc-status-pill-success"
+                            : trip.status === "closing"
+                              ? "pc-status-pill-warning"
+                              : ""
+                        }`}
+                      >
+                        {tr(
+                          trip.status === "closed"
+                            ? "Closed"
+                            : trip.status === "closing"
+                              ? "Finalizing"
+                              : "Active",
+                        )}
+                      </span>
+                    </div>
                     <p className="mt-1 text-xs text-app-text-muted">
                       {tr("Members")}: {trip.memberCount}. {tr("Expenses")}: {trip.totalExpensesCount}. {tr("Total")}: {formatAmount(trip.totalSpent, trip.baseCurrency)}.
                     </p>
@@ -938,12 +1139,30 @@ export function TravelGroupExpensesSection({
               <div className="pc-surface pc-surface-soft">
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="text-sm font-semibold text-app-text">{selectedTrip.title}</h3>
-                  <span className="pc-status-pill">{selectedTrip.baseCurrency}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="pc-status-pill">{selectedTrip.baseCurrency}</span>
+                    <span
+                      className={`pc-status-pill ${
+                        selectedTrip.status === "closed"
+                          ? "pc-status-pill-success"
+                          : selectedTrip.status === "closing"
+                            ? "pc-status-pill-warning"
+                            : ""
+                      }`}
+                    >
+                      {getTripStatusLabel(selectedTrip, tr)}
+                    </span>
+                  </div>
                 </div>
                 {selectedTrip.description && (
                   <p className="mt-1 text-xs text-app-text-muted">{selectedTrip.description}</p>
                 )}
-                <div className="mt-2 grid grid-cols-3 gap-2 text-center">
+                {selectedTrip.closedAt && (
+                  <p className="mt-1 text-[11px] text-app-text-muted">
+                    {tr("Closed at")}: {formatDateTime(selectedTrip.closedAt)}
+                  </p>
+                )}
+                <div className="mt-2 grid grid-cols-2 gap-2 text-center sm:grid-cols-5">
                   <div className="pc-state-card p-2">
                     <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Members")}</p>
                     <p className="mt-1 text-sm font-semibold text-app-text">{selectedTrip.members.length}</p>
@@ -956,6 +1175,18 @@ export function TravelGroupExpensesSection({
                     <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Total")}</p>
                     <p className="mt-1 text-sm font-semibold text-app-text">
                       {formatAmount(selectedTrip.summary.totalSpent, selectedTrip.baseCurrency)}
+                    </p>
+                  </div>
+                  <div className="pc-state-card p-2">
+                    <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Open settlements")}</p>
+                    <p className="mt-1 text-sm font-semibold text-app-text">
+                      {selectedTrip.summary.unsettledSettlementCount}
+                    </p>
+                  </div>
+                  <div className="pc-state-card p-2">
+                    <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Settled")}</p>
+                    <p className="mt-1 text-sm font-semibold text-app-text">
+                      {selectedTrip.summary.settledSettlementCount}
                     </p>
                   </div>
                 </div>
@@ -975,10 +1206,18 @@ export function TravelGroupExpensesSection({
                       formatDateTime(selectedTrip.recentExpenses[0]?.spentAt ?? "")
                     : tr("No expenses yet")}
                 </p>
+                {selectedTrip.status !== "active" && (
+                  <p className="mt-1 text-[11px] text-app-text-muted">
+                    {selectedTrip.summary.readyForClosure
+                      ? tr("Ready to close trip.")
+                      : tr("Settle open transfers before closing trip.")}
+                  </p>
+                )}
                 <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                   <button
                     type="button"
                     onClick={focusExpenseForm}
+                    disabled={!isTripEditable || isClosureMutating || isSettlementMutatingId !== null}
                     className="pc-btn-primary w-full"
                   >
                     <AppIcon name="add" className="h-3.5 w-3.5" />
@@ -993,13 +1232,91 @@ export function TravelGroupExpensesSection({
                     {tr("View recent expenses")}
                   </button>
                 </div>
+                <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+                  {selectedTrip.status === "active" && (
+                    <button
+                      type="button"
+                      onClick={() => void runTripClosureAction("start")}
+                      disabled={isClosureMutating || isSettlementMutatingId !== null}
+                      className="pc-btn-secondary w-full"
+                    >
+                      <AppIcon name="check" className="h-3.5 w-3.5" />
+                      {isClosureMutating ? tr("Saving...") : tr("Start finalization")}
+                    </button>
+                  )}
+                  {selectedTrip.status === "closing" && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void runTripClosureAction("close", false)}
+                        disabled={isClosureMutating || isSettlementMutatingId !== null}
+                        className="pc-btn-primary w-full"
+                      >
+                        <AppIcon name="check" className="h-3.5 w-3.5" />
+                        {isClosureMutating ? tr("Saving...") : tr("Close trip")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void runTripClosureAction("reopen")}
+                        disabled={isClosureMutating || isSettlementMutatingId !== null}
+                        className="pc-btn-secondary w-full"
+                      >
+                        <AppIcon name="undo" className="h-3.5 w-3.5" />
+                        {tr("Back to active")}
+                      </button>
+                    </>
+                  )}
+                  {selectedTrip.status === "closed" && (
+                    <button
+                      type="button"
+                      onClick={() => void runTripClosureAction("reopen")}
+                      disabled={isClosureMutating || isSettlementMutatingId !== null}
+                      className="pc-btn-secondary w-full"
+                    >
+                      <AppIcon name="undo" className="h-3.5 w-3.5" />
+                      {tr("Reopen trip")}
+                    </button>
+                  )}
+                </div>
+                {allowCloseWithUnsettledConfirm && selectedTrip.status === "closing" && (
+                  <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2">
+                    <p className="text-xs font-semibold text-amber-900">
+                      {tr("Trip still has open settlements. Close anyway?")}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => void runTripClosureAction("close", true)}
+                        disabled={isClosureMutating || isSettlementMutatingId !== null}
+                        className="pc-btn-danger"
+                      >
+                        <AppIcon name="check" className="h-3.5 w-3.5" />
+                        {tr("Close with open settlements")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAllowCloseWithUnsettledConfirm(false)}
+                        disabled={isClosureMutating || isSettlementMutatingId !== null}
+                        className="pc-btn-secondary"
+                      >
+                        {tr("Keep trip active")}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {selectedTrip.status === "closed" && (
+                  <p className="mt-2 text-[11px] text-app-text-muted">
+                    {tr("Closed trip stays available as read-only history with final settlement summary.")}
+                  </p>
+                )}
               </div>
 
-              <form
-                ref={expenseFormRef}
-                className="pc-surface space-y-2"
-                onSubmit={submitExpense}
-              >
+              {isTripEditable ? (
+                <form
+                  ref={expenseFormRef}
+                  className="pc-surface space-y-2"
+                  onSubmit={submitExpense}
+                >
                 <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                   <AppIcon name={isEditingExpense ? "edit" : "add"} className="h-3.5 w-3.5" />
                   {tr(isEditingExpense ? "Edit expense" : "Add expense")}
@@ -1243,7 +1560,22 @@ export function TravelGroupExpensesSection({
                     ? tr("Saving...")
                     : tr(isEditingExpense ? "Save changes" : "Save expense")}
                 </button>
-              </form>
+                </form>
+              ) : (
+                <div className="pc-surface pc-surface-soft">
+                  <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                    <AppIcon name="add" className="h-3.5 w-3.5" />
+                    {tr("Expense editing is locked")}
+                  </p>
+                  <p className="mt-1 text-xs text-app-text-muted">
+                    {tr(
+                      selectedTrip.status === "closed"
+                        ? "Trip is closed. Reopen only if your group decides to continue editing."
+                        : "Trip is in finalization mode. Mark settlements and close trip, or return to active mode for edits.",
+                    )}
+                  </p>
+                </div>
+              )}
 
               <div className="pc-surface pc-surface-soft">
                 <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
@@ -1283,32 +1615,144 @@ export function TravelGroupExpensesSection({
                   ))}
                 </div>
                 <div className="mt-2">
-                  <p className="text-xs font-semibold text-app-text">{tr("Who owes whom")}</p>
-                  {selectedTrip.summary.settlements.length === 0 ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-app-text">{tr("Who owes whom")}</p>
+                    <span className="text-[11px] text-app-text-muted">
+                      {tr("Open")}: {selectedTrip.summary.unsettledSettlementCount} •{" "}
+                      {formatAmount(
+                        selectedTrip.summary.unsettledSettlementTotal,
+                        selectedTrip.baseCurrency,
+                      )}
+                    </span>
+                  </div>
+                  {unresolvedSettlements.length === 0 ? (
                     <p className="mt-1 text-xs text-app-text-muted">
                       {tr("Balances are already close to zero.")}
                     </p>
                   ) : (
                     <div className="mt-1 space-y-1">
-                      {selectedTrip.summary.settlements.map((settlement, index) => (
-                        <div
-                          key={`${settlement.fromMemberId}-${settlement.toMemberId}-${index}`}
-                          className="pc-state-card flex items-center justify-between gap-2 px-3 py-2"
-                        >
-                          <p className="text-xs text-app-text-muted">
-                            <span className="font-semibold text-app-text">
-                              {settlement.fromMemberDisplayName}
-                            </span>{" "}
-                            {tr("owes")}{" "}
-                            <span className="font-semibold text-app-text">
-                              {settlement.toMemberDisplayName}
-                            </span>
-                          </p>
-                          <span className="pc-status-pill pc-status-pill-warning">
-                            {formatAmount(settlement.amount, selectedTrip.baseCurrency)}
-                          </span>
+                      {unresolvedSettlements.map((settlement, index) => {
+                        const settlementItem = settlementItemsByTransferKey.get(
+                          `${settlement.fromMemberId}:${settlement.toMemberId}`,
+                        );
+                        const canToggleSettlement =
+                          selectedTrip.status === "closing" &&
+                          settlementItem &&
+                          isSettlementMutatingId !== settlementItem.id;
+
+                        return (
+                          <div
+                            key={`${settlement.fromMemberId}-${settlement.toMemberId}-${index}`}
+                            className="pc-state-card space-y-1 px-3 py-2"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-xs text-app-text-muted">
+                                <span className="font-semibold text-app-text">
+                                  {settlement.fromMemberDisplayName}
+                                </span>{" "}
+                                {tr("owes")}{" "}
+                                <span className="font-semibold text-app-text">
+                                  {settlement.toMemberDisplayName}
+                                </span>
+                              </p>
+                              <span className="pc-status-pill pc-status-pill-warning">
+                                {formatAmount(settlement.amount, selectedTrip.baseCurrency)}
+                              </span>
+                            </div>
+                            {selectedTrip.status === "closing" && settlementItem && (
+                              <div className="flex flex-wrap gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    void toggleSettlementStatus(settlementItem.id, true)
+                                  }
+                                  disabled={
+                                    isClosureMutating ||
+                                    isSettlementMutatingId !== null ||
+                                    !canToggleSettlement
+                                  }
+                                  className="pc-btn-secondary"
+                                >
+                                  <AppIcon name="check" className="h-3.5 w-3.5" />
+                                  {isSettlementMutatingId === settlementItem.id
+                                    ? tr("Saving...")
+                                    : tr("Mark as settled")}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {(selectedTrip.status === "closing" || selectedTrip.status === "closed") && (
+                    <div className="mt-2 space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold text-app-text">{tr("Settled transfers")}</p>
+                        <span className="text-[11px] text-app-text-muted">
+                          {selectedTrip.summary.settledSettlementCount} •{" "}
+                          {formatAmount(
+                            selectedTrip.summary.settledSettlementTotal,
+                            selectedTrip.baseCurrency,
+                          )}
+                        </span>
+                      </div>
+                      {selectedTrip.summary.settledSettlements.length === 0 ? (
+                        <p className="text-[11px] text-app-text-muted">
+                          {tr("No settled transfers yet.")}
+                        </p>
+                      ) : (
+                        <div className="space-y-1">
+                          {selectedTrip.summary.settledSettlements.map((settlement, index) => {
+                            const settlementItem = settlementItemsByTransferKey.get(
+                              `${settlement.fromMemberId}:${settlement.toMemberId}`,
+                            );
+
+                            return (
+                              <div
+                                key={`settled-${settlement.fromMemberId}-${settlement.toMemberId}-${index}`}
+                                className="pc-state-card space-y-1 px-3 py-2"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-xs text-app-text-muted">
+                                    <span className="font-semibold text-app-text">
+                                      {settlement.fromMemberDisplayName}
+                                    </span>{" "}
+                                    {tr("paid")}{" "}
+                                    <span className="font-semibold text-app-text">
+                                      {settlement.toMemberDisplayName}
+                                    </span>
+                                  </p>
+                                  <span className="pc-status-pill pc-status-pill-success">
+                                    {formatAmount(settlement.amount, selectedTrip.baseCurrency)}
+                                  </span>
+                                </div>
+                                {selectedTrip.status === "closing" && settlementItem && (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void toggleSettlementStatus(settlementItem.id, false)
+                                      }
+                                      disabled={
+                                        isClosureMutating ||
+                                        isSettlementMutatingId !== null
+                                      }
+                                      className="pc-btn-secondary"
+                                    >
+                                      <AppIcon name="undo" className="h-3.5 w-3.5" />
+                                      {isSettlementMutatingId === settlementItem.id
+                                        ? tr("Saving...")
+                                        : tr("Return to open")}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
-                      ))}
+                      )}
                     </div>
                   )}
                 </div>
@@ -1384,7 +1828,13 @@ export function TravelGroupExpensesSection({
                           <button
                             type="button"
                             onClick={() => startExpenseEdit(expense)}
-                            disabled={isDeletingExpenseId !== null || isExpenseSaveInProgress}
+                            disabled={
+                              !isTripEditable ||
+                              isDeletingExpenseId !== null ||
+                              isExpenseSaveInProgress ||
+                              isClosureMutating ||
+                              isSettlementMutatingId !== null
+                            }
                             className="pc-btn-secondary w-full"
                           >
                             <AppIcon name="edit" className="h-3.5 w-3.5" />
@@ -1397,7 +1847,13 @@ export function TravelGroupExpensesSection({
                                 current === expense.id ? null : expense.id,
                               )
                             }
-                            disabled={isDeletingExpenseId !== null || isExpenseSaveInProgress}
+                            disabled={
+                              !isTripEditable ||
+                              isDeletingExpenseId !== null ||
+                              isExpenseSaveInProgress ||
+                              isClosureMutating ||
+                              isSettlementMutatingId !== null
+                            }
                             className="pc-btn-danger w-full"
                           >
                             <AppIcon name="archive" className="h-3.5 w-3.5" />

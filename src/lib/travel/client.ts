@@ -3,6 +3,8 @@
 import type {
   TravelExpenseDeleteResponse,
   TravelExpenseMutateResponse,
+  TravelSettlementMutateResponse,
+  TravelTripClosureMutateResponse,
   TravelTripDetailResponse,
   TravelTripMutateResponse,
   TravelTripsListResponse,
@@ -146,4 +148,43 @@ export const deleteTravelExpense = async (params: {
   );
 
   return (await response.json()) as TravelExpenseDeleteResponse;
+};
+
+export const mutateTravelTripClosure = async (params: {
+  initData: string;
+  tripId: string;
+  action: "start" | "close" | "reopen";
+  allowUnsettled?: boolean;
+}): Promise<TravelTripClosureMutateResponse> => {
+  return postJson<TravelTripClosureMutateResponse>(
+    `/api/travel/trips/${params.tripId}/closure`,
+    {
+      initData: params.initData,
+      action: params.action,
+      allowUnsettled: params.allowUnsettled ?? false,
+    },
+  );
+};
+
+export const updateTravelSettlementItemStatus = async (params: {
+  initData: string;
+  tripId: string;
+  settlementItemId: string;
+  markSettled: boolean;
+}): Promise<TravelSettlementMutateResponse> => {
+  const response = await fetch(
+    `/api/travel/trips/${params.tripId}/settlements/${params.settlementItemId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        initData: params.initData,
+        markSettled: params.markSettled,
+      }),
+    },
+  );
+
+  return (await response.json()) as TravelSettlementMutateResponse;
 };

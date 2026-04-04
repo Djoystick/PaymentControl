@@ -1,15 +1,16 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { isSupabaseServerConfigured } from "@/lib/config/server-env";
 import { resolveTravelScope } from "@/lib/travel/context";
-import { getTravelTripByWorkspaceAndId } from "@/lib/travel/repository";
-import type { TravelApiError, TravelTripDetailResponse } from "@/lib/travel/types";
+import { updateTravelSettlementItemStatusForTrip } from "@/lib/travel/repository";
+import type { TravelApiError, TravelSettlementMutateResponse } from "@/lib/travel/types";
 
-type ReadTravelTripBody = {
+type UpdateTravelSettlementBody = {
   initData?: string;
+  markSettled?: unknown;
 };
 
 type RouteContext = {
-  params: Promise<{ tripId: string }>;
+  params: Promise<{ tripId: string; settlementItemId: string }>;
 };
 
 const codeToStatus: Record<TravelApiError["error"]["code"], number> = {
@@ -45,7 +46,7 @@ const jsonError = (
   code: TravelApiError["error"]["code"],
   message: string,
 ) => {
-  return NextResponse.json<TravelTripDetailResponse>(
+  return NextResponse.json<TravelSettlementMutateResponse>(
     {
       ok: false,
       error: {
@@ -57,7 +58,11 @@ const jsonError = (
   );
 };
 
-export async function POST(request: Request, context: RouteContext) {
+const normalizeMarkSettled = (value: unknown): boolean => {
+  return value === true;
+};
+
+export async function PATCH(request: Request, context: RouteContext) {
   if (!isSupabaseServerConfigured) {
     return jsonError(
       "SUPABASE_NOT_CONFIGURED",
@@ -65,14 +70,18 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 
-  const { tripId } = await context.params;
+  const { tripId, settlementItemId } = await context.params;
   if (!tripId) {
     return jsonError("TRAVEL_TRIP_NOT_FOUND", "Trip id is required.");
   }
 
-  let body: ReadTravelTripBody = {};
+  if (!settlementItemId) {
+    return jsonError("TRAVEL_SETTLEMENT_NOT_FOUND", "Settlement item id is required.");
+  }
+
+  let body: UpdateTravelSettlementBody = {};
   try {
-    body = (await request.json()) as ReadTravelTripBody;
+    body = (await request.json()) as UpdateTravelSettlementBody;
   } catch {
     body = {};
   }
@@ -82,17 +91,34 @@ export async function POST(request: Request, context: RouteContext) {
     return jsonError(scopeResult.error.code, scopeResult.error.message);
   }
 
-  const trip = await getTravelTripByWorkspaceAndId(scopeResult.workspace.id, tripId);
-  if (!trip) {
-    return jsonError(
-      "TRAVEL_TRIP_NOT_FOUND",
-      "Trip was not found in current workspace.",
-    );
+  const updateResult = await updateTravelSettlementItemStatusForTrip({
+    workspaceId: scopeResult.workspace.id,
+    tripId,
+    settlementItemId,
+    markSettled: normalizeMarkSettled(body.markSettled),
+  });
+
+  if (!updateResult.ok) {
+    if (updateResult.reason === "TRIP_NOT_FOUND") {
+      return jsonError("TRAVEL_TRIP_NOT_FOUND", updateResult.message);
+    }
+
+    if (updateResult.reason === "INVALID_STATE") {
+      return jsonError("TRAVEL_TRIP_CLOSURE_INVALID_STATE", updateResult.message);
+    }
+
+    if (updateResult.reason === "SETTLEMENT_NOT_FOUND") {
+      return jsonError("TRAVEL_SETTLEMENT_NOT_FOUND", updateResult.message);
+    }
+
+    return jsonError("TRAVEL_SETTLEMENT_UPDATE_FAILED", updateResult.message);
   }
 
-  return NextResponse.json<TravelTripDetailResponse>({
+  return NextResponse.json<TravelSettlementMutateResponse>({
     ok: true,
     workspace: scopeResult.workspace,
-    trip,
+    trip: updateResult.trip,
+    settlementItemId: updateResult.settlementItemId,
+    status: updateResult.status,
   });
 }

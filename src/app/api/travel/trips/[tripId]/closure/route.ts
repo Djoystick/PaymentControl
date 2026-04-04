@@ -1,21 +1,17 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { isSupabaseServerConfigured } from "@/lib/config/server-env";
 import { resolveTravelScope } from "@/lib/travel/context";
-import { createTravelExpenseForTrip } from "@/lib/travel/repository";
-import { validateTravelCreateExpenseInput } from "@/lib/travel/validation";
-import type { TravelApiError, TravelExpenseMutateResponse } from "@/lib/travel/types";
+import { mutateTravelTripClosureForTrip } from "@/lib/travel/repository";
+import type {
+  TravelApiError,
+  TravelTripClosureAction,
+  TravelTripClosureMutateResponse,
+} from "@/lib/travel/types";
 
-type CreateTravelExpenseBody = {
+type MutateTravelTripClosureBody = {
   initData?: string;
-  amount?: unknown;
-  paidByMemberId?: unknown;
-  description?: unknown;
-  category?: unknown;
-  splitMode?: unknown;
-  selectedMemberIds?: unknown;
-  fullAmountMemberId?: unknown;
-  manualSplits?: unknown;
-  spentAt?: unknown;
+  action?: unknown;
+  allowUnsettled?: unknown;
 };
 
 type RouteContext = {
@@ -55,7 +51,7 @@ const jsonError = (
   code: TravelApiError["error"]["code"],
   message: string,
 ) => {
-  return NextResponse.json<TravelExpenseMutateResponse>(
+  return NextResponse.json<TravelTripClosureMutateResponse>(
     {
       ok: false,
       error: {
@@ -65,6 +61,18 @@ const jsonError = (
     },
     { status: codeToStatus[code] ?? 400 },
   );
+};
+
+const normalizeClosureAction = (value: unknown): TravelTripClosureAction | null => {
+  if (value === "start" || value === "close" || value === "reopen") {
+    return value;
+  }
+
+  return null;
+};
+
+const normalizeAllowUnsettled = (value: unknown): boolean => {
+  return value === true;
 };
 
 export async function POST(request: Request, context: RouteContext) {
@@ -80,9 +88,9 @@ export async function POST(request: Request, context: RouteContext) {
     return jsonError("TRAVEL_TRIP_NOT_FOUND", "Trip id is required.");
   }
 
-  let body: CreateTravelExpenseBody = {};
+  let body: MutateTravelTripClosureBody = {};
   try {
-    body = (await request.json()) as CreateTravelExpenseBody;
+    body = (await request.json()) as MutateTravelTripClosureBody;
   } catch {
     body = {};
   }
@@ -92,49 +100,41 @@ export async function POST(request: Request, context: RouteContext) {
     return jsonError(scopeResult.error.code, scopeResult.error.message);
   }
 
-  const validationResult = validateTravelCreateExpenseInput({
-    amount: body.amount,
-    paidByMemberId: body.paidByMemberId,
-    description: body.description,
-    category: body.category,
-    splitMode: body.splitMode,
-    selectedMemberIds: body.selectedMemberIds,
-    fullAmountMemberId: body.fullAmountMemberId,
-    manualSplits: body.manualSplits,
-    spentAt: body.spentAt,
-  });
-
-  if (!validationResult.ok) {
-    return jsonError("TRAVEL_EXPENSE_VALIDATION_FAILED", validationResult.message);
+  const action = normalizeClosureAction(body.action);
+  if (!action) {
+    return jsonError(
+      "TRAVEL_TRIP_CLOSURE_INVALID_STATE",
+      "Closure action is invalid.",
+    );
   }
 
-  const expenseResult = await createTravelExpenseForTrip({
+  const closureResult = await mutateTravelTripClosureForTrip({
     workspaceId: scopeResult.workspace.id,
-    profileId: scopeResult.profileId,
     tripId,
-    input: validationResult.data,
+    action,
+    allowUnsettled: normalizeAllowUnsettled(body.allowUnsettled),
   });
 
-  if (!expenseResult.ok) {
-    if (expenseResult.reason === "TRIP_NOT_FOUND") {
-      return jsonError("TRAVEL_TRIP_NOT_FOUND", expenseResult.message);
+  if (!closureResult.ok) {
+    if (closureResult.reason === "TRIP_NOT_FOUND") {
+      return jsonError("TRAVEL_TRIP_NOT_FOUND", closureResult.message);
     }
 
-    if (expenseResult.reason === "TRIP_NOT_ACTIVE") {
-      return jsonError("TRAVEL_TRIP_EDIT_LOCKED", expenseResult.message);
+    if (closureResult.reason === "INVALID_STATE") {
+      return jsonError("TRAVEL_TRIP_CLOSURE_INVALID_STATE", closureResult.message);
     }
 
-    if (expenseResult.reason === "VALIDATION_FAILED") {
-      return jsonError("TRAVEL_EXPENSE_VALIDATION_FAILED", expenseResult.message);
+    if (closureResult.reason === "BLOCKED") {
+      return jsonError("TRAVEL_TRIP_CLOSURE_BLOCKED", closureResult.message);
     }
 
-    return jsonError("TRAVEL_EXPENSE_CREATE_FAILED", expenseResult.message);
+    return jsonError("TRAVEL_TRIP_CLOSURE_FAILED", closureResult.message);
   }
 
-  return NextResponse.json<TravelExpenseMutateResponse>({
+  return NextResponse.json<TravelTripClosureMutateResponse>({
     ok: true,
     workspace: scopeResult.workspace,
-    trip: expenseResult.trip,
-    expense: expenseResult.expense,
+    trip: closureResult.trip,
+    action: closureResult.action,
   });
 }

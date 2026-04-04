@@ -1,8 +1,7 @@
-﻿import type {
+import type {
   TravelMemberBalancePayload,
   TravelSettlementTransferPayload,
   TravelSplitMode,
-  TravelTripSummaryPayload,
 } from "@/lib/travel/types";
 
 export type TravelSplitEngineMember = {
@@ -47,6 +46,13 @@ export type TravelBalanceInputExpense = {
     memberId: string;
     shareAmount: number;
   }>;
+};
+
+export type TravelCalculatedTripSummary = {
+  totalExpensesCount: number;
+  totalSpent: number;
+  balances: TravelMemberBalancePayload[];
+  settlements: TravelSettlementTransferPayload[];
 };
 
 const normalizeMemberIds = (ids: string[]): string[] => {
@@ -283,7 +289,7 @@ const buildSettlements = (
 export const buildTravelTripSummary = (params: {
   members: TravelSplitEngineMember[];
   expenses: TravelBalanceInputExpense[];
-}): TravelTripSummaryPayload => {
+}): TravelCalculatedTripSummary => {
   const memberMap = new Map(
     params.members.map((member) => [
       member.id,
@@ -349,3 +355,4 @@ export const buildTravelTripSummary = (params: {
     settlements: buildSettlements(balances),
   };
 };
+
