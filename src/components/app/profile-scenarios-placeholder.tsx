@@ -32,8 +32,12 @@ import { clientEnv } from "@/lib/config/client-env";
 import { ThemeProvider, useTheme } from "@/lib/theme/theme-context";
 import { buildBugReportRuntimeContextPayload } from "@/lib/app/context-memory";
 import {
+  filterSubscriptionGuides,
+  getGuideCategoryLabel,
   getLocalizedGuideText,
   subscriptionCancellationGuidesCatalog,
+  subscriptionGuideCategories,
+  type SubscriptionGuideCategoryFilter,
 } from "@/lib/subscription-guides/catalog";
 
 const inviteStatusLabels: Record<FamilyWorkspaceInviteStatus, string> = {
@@ -133,6 +137,9 @@ function ProfileScenariosContent() {
   const [isOnboardingFlagCompleted, setIsOnboardingFlagCompleted] = useState<
     boolean | null
   >(() => readOnboardingFlagState());
+  const [guideSearchQuery, setGuideSearchQuery] = useState("");
+  const [guideCategoryFilter, setGuideCategoryFilter] =
+    useState<SubscriptionGuideCategoryFilter>("all");
   const [selectedCancellationGuideId, setSelectedCancellationGuideId] = useState(
     subscriptionCancellationGuidesCatalog[0]?.id ?? "",
   );
@@ -160,17 +167,39 @@ function ProfileScenariosContent() {
   );
   const supportRails = clientEnv.supportRails;
   const configuredSupportRails = supportRails.filter((rail) => rail.isConfigured);
+  const filteredCancellationGuides = useMemo(() => {
+    return filterSubscriptionGuides(guideCategoryFilter, guideSearchQuery);
+  }, [guideCategoryFilter, guideSearchQuery]);
+
+  const featuredCancellationGuides = useMemo(() => {
+    return filterSubscriptionGuides("all", "").filter((guide) => guide.featured).slice(0, 6);
+  }, []);
+
+  useEffect(() => {
+    if (filteredCancellationGuides.length === 0) {
+      return;
+    }
+
+    if (
+      !filteredCancellationGuides.some(
+        (guide) => guide.id === selectedCancellationGuideId,
+      )
+    ) {
+      setSelectedCancellationGuideId(filteredCancellationGuides[0].id);
+    }
+  }, [filteredCancellationGuides, selectedCancellationGuideId]);
+
   const selectedCancellationGuide = useMemo(() => {
-    if (subscriptionCancellationGuidesCatalog.length === 0) {
+    if (filteredCancellationGuides.length === 0) {
       return null;
     }
 
     return (
-      subscriptionCancellationGuidesCatalog.find(
+      filteredCancellationGuides.find(
         (guide) => guide.id === selectedCancellationGuideId,
-      ) ?? subscriptionCancellationGuidesCatalog[0]
+      ) ?? filteredCancellationGuides[0]
     );
-  }, [selectedCancellationGuideId]);
+  }, [filteredCancellationGuides, selectedCancellationGuideId]);
 
   useEffect(() => {
     const syncOnboardingFlagState = () => {
@@ -747,26 +776,89 @@ function ProfileScenariosContent() {
         {selectedCancellationGuide ? (
           <div className="mt-2 space-y-2">
             <div className="space-y-1">
+              <p className="text-xs font-semibold text-app-text">{tr("Find service")}</p>
+              <input
+                type="search"
+                value={guideSearchQuery}
+                onChange={(event) => setGuideSearchQuery(event.target.value)}
+                placeholder={tr("Search by service name or keyword")}
+                className="pc-input"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-app-text">{tr("Categories")}</p>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setGuideCategoryFilter("all")}
+                  aria-pressed={guideCategoryFilter === "all"}
+                  className={`pc-btn-quiet min-h-8 ${
+                    guideCategoryFilter === "all" ? "pc-segment-btn-active" : ""
+                  }`}
+                >
+                  {tr("All categories")}
+                </button>
+                {subscriptionGuideCategories.map((category) => (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() => setGuideCategoryFilter(category.id)}
+                    aria-pressed={guideCategoryFilter === category.id}
+                    className={`pc-btn-quiet min-h-8 ${
+                      guideCategoryFilter === category.id ? "pc-segment-btn-active" : ""
+                    }`}
+                  >
+                    {getLocalizedGuideText(category.label, language)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {guideCategoryFilter === "all" && guideSearchQuery.trim().length === 0 && (
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-app-text">{tr("Popular services")}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {featuredCancellationGuides.map((guide) => (
+                    <button
+                      key={guide.id}
+                      type="button"
+                      onClick={() => setSelectedCancellationGuideId(guide.id)}
+                      className={`pc-btn-quiet min-h-8 ${
+                        selectedCancellationGuide.id === guide.id ? "pc-segment-btn-active" : ""
+                      }`}
+                    >
+                      {getLocalizedGuideText(guide.displayName, language)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1">
               <p className="text-xs font-semibold text-app-text">{tr("Service")}</p>
               <select
                 value={selectedCancellationGuide.id}
                 onChange={(event) => setSelectedCancellationGuideId(event.target.value)}
                 className="pc-select"
               >
-                {subscriptionCancellationGuidesCatalog.map((guide) => (
+                {filteredCancellationGuides.map((guide) => (
                   <option key={guide.id} value={guide.id}>
-                    {getLocalizedGuideText(guide.serviceName, language)}
+                    {getLocalizedGuideText(guide.displayName, language)}
                   </option>
                 ))}
               </select>
+              <p className="text-[11px] text-app-text-muted">
+                {tr("{count} guides found", { count: filteredCancellationGuides.length })}
+              </p>
             </div>
 
             <div className="pc-state-card px-3 py-2">
               <p className="text-sm font-semibold text-app-text">
-                {getLocalizedGuideText(selectedCancellationGuide.serviceName, language)}
+                {getLocalizedGuideText(selectedCancellationGuide.displayName, language)}
               </p>
               <p className="mt-1 text-xs text-app-text-muted">
-                {getLocalizedGuideText(selectedCancellationGuide.category, language)} -{" "}
+                {getGuideCategoryLabel(selectedCancellationGuide.categoryId, language)} -{" "}
                 {getLocalizedGuideText(
                   selectedCancellationGuide.shortDescription,
                   language,
@@ -793,13 +885,13 @@ function ProfileScenariosContent() {
               </ol>
             </div>
 
-            {selectedCancellationGuide.importantNotes.length > 0 && (
+            {selectedCancellationGuide.notes.length > 0 && (
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                   {tr("Important notes")}
                 </p>
                 <ul className="mt-1.5 space-y-1.5">
-                  {selectedCancellationGuide.importantNotes.map((note, index) => (
+                  {selectedCancellationGuide.notes.map((note, index) => (
                     <li
                       key={`${selectedCancellationGuide.id}-note-${index}`}
                       className="pc-state-card px-3 py-2 text-xs text-app-text-muted"
@@ -811,13 +903,22 @@ function ProfileScenariosContent() {
               </div>
             )}
 
-            {selectedCancellationGuide.channelCaveats.length > 0 && (
+            {selectedCancellationGuide.regionContextNote && (
+              <div className="pc-state-card px-3 py-2 text-xs text-app-text-muted">
+                <p className="font-semibold text-app-text">{tr("Region/context note")}</p>
+                <p className="mt-1">
+                  {getLocalizedGuideText(selectedCancellationGuide.regionContextNote, language)}
+                </p>
+              </div>
+            )}
+
+            {selectedCancellationGuide.channelSpecificNotes.length > 0 && (
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                   {tr("Channel-specific notes")}
                 </p>
                 <div className="mt-1.5 space-y-1.5">
-                  {selectedCancellationGuide.channelCaveats.map((caveat) => (
+                  {selectedCancellationGuide.channelSpecificNotes.map((caveat) => (
                     <div key={caveat.id} className="pc-state-card px-3 py-2 text-xs text-app-text">
                       <p className="font-semibold">
                         {getLocalizedGuideText(caveat.title, language)}
@@ -873,9 +974,22 @@ function ProfileScenariosContent() {
             </div>
           </div>
         ) : (
-          <p className="mt-2 text-xs text-app-text-muted">
-            {tr("No official cancellation guides are available yet.")}
-          </p>
+          <div className="mt-2 space-y-2">
+            <p className="text-xs text-app-text-muted">
+              {tr("No guides found for current query.")}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setGuideSearchQuery("");
+                setGuideCategoryFilter("all");
+              }}
+              className="pc-btn-quiet"
+            >
+              <AppIcon name="undo" className="h-3.5 w-3.5" />
+              {tr("Clear guide search")}
+            </button>
+          </div>
         )}
       </details>
       {canManageSupporters && (
