@@ -55,6 +55,7 @@ type TravelGroupExpensesSectionProps = {
 type FeedbackTone = "info" | "success" | "error";
 type TripListFilter = "active" | "completed" | "archived" | "all";
 type ReceiptListFilter = "attention" | "ready" | "processed" | "all";
+type TripWorkspaceLayer = "expenses" | "settlements" | "history";
 const tripListFilters: readonly TripListFilter[] = [
   "active",
   "completed",
@@ -629,11 +630,13 @@ export function TravelGroupExpensesSection({
   const [feedbackTone, setFeedbackTone] = useState<FeedbackTone>("info");
   const [tripListFilter, setTripListFilter] = useState<TripListFilter>("active");
   const [isCreateTripModalOpen, setIsCreateTripModalOpen] = useState(false);
-  const [isJoinPanelOpen, setIsJoinPanelOpen] = useState(false);
+  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [isParticipantPanelOpen, setIsParticipantPanelOpen] = useState(false);
   const [isReceiptPanelOpen, setIsReceiptPanelOpen] = useState(false);
   const [receiptListFilter, setReceiptListFilter] =
     useState<ReceiptListFilter>("attention");
+  const [tripWorkspaceLayer, setTripWorkspaceLayer] =
+    useState<TripWorkspaceLayer>("expenses");
   const [activeReceiptReviewId, setActiveReceiptReviewId] = useState<string | null>(
     null,
   );
@@ -664,6 +667,7 @@ export function TravelGroupExpensesSection({
     "newest",
   );
   const tripTitleInputRef = useRef<HTMLInputElement | null>(null);
+  const joinInviteInputRef = useRef<HTMLInputElement | null>(null);
   const amountInputRef = useRef<HTMLInputElement | null>(null);
   const replaceReceiptInputRef = useRef<HTMLInputElement | null>(null);
   const expenseFormRef = useRef<HTMLFormElement | null>(null);
@@ -1376,17 +1380,21 @@ export function TravelGroupExpensesSection({
   }, [activeReceiptReview, selectedTrip]);
 
   const focusExpenseForm = useCallback(() => {
+    setTripWorkspaceLayer("expenses");
+
     if (typeof window === "undefined") {
       return;
     }
 
     window.requestAnimationFrame(() => {
-      expenseFormRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
+      window.requestAnimationFrame(() => {
+        expenseFormRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+        amountInputRef.current?.focus();
+        amountInputRef.current?.select();
       });
-      amountInputRef.current?.focus();
-      amountInputRef.current?.select();
     });
   }, []);
 
@@ -1470,6 +1478,7 @@ export function TravelGroupExpensesSection({
 
     const loadDetail = async () => {
       setIsTripLoading(true);
+      setSelectedTrip(null);
       try {
         const result = await readTravelTripDetail({
           initData,
@@ -1674,8 +1683,36 @@ export function TravelGroupExpensesSection({
   }, [isCreateTripModalOpen, isCreatingTrip]);
 
   useEffect(() => {
+    if (!isJoinModalOpen || typeof window === "undefined") {
+      return;
+    }
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      joinInviteInputRef.current?.focus();
+    });
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || isJoiningInvite) {
+        return;
+      }
+
+      event.preventDefault();
+      setIsJoinModalOpen(false);
+    };
+
+    window.addEventListener("keydown", handleEscape);
+
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [isJoinModalOpen, isJoiningInvite]);
+
+  useEffect(() => {
     setIsParticipantPanelOpen(false);
     setIsReceiptPanelOpen(false);
+    setIsJoinModalOpen(false);
+    setTripWorkspaceLayer("expenses");
     setActiveReceiptReviewId(null);
     setHighlightedExpenseId(null);
   }, [selectedTripId]);
@@ -1727,6 +1764,7 @@ export function TravelGroupExpensesSection({
       setTrips((current) => mergeTripListWithDetail(current, result.trip));
       setSelectedTripId(result.trip.id);
       setSelectedTrip(result.trip);
+      setTripWorkspaceLayer("expenses");
       setTripTitle("");
       setTripDescription("");
       setTripMembersInput("");
@@ -2636,9 +2674,10 @@ export function TravelGroupExpensesSection({
       }
 
       setJoinInviteTokenInput("");
-      setIsJoinPanelOpen(false);
+      setIsJoinModalOpen(false);
       setSelectedTrip(result.trip);
       setSelectedTripId(result.trip.id);
+      setTripWorkspaceLayer("expenses");
       setTrips((current) => mergeTripListWithDetail(current, result.trip));
       setTripListFilter("active");
       if (selectedTrip?.id === result.trip.id) {
@@ -2841,14 +2880,18 @@ export function TravelGroupExpensesSection({
   );
 
   const scrollToHistory = useCallback(() => {
+    setTripWorkspaceLayer("history");
+
     if (typeof window === "undefined") {
       return;
     }
 
     window.requestAnimationFrame(() => {
-      historySectionRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
+      window.requestAnimationFrame(() => {
+        historySectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
       });
     });
   }, []);
@@ -3063,6 +3106,115 @@ export function TravelGroupExpensesSection({
                   </div>
                 </div>
               </form>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
+
+  const joinTripModal =
+    typeof document !== "undefined" && isJoinModalOpen
+      ? createPortal(
+          <div
+            className="pc-modal-overlay pc-modal-overlay-sheet z-[92]"
+            onClick={() => {
+              if (!isJoiningInvite) {
+                setIsJoinModalOpen(false);
+              }
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={tr("Join shared trip")}
+              className="pc-modal-dialog w-full max-w-lg p-3 sm:p-3.5"
+              style={{
+                maxHeight:
+                  "calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1.5rem)",
+                overflowY: "auto",
+                overscrollBehavior: "contain",
+              }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="pc-modal-sheet-head">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="pc-kicker">
+                      <AppIcon name="workspace" className="h-3.5 w-3.5" />
+                      {tr("Travel groups")}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-app-text">
+                      {tr("Join shared trip")}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsJoinModalOpen(false)}
+                    disabled={isJoiningInvite}
+                    aria-label={tr("Close form")}
+                    className="pc-icon-btn disabled:opacity-60"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-3.5 w-3.5"
+                      aria-hidden
+                    >
+                      <path d="M6 6l12 12" />
+                      <path d="M18 6l-12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <p className="mt-1 text-xs text-app-text-muted">
+                  {tr("Paste invite token from organizer and join trip in current workspace context.")}
+                </p>
+              </div>
+
+              <div className="mt-2 space-y-2">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-app-text">{tr("Trip invite token")}</p>
+                  <input
+                    ref={joinInviteInputRef}
+                    type="text"
+                    value={joinInviteTokenInput}
+                    onChange={(event) => setJoinInviteTokenInput(event.target.value)}
+                    placeholder={tr("Trip invite token")}
+                    className="pc-input"
+                    maxLength={256}
+                    disabled={isJoiningInvite || isTripsLoading || isTripLoading}
+                  />
+                </div>
+                <div className="pc-modal-sheet-foot mt-1">
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void joinTripViaInviteToken()}
+                      disabled={
+                        isJoiningInvite ||
+                        isTripsLoading ||
+                        isTripLoading ||
+                        joinInviteTokenInput.trim().length === 0
+                      }
+                      className="pc-btn-primary grow"
+                    >
+                      <AppIcon name="check" className="h-4 w-4" />
+                      {isJoiningInvite ? tr("Joining...") : tr("Join trip")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsJoinModalOpen(false)}
+                      disabled={isJoiningInvite}
+                      className="pc-btn-secondary"
+                    >
+                      {tr("Cancel")}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>,
           document.body,
@@ -3360,11 +3512,6 @@ export function TravelGroupExpensesSection({
             <AppIcon name="travel" className="h-4 w-4" />
             {tr("Group expenses")}
           </h2>
-          <p className="pc-section-subtitle">
-            {tr(
-              "Manual-first trip tracking: add expenses quickly, split clearly, and see who owes whom.",
-            )}
-          </p>
         </div>
         <span className="pc-state-card inline-flex h-9 w-9 items-center justify-center p-0 text-app-accent">
           <AppIcon name="travel" className="h-[18px] w-[18px]" />
@@ -3380,76 +3527,36 @@ export function TravelGroupExpensesSection({
 
       {!workspaceUnavailable && (
         <>
-          <div className="pc-surface pc-surface-soft">
-            <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              <AppIcon name="workspace" className="h-3.5 w-3.5" />
-              {tr("Trips")}
-            </p>
-            <p className="mt-1 text-[11px] text-app-text-muted">
-              {tr("Open a trip to continue, or start a new one in a quick modal flow.")}
-            </p>
-            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => setIsCreateTripModalOpen(true)}
-                disabled={isCreatingTrip || isTripsLoading}
-                className="pc-btn-primary w-full"
-              >
-                <AppIcon name="add" className="h-3.5 w-3.5" />
-                {tr("Create trip")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsJoinPanelOpen((current) => !current)}
-                disabled={isJoiningInvite || isTripsLoading || isTripLoading}
-                className="pc-btn-secondary w-full"
-              >
-                <AppIcon name="workspace" className="h-3.5 w-3.5" />
-                {isJoinPanelOpen ? tr("Close form") : tr("Join shared trip")}
-              </button>
-            </div>
-          </div>
+          {selectedTripId === null && (
+            <>
+              <div className="pc-surface pc-surface-soft">
+                <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                  <AppIcon name="workspace" className="h-3.5 w-3.5" />
+                  {tr("Trips")}
+                </p>
+                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateTripModalOpen(true)}
+                    disabled={isCreatingTrip || isTripsLoading}
+                    className="pc-btn-primary w-full"
+                  >
+                    <AppIcon name="add" className="h-3.5 w-3.5" />
+                    {tr("Create trip")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsJoinModalOpen(true)}
+                    disabled={isJoiningInvite || isTripsLoading || isTripLoading}
+                    className="pc-btn-secondary w-full"
+                  >
+                    <AppIcon name="workspace" className="h-3.5 w-3.5" />
+                    {tr("Join shared trip")}
+                  </button>
+                </div>
+              </div>
 
-          <details
-            className="pc-detail-surface"
-            open={isJoinPanelOpen}
-            onToggle={(event) => setIsJoinPanelOpen(event.currentTarget.open)}
-          >
-            <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              <AppIcon name="workspace" className="h-3.5 w-3.5" />
-              {tr("Join shared trip")}
-            </summary>
-            <p className="mt-1 text-[11px] text-app-text-muted">
-              {tr("Paste invite token from organizer and join trip in current workspace context.")}
-            </p>
-            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
-              <input
-                type="text"
-                value={joinInviteTokenInput}
-                onChange={(event) => setJoinInviteTokenInput(event.target.value)}
-                placeholder={tr("Trip invite token")}
-                className="pc-input"
-                maxLength={256}
-                disabled={isJoiningInvite || isTripsLoading || isTripLoading}
-              />
-              <button
-                type="button"
-                onClick={() => void joinTripViaInviteToken()}
-                disabled={
-                  isJoiningInvite ||
-                  isTripsLoading ||
-                  isTripLoading ||
-                  joinInviteTokenInput.trim().length === 0
-                }
-                className="pc-btn-secondary h-fit w-full sm:w-auto"
-              >
-                <AppIcon name="check" className="h-3.5 w-3.5" />
-                {isJoiningInvite ? tr("Joining...") : tr("Join trip")}
-              </button>
-            </div>
-          </details>
-
-          <section className="pc-detail-surface">
+              <section className="pc-detail-surface">
             <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
               <AppIcon name="travel" className="h-3.5 w-3.5" />
               {tr("Trips")}
@@ -3509,7 +3616,10 @@ export function TravelGroupExpensesSection({
                   <button
                     key={trip.id}
                     type="button"
-                    onClick={() => setSelectedTripId(trip.id)}
+                    onClick={() => {
+                      setTripWorkspaceLayer("expenses");
+                      setSelectedTripId(trip.id);
+                    }}
                     className={`pc-action-card w-full text-left ${
                       selectedTripId === trip.id ? "border-app-accent" : ""
                     }`}
@@ -3553,29 +3663,60 @@ export function TravelGroupExpensesSection({
                 ))}
               </div>
             )}
-          </section>
+              </section>
 
-          {!isTripsLoading && filteredTrips.length > 0 && selectedTripId === null && (
-            <div className="pc-empty-state">
-              <p className="text-sm font-semibold text-app-text">
-                {tr("Select a trip to open workspace.")}
-              </p>
-              <p className="mt-1 text-xs text-app-text-muted">
-                {tr("Active, completed, and archived sections stay available through filters above.")}
-              </p>
-            </div>
+              {!isTripsLoading && filteredTrips.length > 0 && (
+                <div className="pc-empty-state">
+                  <p className="text-sm font-semibold text-app-text">
+                    {tr("Select a trip to open workspace.")}
+                  </p>
+                  <p className="mt-1 text-xs text-app-text-muted">
+                    {tr("Active, completed, and archived sections stay available through filters above.")}
+                  </p>
+                </div>
+              )}
+            </>
           )}
 
-          {isTripLoading && (
+          {selectedTripId !== null && isTripLoading && (
             <p className="pc-feedback">
               <AppIcon name="refresh" className="pc-spin mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>{tr("Loading trip details...")}</span>
             </p>
           )}
 
-          {selectedTrip && !isTripLoading && (
+          {selectedTripId !== null && !isTripLoading && !selectedTrip && (
+            <div className="pc-empty-state">
+              <p className="text-sm font-semibold text-app-text">
+                {tr("Trip details are unavailable right now.")}
+              </p>
+              <p className="mt-1 text-xs text-app-text-muted">
+                {tr("Return to trip list and try opening it again.")}
+              </p>
+              <button
+                type="button"
+                onClick={() => setSelectedTripId(null)}
+                className="pc-btn-secondary mt-2"
+              >
+                <AppIcon name="undo" className="h-3.5 w-3.5" />
+                {tr("Back to trips")}
+              </button>
+            </div>
+          )}
+
+          {selectedTripId !== null && selectedTrip && !isTripLoading && (
             <section className="pc-screen-stack">
               <div className="pc-surface pc-surface-soft">
+                <div className="mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTripId(null)}
+                    className="pc-btn-quiet"
+                  >
+                    <AppIcon name="undo" className="h-3.5 w-3.5" />
+                    {tr("Back to trips")}
+                  </button>
+                </div>
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="text-sm font-semibold text-app-text">{selectedTrip.title}</h3>
                   <div className="flex items-center gap-1.5">
@@ -3688,6 +3829,38 @@ export function TravelGroupExpensesSection({
                   >
                     <AppIcon name="history" className="h-3.5 w-3.5" />
                     {tr("View recent expenses")}
+                  </button>
+                </div>
+                <div className="pc-segmented mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setTripWorkspaceLayer("expenses")}
+                    aria-pressed={tripWorkspaceLayer === "expenses"}
+                    className={`pc-segment-btn min-h-8 ${
+                      tripWorkspaceLayer === "expenses" ? "pc-segment-btn-active" : ""
+                    }`}
+                  >
+                    {tr("Expenses")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTripWorkspaceLayer("settlements")}
+                    aria-pressed={tripWorkspaceLayer === "settlements"}
+                    className={`pc-segment-btn min-h-8 ${
+                      tripWorkspaceLayer === "settlements" ? "pc-segment-btn-active" : ""
+                    }`}
+                  >
+                    {tr("Settlements")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTripWorkspaceLayer("history")}
+                    aria-pressed={tripWorkspaceLayer === "history"}
+                    className={`pc-segment-btn min-h-8 ${
+                      tripWorkspaceLayer === "history" ? "pc-segment-btn-active" : ""
+                    }`}
+                  >
+                    {tr("History")}
                   </button>
                 </div>
                 <details className="pc-detail-surface mt-2">
@@ -3831,16 +4004,18 @@ export function TravelGroupExpensesSection({
                 </details>
               </div>
 
-              <details
-                className="pc-detail-surface"
-                open={isParticipantPanelOpen}
-                onToggle={(event) => setIsParticipantPanelOpen(event.currentTarget.open)}
-              >
-                <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                  <AppIcon name="profile" className="h-3.5 w-3.5" />
-                  {tr("Participants")}
-                </summary>
-                <div className="mt-2 pc-surface pc-surface-soft">
+              {tripWorkspaceLayer === "expenses" && (
+                <>
+                  <details
+                    className="pc-detail-surface"
+                    open={isParticipantPanelOpen}
+                    onToggle={(event) => setIsParticipantPanelOpen(event.currentTarget.open)}
+                  >
+                    <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                      <AppIcon name="profile" className="h-3.5 w-3.5" />
+                      {tr("Participants")}
+                    </summary>
+                    <div className="mt-2 pc-surface pc-surface-soft">
                 <p className="mt-1 text-[11px] text-app-text-muted">
                   {tr(
                     "Organizer and active participants are used for new expenses. Inactive participants stay in history and past settlements.",
@@ -4140,19 +4315,19 @@ export function TravelGroupExpensesSection({
                     )}
                   </p>
                 )}
-                </div>
-              </details>
+                    </div>
+                  </details>
 
-              <details
-                className="pc-detail-surface"
-                open={isReceiptPanelOpen}
-                onToggle={(event) => setIsReceiptPanelOpen(event.currentTarget.open)}
-              >
-                <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                  <AppIcon name="template" className="h-3.5 w-3.5" />
-                  {tr("Receipt drafts")}
-                </summary>
-                <div className="mt-2 pc-surface pc-surface-soft">
+                  <details
+                    className="pc-detail-surface"
+                    open={isReceiptPanelOpen}
+                    onToggle={(event) => setIsReceiptPanelOpen(event.currentTarget.open)}
+                  >
+                    <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                      <AppIcon name="template" className="h-3.5 w-3.5" />
+                      {tr("Receipt drafts")}
+                    </summary>
+                    <div className="mt-2 pc-surface pc-surface-soft">
                 <p className="mt-1 text-[11px] text-app-text-muted">
                   {tr("Save now, parse later. OCR suggests fields, but you always confirm before saving expense.")}
                 </p>
@@ -4397,15 +4572,15 @@ export function TravelGroupExpensesSection({
                     )}
                   </>
                 )}
-                </div>
-              </details>
+                    </div>
+                  </details>
 
-              {isTripEditable ? (
-                <form
-                  ref={expenseFormRef}
-                  className="pc-surface space-y-2"
-                  onSubmit={submitExpense}
-                >
+                  {isTripEditable ? (
+                    <form
+                      ref={expenseFormRef}
+                      className="pc-surface space-y-2"
+                      onSubmit={submitExpense}
+                    >
                 <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                   <AppIcon name={isEditingExpense ? "edit" : "add"} className="h-3.5 w-3.5" />
                   {tr(isEditingExpense ? "Edit expense" : "Add expense")}
@@ -4858,26 +5033,29 @@ export function TravelGroupExpensesSection({
                     ? tr("Saving...")
                     : tr(isEditingExpense ? "Save changes" : "Save expense")}
                 </button>
-                </form>
-              ) : (
-                <div className="pc-surface pc-surface-soft">
-                  <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                    <AppIcon name="add" className="h-3.5 w-3.5" />
-                    {tr("Expense editing is locked")}
-                  </p>
-                  <p className="mt-1 text-xs text-app-text-muted">
-                    {tr(
-                      selectedTrip.status === "archived"
-                        ? "Trip is archived. Restore it to completed list before reopening for edits."
-                        : selectedTrip.status === "closed"
-                        ? "Trip is closed. Reopen only if your group decides to continue editing."
-                        : "Trip is in finalization mode. Mark settlements and close trip, or return to active mode for edits.",
-                    )}
-                  </p>
-                </div>
+                    </form>
+                  ) : (
+                    <div className="pc-surface pc-surface-soft">
+                      <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                        <AppIcon name="add" className="h-3.5 w-3.5" />
+                        {tr("Expense editing is locked")}
+                      </p>
+                      <p className="mt-1 text-xs text-app-text-muted">
+                        {tr(
+                          selectedTrip.status === "archived"
+                            ? "Trip is archived. Restore it to completed list before reopening for edits."
+                            : selectedTrip.status === "closed"
+                            ? "Trip is closed. Reopen only if your group decides to continue editing."
+                            : "Trip is in finalization mode. Mark settlements and close trip, or return to active mode for edits.",
+                        )}
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
 
-              <div className="pc-surface pc-surface-soft">
+              {tripWorkspaceLayer === "settlements" && (
+                <div className="pc-surface pc-surface-soft">
                 <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                   <AppIcon name="wallet" className="h-3.5 w-3.5" />
                   {tr("Balances")}
@@ -5088,9 +5266,11 @@ export function TravelGroupExpensesSection({
                     </div>
                   )}
                 </div>
-              </div>
+                </div>
+              )}
 
-              <div ref={historySectionRef} className="pc-surface pc-surface-soft">
+              {tripWorkspaceLayer === "history" && (
+                <div ref={historySectionRef} className="pc-surface pc-surface-soft">
                 <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
                   <AppIcon name="history" className="h-3.5 w-3.5" />
                   {tr("Trip expense history")}
@@ -5274,7 +5454,8 @@ export function TravelGroupExpensesSection({
                     ))}
                   </div>
                 )}
-              </div>
+                </div>
+              )}
             </section>
           )}
         </>
@@ -5298,6 +5479,7 @@ export function TravelGroupExpensesSection({
         </p>
       )}
       {createTripModal}
+      {joinTripModal}
       {receiptReviewModal}
     </section>
   );
