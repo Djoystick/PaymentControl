@@ -2,6 +2,8 @@ const readEnvValue = (value: string | undefined): string => {
   return value?.trim() ?? "";
 };
 
+type TelegramAnalyticsEnv = "STG" | "PROD";
+
 export type SupportRailId = "boosty" | "cloudtips";
 export type SupportRailPendingReason =
   | "missing_or_invalid_url"
@@ -149,6 +151,39 @@ const normalizeTelegramBotUsername = (value: string): string => {
   return candidate;
 };
 
+const normalizeTelegramAnalyticsEnv = (
+  value: string,
+): TelegramAnalyticsEnv | null => {
+  const normalized = value.trim().toUpperCase();
+  if (normalized === "STG" || normalized === "PROD") {
+    return normalized;
+  }
+
+  return null;
+};
+
+const resolveTelegramAnalyticsConfig = (): {
+  token: string;
+  appName: string;
+  env: TelegramAnalyticsEnv | null;
+  isConfigured: boolean;
+} => {
+  const token = readEnvValue(process.env.NEXT_PUBLIC_TELEGRAM_ANALYTICS_TOKEN);
+  const appName = readEnvValue(
+    process.env.NEXT_PUBLIC_TELEGRAM_ANALYTICS_APP_NAME,
+  );
+  const env = normalizeTelegramAnalyticsEnv(
+    readEnvValue(process.env.NEXT_PUBLIC_TELEGRAM_ANALYTICS_ENV),
+  );
+
+  return {
+    token,
+    appName,
+    env,
+    isConfigured: Boolean(token && appName),
+  };
+};
+
 export const clientEnv = {
   appName: readEnvValue(process.env.NEXT_PUBLIC_APP_NAME) || "Payment Control",
   appStage: readEnvValue(process.env.NEXT_PUBLIC_APP_STAGE) || "local",
@@ -156,6 +191,7 @@ export const clientEnv = {
   telegramBotUsername: normalizeTelegramBotUsername(
     readEnvValue(process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME),
   ),
+  telegramAnalytics: resolveTelegramAnalyticsConfig(),
   supportRails: resolveSupportRails(),
   supabaseUrl: readEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL),
   supabaseAnonKey: readEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),

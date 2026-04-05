@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { bootstrapTelegramMiniApp } from "@/lib/telegram/web-app";
+import { initializeTelegramAnalytics } from "@/lib/telegram/analytics";
 
 type TelegramMiniAppProviderProps = {
   children: React.ReactNode;
@@ -11,8 +12,11 @@ export function TelegramMiniAppProvider({
   children,
 }: TelegramMiniAppProviderProps) {
   useEffect(() => {
+    initializeTelegramAnalytics();
+
     const runBootstrap = () => {
       const result = bootstrapTelegramMiniApp();
+      initializeTelegramAnalytics();
       window.dispatchEvent(
         new CustomEvent("telegram-webapp-ready", { detail: result }),
       );

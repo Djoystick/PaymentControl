@@ -9,10 +9,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { getTelegramLanguageCode } from "@/lib/telegram/web-app";
 
 export type UiLanguage = "en" | "ru";
 
-const STORAGE_KEY = "payment_control_ui_language_v12a";
+const MANUAL_OVERRIDE_STORAGE_KEY = "payment_control_ui_language_override_v29a";
 
 const ruTranslations: Record<string, string> = {
   "Home": "Главная",
@@ -1518,9 +1519,18 @@ const isUiLanguage = (value: string | null): value is UiLanguage => {
   return value === "en" || value === "ru";
 };
 
-const resolveClientLanguage = (): UiLanguage => {
+const resolveLanguageFromTelegramCode = (languageCode: string): UiLanguage => {
+  const normalized = languageCode.trim().toLowerCase();
+  if (normalized.startsWith("ru")) {
+    return "ru";
+  }
+
+  return "en";
+};
+
+const readManualLanguageOverride = (): UiLanguage | null => {
   try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
+    const stored = window.localStorage.getItem(MANUAL_OVERRIDE_STORAGE_KEY);
     if (isUiLanguage(stored)) {
       return stored;
     }
@@ -1528,11 +1538,59 @@ const resolveClientLanguage = (): UiLanguage => {
     // Ignore storage read errors.
   }
 
-  const browserLanguage = window.navigator.language?.toLowerCase() ?? "";
-  if (browserLanguage.startsWith("ru")) {
-    return "ru";
+  return null;
+};
+
+const saveManualLanguageOverride = (language: UiLanguage) => {
+  try {
+    window.localStorage.setItem(MANUAL_OVERRIDE_STORAGE_KEY, language);
+  } catch {
+    // Ignore storage write errors.
+  }
+};
+
+const resolveClientLanguage = (): UiLanguage => {
+  const manualOverride = readManualLanguageOverride();
+  if (manualOverride) {
+    return manualOverride;
   }
 
+  const telegramLanguageCode = getTelegramLanguageCode();
+  if (!telegramLanguageCode) {
+    return "en";
+  }
+
+  return resolveLanguageFromTelegramCode(telegramLanguageCode);
+};
+
+const hasManualLanguageOverride = (): boolean => {
+  return readManualLanguageOverride() !== null;
+};
+
+const resolveAutoLanguageFromTelegram = (): UiLanguage => {
+  const telegramLanguageCode = getTelegramLanguageCode();
+  if (!telegramLanguageCode) {
+    return "en";
+  }
+
+  return resolveLanguageFromTelegramCode(telegramLanguageCode);
+};
+
+const shouldApplyTelegramLanguage = (): boolean => {
+  return !hasManualLanguageOverride();
+};
+
+const syncLanguageFromTelegram = (
+  setLanguageState: (language: UiLanguage) => void,
+) => {
+  if (!shouldApplyTelegramLanguage()) {
+    return;
+  }
+
+  setLanguageState(resolveAutoLanguageFromTelegram());
+};
+
+const resolveInitialLanguage = (): UiLanguage => {
   return "en";
 };
 
@@ -1551,35 +1609,28 @@ const interpolate = (
 };
 
 export function LocalizationProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<UiLanguage>("en");
-  const [isLanguageHydrated, setIsLanguageHydrated] = useState(false);
+  const [language, setLanguageState] = useState<UiLanguage>(resolveInitialLanguage);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      const resolvedLanguage = resolveClientLanguage();
-      setLanguageState(resolvedLanguage);
-      setIsLanguageHydrated(true);
+      setLanguageState(resolveClientLanguage());
     });
+
+    const handleTelegramReady = () => {
+      syncLanguageFromTelegram(setLanguageState);
+    };
+
+    window.addEventListener("telegram-webapp-ready", handleTelegramReady);
 
     return () => {
       window.cancelAnimationFrame(frame);
+      window.removeEventListener("telegram-webapp-ready", handleTelegramReady);
     };
   }, []);
 
-  useEffect(() => {
-    if (!isLanguageHydrated) {
-      return;
-    }
-
-    try {
-      window.localStorage.setItem(STORAGE_KEY, language);
-    } catch {
-      // Ignore storage write errors.
-    }
-  }, [isLanguageHydrated, language]);
-
   const setLanguage = useCallback((next: UiLanguage) => {
     setLanguageState(next);
+    saveManualLanguageOverride(next);
   }, []);
 
   const tr = useCallback(

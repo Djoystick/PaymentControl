@@ -4,6 +4,14 @@ export type TelegramBootstrapResult = {
   version?: string;
 };
 
+type TelegramLaunchParams = {
+  tgWebAppData?: string;
+};
+
+type TelegramInitDataUser = {
+  language_code?: unknown;
+};
+
 const isTelegramVersionAtLeast = (
   currentVersion: string,
   minimumVersion: string,
@@ -36,8 +44,93 @@ export const getTelegramWebApp = (): TelegramWebApp | null => {
   return window.Telegram?.WebApp ?? null;
 };
 
+const normalizeRawValue = (value: unknown): string => {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim();
+};
+
+const parseLaunchParams = (raw: string): TelegramLaunchParams => {
+  const sanitized = raw.startsWith("#") ? raw.slice(1) : raw;
+  const params = new URLSearchParams(sanitized);
+
+  return {
+    tgWebAppData: params.get("tgWebAppData") ?? undefined,
+  };
+};
+
+const readTelegramInitDataFromLaunchParams = (): string => {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  const fromHash = normalizeRawValue(parseLaunchParams(window.location.hash).tgWebAppData);
+  if (fromHash) {
+    return fromHash;
+  }
+
+  const fromSearch = normalizeRawValue(
+    parseLaunchParams(window.location.search).tgWebAppData,
+  );
+  if (fromSearch) {
+    return fromSearch;
+  }
+
+  return "";
+};
+
 export const getTelegramInitData = (): string => {
-  return getTelegramWebApp()?.initData?.trim() ?? "";
+  const fromWebApp = normalizeRawValue(getTelegramWebApp()?.initData);
+  if (fromWebApp) {
+    return fromWebApp;
+  }
+
+  return readTelegramInitDataFromLaunchParams();
+};
+
+const readLanguageCodeFromInitDataUnsafe = (): string => {
+  const webApp = getTelegramWebApp();
+  if (!webApp || !webApp.initDataUnsafe) {
+    return "";
+  }
+
+  const unsafeData = webApp.initDataUnsafe as Record<string, unknown>;
+  const user = unsafeData.user;
+  if (!user || typeof user !== "object") {
+    return "";
+  }
+
+  return normalizeRawValue((user as TelegramInitDataUser).language_code);
+};
+
+const readLanguageCodeFromInitData = (initData: string): string => {
+  if (!initData) {
+    return "";
+  }
+
+  const params = new URLSearchParams(initData);
+  const userRaw = params.get("user");
+  if (!userRaw) {
+    return "";
+  }
+
+  try {
+    const parsed = JSON.parse(userRaw) as TelegramInitDataUser;
+    return normalizeRawValue(parsed.language_code);
+  } catch {
+    return "";
+  }
+};
+
+export const getTelegramLanguageCode = (): string => {
+  const fromUnsafe = readLanguageCodeFromInitDataUnsafe();
+  if (fromUnsafe) {
+    return fromUnsafe;
+  }
+
+  return readLanguageCodeFromInitData(getTelegramInitData());
 };
 
 export const bootstrapTelegramMiniApp = (): TelegramBootstrapResult => {

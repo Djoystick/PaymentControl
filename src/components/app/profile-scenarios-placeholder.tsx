@@ -40,6 +40,9 @@ import {
   subscriptionGuideCategories,
   type SubscriptionGuideCategoryFilter,
 } from "@/lib/subscription-guides/catalog";
+import { initializeTelegramAnalytics } from "@/lib/telegram/analytics";
+
+initializeTelegramAnalytics();
 
 const inviteStatusLabels: Record<FamilyWorkspaceInviteStatus, string> = {
   active: "Active",
