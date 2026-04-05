@@ -3493,6 +3493,15 @@ export function TravelGroupExpensesSection({
                         ? tr("Archived trips stay here until you restore them to completed list.")
                         : tr("No trips match current filter yet.")}
                 </p>
+                {tripListFilter !== "all" && (
+                  <button
+                    type="button"
+                    onClick={() => setTripListFilter("all")}
+                    className="pc-btn-quiet mt-2"
+                  >
+                    {tr("Show all trips")}
+                  </button>
+                )}
               </div>
             ) : (
               <div className="mt-2 space-y-2">
@@ -4252,6 +4261,15 @@ export function TravelGroupExpensesSection({
                                 ? tr("Receipts already linked to expenses appear here.")
                                 : tr("No receipt drafts match current filter yet.")}
                         </p>
+                        {receiptListFilter !== "all" && (
+                          <button
+                            type="button"
+                            onClick={() => setReceiptListFilter("all")}
+                            className="pc-btn-quiet mt-2"
+                          >
+                            {tr("Show all receipts")}
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <div className="mt-2 space-y-2">
@@ -5081,7 +5099,9 @@ export function TravelGroupExpensesSection({
                   <div className="pc-empty-state mt-2">
                     <p className="text-sm font-semibold text-app-text">{tr("No expenses yet")}</p>
                     <p className="mt-1 text-xs text-app-text-muted">
-                      {tr("Add first expense to see split history here.")}
+                      {isTripEditable
+                        ? tr("Add first expense to see split history here.")
+                        : tr("No expenses were recorded before this trip became read-only.")}
                     </p>
                   </div>
                 ) : (
