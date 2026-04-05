@@ -1591,7 +1591,7 @@ const syncLanguageFromTelegram = (
 };
 
 const resolveInitialLanguage = (): UiLanguage => {
-  return "en";
+  return resolveClientLanguage();
 };
 
 const interpolate = (
@@ -1612,10 +1612,6 @@ export function LocalizationProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<UiLanguage>(resolveInitialLanguage);
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      setLanguageState(resolveClientLanguage());
-    });
-
     const handleTelegramReady = () => {
       syncLanguageFromTelegram(setLanguageState);
     };
@@ -1623,7 +1619,6 @@ export function LocalizationProvider({ children }: { children: ReactNode }) {
     window.addEventListener("telegram-webapp-ready", handleTelegramReady);
 
     return () => {
-      window.cancelAnimationFrame(frame);
       window.removeEventListener("telegram-webapp-ready", handleTelegramReady);
     };
   }, []);
