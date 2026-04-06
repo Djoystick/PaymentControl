@@ -31,6 +31,12 @@ import {
   updateTravelExpense,
   updateTravelTripMember,
 } from "@/lib/travel/client";
+import {
+  readCachedTravelTripDetail,
+  readCachedTravelTripsList,
+  writeCachedTravelTripDetail,
+  writeCachedTravelTripsList,
+} from "@/lib/travel/client-cache";
 import type {
   TravelTripInvitePayload,
   TravelReceiptDraftPayload,
@@ -45,6 +51,7 @@ import type {
 import { maskTravelInviteToken } from "@/lib/travel/invite-token";
 import { useLocalization } from "@/lib/i18n/localization";
 import { AppIcon } from "@/components/app/app-icon";
+import { ModalSheet } from "@/components/app/modal-sheet";
 
 type TravelGroupExpensesSectionProps = {
   workspace: WorkspaceSummaryPayload | null;
@@ -646,6 +653,8 @@ export function TravelGroupExpensesSection({
   const [tripListFilter, setTripListFilter] = useState<TripListFilter>("active");
   const [isCreateTripModalOpen, setIsCreateTripModalOpen] = useState(false);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+  const [isTripOverviewModalOpen, setIsTripOverviewModalOpen] = useState(false);
+  const [isTripLifecycleModalOpen, setIsTripLifecycleModalOpen] = useState(false);
   const [isParticipantPanelOpen, setIsParticipantPanelOpen] = useState(false);
   const [isReceiptPanelOpen, setIsReceiptPanelOpen] = useState(false);
   const [isExpenseFormPanelOpen, setIsExpenseFormPanelOpen] = useState(false);
@@ -656,6 +665,7 @@ export function TravelGroupExpensesSection({
   const [activeReceiptReviewId, setActiveReceiptReviewId] = useState<string | null>(
     null,
   );
+  const [isReceiptRawTextModalOpen, setIsReceiptRawTextModalOpen] = useState(false);
   const [highlightedExpenseId, setHighlightedExpenseId] = useState<string | null>(
     null,
   );
@@ -1383,6 +1393,12 @@ export function TravelGroupExpensesSection({
     return receiptDrafts.find((draft) => draft.id === activeReceiptReviewId) ?? null;
   }, [activeReceiptReviewId, receiptDrafts]);
 
+  useEffect(() => {
+    if (!activeReceiptReviewId) {
+      setIsReceiptRawTextModalOpen(false);
+    }
+  }, [activeReceiptReviewId]);
+
   const linkedExpenseForActiveReceipt = useMemo(() => {
     if (!selectedTrip || !activeReceiptReview?.finalizedExpenseId) {
       return null;
@@ -1405,10 +1421,6 @@ export function TravelGroupExpensesSection({
 
     window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
-        expenseFormRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
         amountInputRef.current?.focus();
         amountInputRef.current?.select();
       });
@@ -1433,21 +1445,31 @@ export function TravelGroupExpensesSection({
       return;
     }
 
-    setIsTripsLoading(true);
+    const cachedTripsList = readCachedTravelTripsList(workspaceId);
+    const hasCachedSnapshot = Boolean(cachedTripsList);
+
+    if (cachedTripsList) {
+      setTrips(cachedTripsList.value.trips);
+    }
+
+    setIsTripsLoading(!hasCachedSnapshot);
     setFeedback(null);
 
     try {
       const result = await listTravelTrips(initData);
       if (!result.ok) {
-        setFeedbackTone("error");
-        setFeedback(result.error.message);
-        setTrips([]);
-        setSelectedTripId(null);
-        setSelectedTrip(null);
+        if (!hasCachedSnapshot) {
+          setFeedbackTone("error");
+          setFeedback(result.error.message);
+          setTrips([]);
+          setSelectedTripId(null);
+          setSelectedTrip(null);
+        }
         return;
       }
 
       setTrips(result.trips);
+      writeCachedTravelTripsList(workspaceId, { trips: result.trips });
       setSelectedTripId((current) => {
         if (current && result.trips.some((trip) => trip.id === current)) {
           return current;
@@ -1456,11 +1478,13 @@ export function TravelGroupExpensesSection({
         return null;
       });
     } catch {
-      setFeedbackTone("error");
-      setFeedback(tr("Failed to load travel trips."));
-      setTrips([]);
-      setSelectedTripId(null);
-      setSelectedTrip(null);
+      if (!hasCachedSnapshot) {
+        setFeedbackTone("error");
+        setFeedback(tr("Failed to load travel trips."));
+        setTrips([]);
+        setSelectedTripId(null);
+        setSelectedTrip(null);
+      }
     } finally {
       setIsTripsLoading(false);
     }
@@ -1486,23 +1510,30 @@ export function TravelGroupExpensesSection({
   }, [filteredTrips, selectedTripId, trips]);
 
   useEffect(() => {
-    if (!selectedTripId || workspaceUnavailable) {
+    if (!selectedTripId || !workspaceId || workspaceUnavailable) {
       setSelectedTrip(null);
       return;
     }
 
+    const tripId = selectedTripId;
     let isCancelled = false;
 
     const loadDetail = async () => {
-      setIsTripLoading(true);
-      setSelectedTrip(null);
+      const cachedTripDetail = readCachedTravelTripDetail(workspaceId, tripId);
+      const hasCachedSnapshot = Boolean(cachedTripDetail);
+      if (cachedTripDetail) {
+        setSelectedTrip(cachedTripDetail.value.trip);
+        setTrips((current) => mergeTripListWithDetail(current, cachedTripDetail.value.trip));
+      }
+
+      setIsTripLoading(!hasCachedSnapshot);
       try {
         const result = await readTravelTripDetail({
           initData,
-          tripId: selectedTripId,
+          tripId,
         });
         if (!result.ok) {
-          if (!isCancelled) {
+          if (!isCancelled && !hasCachedSnapshot) {
             setFeedbackTone("error");
             setFeedback(result.error.message);
             setSelectedTrip(null);
@@ -1516,8 +1547,9 @@ export function TravelGroupExpensesSection({
 
         setSelectedTrip(result.trip);
         setTrips((current) => mergeTripListWithDetail(current, result.trip));
+        writeCachedTravelTripDetail(workspaceId, tripId, { trip: result.trip });
       } catch {
-        if (!isCancelled) {
+        if (!isCancelled && !hasCachedSnapshot) {
           setFeedbackTone("error");
           setFeedback(tr("Failed to load trip details."));
           setSelectedTrip(null);
@@ -1534,7 +1566,7 @@ export function TravelGroupExpensesSection({
     return () => {
       isCancelled = true;
     };
-  }, [selectedTripId, initData, workspaceUnavailable, tr]);
+  }, [selectedTripId, initData, workspaceId, workspaceUnavailable, tr]);
 
   useEffect(() => {
     if (!selectedTripIdForInvite || !canManageTripInvite) {
@@ -1606,6 +1638,7 @@ export function TravelGroupExpensesSection({
       setAttachedReceiptDraftId(null);
       setPrefillReviewFields([]);
       setActiveReceiptReviewId(null);
+      setIsReceiptRawTextModalOpen(false);
       setHighlightedExpenseId(null);
       setActiveTripInvite(null);
       setInviteCopyState("idle");
@@ -1729,6 +1762,8 @@ export function TravelGroupExpensesSection({
     setIsParticipantPanelOpen(false);
     setIsReceiptPanelOpen(false);
     setIsExpenseFormPanelOpen(false);
+    setIsTripOverviewModalOpen(false);
+    setIsTripLifecycleModalOpen(false);
     setIsJoinModalOpen(false);
     setTripWorkspaceLayer("expenses");
     setActiveReceiptReviewId(null);
@@ -3378,14 +3413,14 @@ export function TravelGroupExpensesSection({
                       ))}
                     </div>
                     {activeReceiptReview.status === "parsed" && activeReceiptReview.ocrRawText && (
-                      <details className="mt-1 rounded-xl border border-app-border/70 bg-app-surface/70 px-2 py-1">
-                        <summary className="cursor-pointer text-[11px] font-semibold text-app-text">
-                          {tr("OCR text snippet")}
-                        </summary>
-                        <p className="mt-1 whitespace-pre-wrap text-[11px] text-app-text-muted">
-                          {activeReceiptReview.ocrRawText.slice(0, 900)}
-                        </p>
-                      </details>
+                      <button
+                        type="button"
+                        onClick={() => setIsReceiptRawTextModalOpen(true)}
+                        className="pc-btn-secondary mt-1 min-h-8 px-2 py-1 text-[11px]"
+                      >
+                        <AppIcon name="template" className="h-3.5 w-3.5" />
+                        {tr("OCR text snippet")}
+                      </button>
                     )}
                   </div>
                 )}
@@ -3520,6 +3555,25 @@ export function TravelGroupExpensesSection({
           document.body,
         )
       : null;
+
+  const receiptRawTextModal = (
+    <ModalSheet
+      open={
+        isReceiptRawTextModalOpen &&
+        Boolean(activeReceiptReview && activeReceiptReview.status === "parsed" && activeReceiptReview.ocrRawText)
+      }
+      onClose={() => setIsReceiptRawTextModalOpen(false)}
+      title={tr("OCR text snippet")}
+      titleIcon={<AppIcon name="template" className="h-3.5 w-3.5" />}
+      description={tr("Raw OCR output preview for manual verification.")}
+      widthClassName="max-w-lg"
+      overlayClassName="z-[99]"
+    >
+      <p className="whitespace-pre-wrap text-[11px] text-app-text-muted">
+        {activeReceiptReview?.ocrRawText?.slice(0, 900) ?? ""}
+      </p>
+    </ModalSheet>
+  );
 
   return (
     <section className="pc-surface pc-screen-stack">
@@ -3771,75 +3825,14 @@ export function TravelGroupExpensesSection({
                     </button>
                   </div>
                 </div>
-                <details className="pc-detail-surface mt-2">
-                  <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                    <AppIcon name="template" className="h-3.5 w-3.5" />
-                    {tr("Trip overview")}
-                  </summary>
-                  <div className="mt-2 grid grid-cols-2 gap-2 text-center sm:grid-cols-6">
-                    <div className="pc-state-card p-2">
-                      <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Active members")}</p>
-                      <p className="mt-1 text-sm font-semibold text-app-text">
-                        {selectedTrip.summary.activeMemberCount}
-                      </p>
-                      <p className="mt-0.5 text-[10px] text-app-text-muted">
-                        {tr("Total")}: {selectedTrip.members.length}
-                      </p>
-                    </div>
-                    <div className="pc-state-card p-2">
-                      <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Expenses")}</p>
-                      <p className="mt-1 text-sm font-semibold text-app-text">{selectedTrip.summary.totalExpensesCount}</p>
-                    </div>
-                    <div className="pc-state-card p-2">
-                      <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Total")}</p>
-                      <p className="mt-1 text-sm font-semibold text-app-text">
-                        {formatAmount(selectedTrip.summary.totalSpent, selectedTrip.baseCurrency)}
-                      </p>
-                    </div>
-                    <div className="pc-state-card p-2">
-                      <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Open settlements")}</p>
-                      <p className="mt-1 text-sm font-semibold text-app-text">
-                        {selectedTrip.summary.unsettledSettlementCount}
-                      </p>
-                    </div>
-                    <div className="pc-state-card p-2">
-                      <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Inactive")}</p>
-                      <p className="mt-1 text-sm font-semibold text-app-text">
-                        {selectedTrip.summary.inactiveMemberCount}
-                      </p>
-                    </div>
-                    <div className="pc-state-card p-2">
-                      <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Settled")}</p>
-                      <p className="mt-1 text-sm font-semibold text-app-text">
-                        {selectedTrip.summary.settledSettlementCount}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="mt-2 text-[11px] text-app-text-muted">
-                    {selectedTrip.recentExpenses.length > 0
-                      ? tr("Last activity") +
-                        ": " +
-                        selectedTrip.recentExpenses[0]?.description +
-                        " • " +
-                        formatDateTime(selectedTrip.recentExpenses[0]?.spentAt ?? "")
-                      : tr("No expenses yet")}
-                  </p>
-                  {selectedTrip.status === "closing" && (
-                    <p className="mt-1 text-[11px] text-app-text-muted">
-                      {selectedTrip.summary.readyForClosure
-                        ? tr("Ready to close trip.")
-                        : tr("Settle open transfers before closing trip.")}
-                    </p>
-                  )}
-                  {selectedTrip.status === "archived" && (
-                    <p className="mt-1 text-[11px] text-app-text-muted">
-                      {tr("Archived trip is read-only and kept for post-trip reference.")}
-                    </p>
-                  )}
-                  <p className="mt-1 text-[11px] text-app-text-muted">
-                    {tr("Trip totals and settlements are calculated in base currency.")}
-                  </p>
-                </details>
+                <button
+                  type="button"
+                  onClick={() => setIsTripOverviewModalOpen(true)}
+                  className="pc-btn-secondary mt-2"
+                >
+                  <AppIcon name="template" className="h-3.5 w-3.5" />
+                  {tr("Trip overview")}
+                </button>
                 <div className="mt-2">
                   <button
                     type="button"
@@ -3883,12 +3876,116 @@ export function TravelGroupExpensesSection({
                     {tr("History")}
                   </button>
                 </div>
-                <details className="pc-detail-surface mt-2">
-                  <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                    <AppIcon name="check" className="h-3.5 w-3.5" />
-                    {tr("Trip lifecycle actions")}
-                  </summary>
-                  <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+                <button
+                  type="button"
+                  onClick={() => setIsTripLifecycleModalOpen(true)}
+                  className="pc-btn-secondary mt-2"
+                >
+                  <AppIcon name="check" className="h-3.5 w-3.5" />
+                  {tr("Trip lifecycle actions")}
+                </button>
+
+                {isTripOverviewModalOpen && (
+                  <ModalSheet
+                    open={isTripOverviewModalOpen}
+                    onClose={() => setIsTripOverviewModalOpen(false)}
+                    title={tr("Trip overview")}
+                    titleIcon={<AppIcon name="template" className="h-3.5 w-3.5" />}
+                    description={tr("Summary metrics and latest activity for this trip.")}
+                    widthClassName="max-w-3xl"
+                    overlayClassName="z-[97]"
+                  >
+                  <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-6">
+                    <div className="pc-state-card p-2">
+                      <p className="text-[11px] font-semibold uppercase text-app-text-muted">
+                        {tr("Active members")}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-app-text">
+                        {selectedTrip.summary.activeMemberCount}
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-app-text-muted">
+                        {tr("Total")}: {selectedTrip.members.length}
+                      </p>
+                    </div>
+                    <div className="pc-state-card p-2">
+                      <p className="text-[11px] font-semibold uppercase text-app-text-muted">
+                        {tr("Expenses")}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-app-text">
+                        {selectedTrip.summary.totalExpensesCount}
+                      </p>
+                    </div>
+                    <div className="pc-state-card p-2">
+                      <p className="text-[11px] font-semibold uppercase text-app-text-muted">
+                        {tr("Total")}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-app-text">
+                        {formatAmount(selectedTrip.summary.totalSpent, selectedTrip.baseCurrency)}
+                      </p>
+                    </div>
+                    <div className="pc-state-card p-2">
+                      <p className="text-[11px] font-semibold uppercase text-app-text-muted">
+                        {tr("Open settlements")}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-app-text">
+                        {selectedTrip.summary.unsettledSettlementCount}
+                      </p>
+                    </div>
+                    <div className="pc-state-card p-2">
+                      <p className="text-[11px] font-semibold uppercase text-app-text-muted">
+                        {tr("Inactive")}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-app-text">
+                        {selectedTrip.summary.inactiveMemberCount}
+                      </p>
+                    </div>
+                    <div className="pc-state-card p-2">
+                      <p className="text-[11px] font-semibold uppercase text-app-text-muted">
+                        {tr("Settled")}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-app-text">
+                        {selectedTrip.summary.settledSettlementCount}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-[11px] text-app-text-muted">
+                    {selectedTrip.recentExpenses.length > 0
+                      ? tr("Last activity") +
+                        ": " +
+                        selectedTrip.recentExpenses[0]?.description +
+                        " • " +
+                        formatDateTime(selectedTrip.recentExpenses[0]?.spentAt ?? "")
+                      : tr("No expenses yet")}
+                  </p>
+                  {selectedTrip.status === "closing" && (
+                    <p className="mt-1 text-[11px] text-app-text-muted">
+                      {selectedTrip.summary.readyForClosure
+                        ? tr("Ready to close trip.")
+                        : tr("Settle open transfers before closing trip.")}
+                    </p>
+                  )}
+                  {selectedTrip.status === "archived" && (
+                    <p className="mt-1 text-[11px] text-app-text-muted">
+                      {tr("Archived trip is read-only and kept for post-trip reference.")}
+                    </p>
+                  )}
+                  <p className="mt-1 text-[11px] text-app-text-muted">
+                    {tr("Trip totals and settlements are calculated in base currency.")}
+                  </p>
+                  </ModalSheet>
+                )}
+
+                {isTripLifecycleModalOpen && (
+                  <ModalSheet
+                    open={isTripLifecycleModalOpen}
+                    onClose={() => setIsTripLifecycleModalOpen(false)}
+                    title={tr("Trip lifecycle actions")}
+                    titleIcon={<AppIcon name="check" className="h-3.5 w-3.5" />}
+                    description={tr("Finalize, close, archive, and restore this trip lifecycle.")}
+                    widthClassName="max-w-2xl"
+                    overlayClassName="z-[97]"
+                  >
+                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                     {selectedTrip.status === "active" && (
                       <button
                         type="button"
@@ -3956,6 +4053,7 @@ export function TravelGroupExpensesSection({
                       </button>
                     )}
                   </div>
+
                   {allowCloseWithUnsettledConfirm && selectedTrip.status === "closing" && (
                     <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2">
                       <p className="text-xs font-semibold text-amber-900">
@@ -3982,13 +4080,16 @@ export function TravelGroupExpensesSection({
                       </div>
                     </div>
                   )}
+
                   {allowArchiveTripConfirm && selectedTrip.status === "closed" && (
                     <div className="mt-2 rounded-xl border border-app-border/80 bg-app-surface/80 px-3 py-2">
                       <p className="text-xs font-semibold text-app-text">
                         {tr("Move this completed trip to archive?")}
                       </p>
                       <p className="mt-1 text-[11px] text-app-text-muted">
-                        {tr("Archive keeps trip history available and removes it from active/completed focus lists.")}
+                        {tr(
+                          "Archive keeps trip history available and removes it from active/completed focus lists.",
+                        )}
                       </p>
                       <div className="mt-2 flex flex-wrap gap-1.5">
                         <button
@@ -4011,9 +4112,12 @@ export function TravelGroupExpensesSection({
                       </div>
                     </div>
                   )}
+
                   {selectedTrip.status === "closed" && (
                     <p className="mt-2 text-[11px] text-app-text-muted">
-                      {tr("Closed trip stays available as read-only history with final settlement summary.")}
+                      {tr(
+                        "Closed trip stays available as read-only history with final settlement summary.",
+                      )}
                     </p>
                   )}
                   {selectedTrip.status === "archived" && (
@@ -4021,21 +4125,63 @@ export function TravelGroupExpensesSection({
                       {tr("Archived trip stays read-only. Restore it to completed list when needed.")}
                     </p>
                   )}
-                </details>
+                  </ModalSheet>
+                )}
               </div>
 
               {tripWorkspaceLayer === "expenses" && (
                 <>
-                  <details
-                    className="pc-detail-surface"
-                    open={isParticipantPanelOpen}
-                    onToggle={(event) => setIsParticipantPanelOpen(event.currentTarget.open)}
-                  >
-                    <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                      <AppIcon name="profile" className="h-3.5 w-3.5" />
-                      {tr("Participants")}
-                    </summary>
-                    <div className="mt-2 pc-surface pc-surface-soft">
+                  <div className="pc-surface pc-surface-soft">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-app-text-muted">
+                      {tr("Expense workspace actions")}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setIsParticipantPanelOpen(true)}
+                        className="pc-btn-secondary"
+                      >
+                        <AppIcon name="profile" className="h-3.5 w-3.5" />
+                        {tr("Participants")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsReceiptPanelOpen(true)}
+                        className="pc-btn-secondary"
+                      >
+                        <AppIcon name="template" className="h-3.5 w-3.5" />
+                        {tr("Receipt drafts")}
+                      </button>
+                      {isTripEditable ? (
+                        <button
+                          type="button"
+                          onClick={() => setIsExpenseFormPanelOpen(true)}
+                          disabled={isClosureMutating || isSettlementMutatingId !== null}
+                          className="pc-btn-primary"
+                        >
+                          <AppIcon
+                            name={isEditingExpense ? "edit" : "add"}
+                            className="h-3.5 w-3.5"
+                          />
+                          {tr(isEditingExpense ? "Edit expense form" : "Expense form")}
+                        </button>
+                      ) : (
+                        <span className="pc-chip">{tr("Expense editing is locked")}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {isParticipantPanelOpen && (
+                    <ModalSheet
+                      open={isParticipantPanelOpen}
+                      onClose={() => setIsParticipantPanelOpen(false)}
+                      title={tr("Participants")}
+                      titleIcon={<AppIcon name="profile" className="h-3.5 w-3.5" />}
+                      description={tr("Manage active/inactive members and invite linkage.")}
+                      widthClassName="max-w-2xl"
+                      overlayClassName="z-[97]"
+                    >
+                    <div className="pc-surface pc-surface-soft">
                 <p className="mt-1 text-[11px] text-app-text-muted">
                   {tr(
                     "Organizer and active participants are used for new expenses. Inactive participants stay in history and past settlements.",
@@ -4336,18 +4482,20 @@ export function TravelGroupExpensesSection({
                   </p>
                 )}
                     </div>
-                  </details>
+                    </ModalSheet>
+                  )}
 
-                  <details
-                    className="pc-detail-surface"
-                    open={isReceiptPanelOpen}
-                    onToggle={(event) => setIsReceiptPanelOpen(event.currentTarget.open)}
-                  >
-                    <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                      <AppIcon name="template" className="h-3.5 w-3.5" />
-                      {tr("Receipt drafts")}
-                    </summary>
-                    <div className="mt-2 pc-surface pc-surface-soft">
+                  {isReceiptPanelOpen && (
+                    <ModalSheet
+                      open={isReceiptPanelOpen}
+                      onClose={() => setIsReceiptPanelOpen(false)}
+                      title={tr("Receipt drafts")}
+                      titleIcon={<AppIcon name="template" className="h-3.5 w-3.5" />}
+                      description={tr("Save now, parse later, and link receipts to expenses.")}
+                      widthClassName="max-w-3xl"
+                      overlayClassName="z-[97]"
+                    >
+                    <div className="pc-surface pc-surface-soft">
                 <p className="mt-1 text-[11px] text-app-text-muted">
                   {tr("Save now, parse later. OCR suggests fields, but you always confirm before saving expense.")}
                 </p>
@@ -4593,21 +4741,33 @@ export function TravelGroupExpensesSection({
                   </>
                 )}
                     </div>
-                  </details>
+                    </ModalSheet>
+                  )}
 
                   {isTripEditable ? (
-                    <details
-                      className="pc-detail-surface"
+                    isExpenseFormPanelOpen && (
+                    <ModalSheet
                       open={isExpenseFormPanelOpen}
-                      onToggle={(event) => setIsExpenseFormPanelOpen(event.currentTarget.open)}
+                      onClose={() => {
+                        if (isEditingExpense) {
+                          cancelExpenseEdit();
+                        }
+                        setIsExpenseFormPanelOpen(false);
+                      }}
+                      title={tr(isEditingExpense ? "Edit expense form" : "Expense form")}
+                      titleIcon={
+                        <AppIcon
+                          name={isEditingExpense ? "edit" : "add"}
+                          className="h-3.5 w-3.5"
+                        />
+                      }
+                      description={tr("Save expenses in a focused modal flow.")}
+                      widthClassName="max-w-3xl"
+                      overlayClassName="z-[98]"
                     >
-                      <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                        <AppIcon name={isEditingExpense ? "edit" : "add"} className="h-3.5 w-3.5" />
-                        {tr(isEditingExpense ? "Edit expense form" : "Expense form")}
-                      </summary>
                       <form
                         ref={expenseFormRef}
-                        className="pc-surface mt-2 space-y-2"
+                        className="pc-surface space-y-2"
                         onSubmit={submitExpense}
                       >
                 {isEditingExpense && (
@@ -5068,7 +5228,8 @@ export function TravelGroupExpensesSection({
                           </button>
                         </div>
                       </form>
-                    </details>
+                    </ModalSheet>
+                    )
                   ) : (
                     <div className="pc-surface pc-surface-soft">
                       <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
@@ -5516,6 +5677,7 @@ export function TravelGroupExpensesSection({
       {createTripModal}
       {joinTripModal}
       {receiptReviewModal}
+      {receiptRawTextModal}
     </section>
   );
 }

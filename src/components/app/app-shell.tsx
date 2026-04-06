@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocalization } from "@/lib/i18n/localization";
 import { AppIcon } from "@/components/app/app-icon";
@@ -365,10 +365,6 @@ export function AppShell({ screens }: AppShellProps) {
     });
   }, []);
 
-  const activeTabItem = useMemo(() => {
-    return tabItems.find((item) => item.key === activeTab) ?? tabItems[0];
-  }, [activeTab]);
-
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "auto" });
   }, [activeTab]);
@@ -601,16 +597,7 @@ export function AppShell({ screens }: AppShellProps) {
       <div className="relative mx-auto flex min-h-dvh w-full max-w-[420px] flex-col px-1.5 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] pt-1.5 sm:px-2.5">
         <div className="pc-shell-frame relative flex min-h-[calc(100dvh-0.75rem)] flex-1 flex-col p-2 backdrop-blur">
           <header className="pc-shell-header mb-1.5 flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p className="pc-kicker">
-                {tr("Payment Control")}
-              </p>
-              <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-app-text">
-                <AppIcon name={activeTabItem.icon} className="h-3.5 w-3.5" />
-                {tr(activeTabItem.label)}
-              </p>
-              <p className="text-[11px] text-app-text-muted">{tr(activeTabItem.hint)}</p>
-            </div>
+            <p className="pc-kicker">{tr("Payment Control")}</p>
           </header>
 
           <main className="relative z-0 flex-1 overflow-x-clip pb-2 pt-0.5">

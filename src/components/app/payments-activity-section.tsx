@@ -12,6 +12,7 @@ import {
 } from "@/lib/payments/client-cache";
 import { useLocalization } from "@/lib/i18n/localization";
 import { AppIcon } from "@/components/app/app-icon";
+import { ModalSheet } from "@/components/app/modal-sheet";
 import {
   APP_TAB_NAVIGATE_EVENT,
   type AppTabNavigationEventDetail,
@@ -199,6 +200,7 @@ export function PaymentsActivitySection({
   const [isRestoredContext, setIsRestoredContext] = useState(false);
   const [isContextHydrated, setIsContextHydrated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isViewOptionsModalOpen, setIsViewOptionsModalOpen] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const isFamilyWorkspace = workspace?.kind === "family";
@@ -466,6 +468,92 @@ export function PaymentsActivitySection({
     return tr("All events");
   }, [activityFocusFilter, tr]);
 
+  const viewOptionsModal = (
+    <ModalSheet
+      open={isViewOptionsModalOpen}
+      onClose={() => setIsViewOptionsModalOpen(false)}
+      title={tr("View options")}
+      titleIcon={<AppIcon name="template" className="h-3.5 w-3.5" />}
+      description={tr("Adjust History focus and inspect scope summary.")}
+      widthClassName="max-w-md"
+      overlayClassName="z-[96]"
+    >
+      <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-1.5">
+          <div className="pc-state-card px-1.5 py-1.5">
+            <p className="text-[11px] text-app-text-muted">{tr("In scope")}</p>
+            <p className="text-sm font-semibold text-app-text">{scopedPaymentsCount}</p>
+          </div>
+          <div className="pc-state-card px-1.5 py-1.5">
+            <p className="text-[11px] text-app-text-muted">{tr("Recent events")}</p>
+            <p className="text-sm font-semibold text-app-text">{activityItems.length}</p>
+          </div>
+          {isFamilyWorkspace && sharedWhoPaysSummary && (
+            <div className="pc-state-card col-span-2 px-1.5 py-1.5">
+              <p className="text-[11px] text-app-text-muted">
+                {tr("Who pays assigned")}: {sharedWhoPaysSummary.assignedCount} ·{" "}
+                {tr("Missing")} {sharedWhoPaysSummary.unassignedCount} ·{" "}
+                {tr("Mismatch hints")} {paidByMismatchCount}
+              </p>
+            </div>
+          )}
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-app-text-muted">
+            {tr("Focus")}
+          </p>
+          <div className="pc-segmented mt-1">
+            <button
+              type="button"
+              onClick={() => {
+                setActivityFocusFilter("all");
+                setEntryFlowContextReason(null);
+                setIsRestoredContext(false);
+                setIsViewOptionsModalOpen(false);
+              }}
+              aria-pressed={activityFocusFilter === "all"}
+              className={`pc-segment-btn min-h-8 ${
+                activityFocusFilter === "all" ? "pc-segment-btn-active" : ""
+              }`}
+            >
+              {tr("All events")} ({activityFocusCounts.all})
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActivityFocusFilter("changes");
+                setEntryFlowContextReason(null);
+                setIsRestoredContext(false);
+                setIsViewOptionsModalOpen(false);
+              }}
+              aria-pressed={activityFocusFilter === "changes"}
+              className={`pc-segment-btn min-h-8 ${
+                activityFocusFilter === "changes" ? "pc-segment-btn-active" : ""
+              }`}
+            >
+              {tr("Changes")} ({activityFocusCounts.changes})
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActivityFocusFilter("paid");
+                setEntryFlowContextReason(null);
+                setIsRestoredContext(false);
+                setIsViewOptionsModalOpen(false);
+              }}
+              aria-pressed={activityFocusFilter === "paid"}
+              className={`pc-segment-btn min-h-8 ${
+                activityFocusFilter === "paid" ? "pc-segment-btn-active" : ""
+              }`}
+            >
+              {tr("Paid events")} ({activityFocusCounts.paid})
+            </button>
+          </div>
+        </div>
+      </div>
+    </ModalSheet>
+  );
+
   const openRemindersAddPayment = useCallback(() => {
     if (typeof window === "undefined") {
       return;
@@ -485,7 +573,8 @@ export function PaymentsActivitySection({
   }, [workspaceId]);
 
   return (
-    <section className="pc-surface pc-screen-stack">
+    <>
+      <section className="pc-surface pc-screen-stack">
       <div>
         <h2 className="pc-section-title">
           <AppIcon name="history" className="h-4 w-4" />
@@ -544,82 +633,14 @@ export function PaymentsActivitySection({
                 total: activityItems.length,
               })}
             </p>
-            <details className="pc-state-card mt-2 px-3 py-2">
-              <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold text-app-text">
-                <AppIcon name="template" className="h-3.5 w-3.5" />
-                {tr("View options")}
-              </summary>
-              <div className="mt-2 space-y-2">
-                <div className="grid grid-cols-2 gap-1.5">
-                  <div className="pc-state-card px-1.5 py-1.5">
-                    <p className="text-[11px] text-app-text-muted">{tr("In scope")}</p>
-                    <p className="text-sm font-semibold text-app-text">{scopedPaymentsCount}</p>
-                  </div>
-                  <div className="pc-state-card px-1.5 py-1.5">
-                    <p className="text-[11px] text-app-text-muted">{tr("Recent events")}</p>
-                    <p className="text-sm font-semibold text-app-text">{activityItems.length}</p>
-                  </div>
-                  {isFamilyWorkspace && sharedWhoPaysSummary && (
-                    <div className="pc-state-card col-span-2 px-1.5 py-1.5">
-                      <p className="text-[11px] text-app-text-muted">
-                        {tr("Who pays assigned")}: {sharedWhoPaysSummary.assignedCount} ·{" "}
-                        {tr("Missing")} {sharedWhoPaysSummary.unassignedCount} ·{" "}
-                        {tr("Mismatch hints")} {paidByMismatchCount}
-                      </p>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-app-text-muted">
-                    {tr("Focus")}
-                  </p>
-                  <div className="pc-segmented mt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActivityFocusFilter("all");
-                        setEntryFlowContextReason(null);
-                        setIsRestoredContext(false);
-                      }}
-                      aria-pressed={activityFocusFilter === "all"}
-                      className={`pc-segment-btn min-h-8 ${
-                        activityFocusFilter === "all" ? "pc-segment-btn-active" : ""
-                      }`}
-                    >
-                      {tr("All events")} ({activityFocusCounts.all})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActivityFocusFilter("changes");
-                        setEntryFlowContextReason(null);
-                        setIsRestoredContext(false);
-                      }}
-                      aria-pressed={activityFocusFilter === "changes"}
-                      className={`pc-segment-btn min-h-8 ${
-                        activityFocusFilter === "changes" ? "pc-segment-btn-active" : ""
-                      }`}
-                    >
-                      {tr("Changes")} ({activityFocusCounts.changes})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActivityFocusFilter("paid");
-                        setEntryFlowContextReason(null);
-                        setIsRestoredContext(false);
-                      }}
-                      aria-pressed={activityFocusFilter === "paid"}
-                      className={`pc-segment-btn min-h-8 ${
-                        activityFocusFilter === "paid" ? "pc-segment-btn-active" : ""
-                      }`}
-                    >
-                      {tr("Paid events")} ({activityFocusCounts.paid})
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </details>
+            <button
+              type="button"
+              onClick={() => setIsViewOptionsModalOpen(true)}
+              className="pc-btn-secondary mt-2"
+            >
+              <AppIcon name="template" className="h-3.5 w-3.5" />
+              {tr("View options")}
+            </button>
 
             {scopedPaymentsCount === 0 ? (
               <div className="pc-empty-state space-y-1">
@@ -778,7 +799,9 @@ export function PaymentsActivitySection({
           <span>{feedback}</span>
         </p>
       )}
-    </section>
+      </section>
+      {viewOptionsModal}
+    </>
   );
 }
 

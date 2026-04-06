@@ -29,6 +29,7 @@ import { RecurringPaymentsSection } from "@/components/app/recurring-payments-se
 import { TravelGroupExpensesSection } from "@/components/app/travel-group-expenses-section";
 import { HelpPopover } from "@/components/app/help-popover";
 import { AppIcon } from "@/components/app/app-icon";
+import { ModalDisclosure } from "@/components/app/modal-disclosure";
 import { clientEnv } from "@/lib/config/client-env";
 import { ThemeProvider, useTheme } from "@/lib/theme/theme-context";
 import { buildBugReportRuntimeContextPayload } from "@/lib/app/context-memory";
@@ -560,15 +561,23 @@ function ProfileScenariosContent() {
         <p className="pc-section-subtitle">
           {tr("Workspace and settings")}
         </p>
-        <details className="pc-detail-surface mt-2">
-          <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-            <AppIcon name="home" className="h-3.5 w-3.5" />
-            {tr("Quick start")}
-          </summary>
-          <p className="mt-1 text-xs text-app-text-muted">
+        <ModalDisclosure
+          title={tr("Quick start")}
+          titleIcon={<AppIcon name="home" className="h-3.5 w-3.5" />}
+          trigger={
+            <>
+              <AppIcon name="home" className="h-3.5 w-3.5" />
+              {tr("Quick start")}
+            </>
+          }
+          triggerClassName="pc-btn-secondary mt-2 w-full justify-start"
+          widthClassName="max-w-md"
+          description={tr("Short onboarding reminder.")}
+        >
+          <p className="text-xs text-app-text-muted">
             {tr("Start in Recurring: add a payment and mark it paid when done.")}
           </p>
-        </details>
+        </ModalDisclosure>
       </div>
       <div className="pc-surface">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
@@ -690,15 +699,20 @@ function ProfileScenariosContent() {
           </HelpPopover>
         </div>
       </div>
-      <details className="pc-surface pc-surface-soft">
-        <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-          <AppIcon name="support" className="h-3.5 w-3.5" />
-          {tr("Report a bug")}
-        </summary>
-        <p className="mt-2 text-xs text-app-text-muted">
-          {tr("Help us fix issues quickly.")}
-        </p>
-        <form className="mt-2 space-y-2" onSubmit={submitBugReportFromProfile}>
+      <ModalDisclosure
+        title={tr("Report a bug")}
+        titleIcon={<AppIcon name="support" className="h-3.5 w-3.5" />}
+        trigger={
+          <>
+            <AppIcon name="support" className="h-3.5 w-3.5" />
+            {tr("Report a bug")}
+          </>
+        }
+        triggerClassName="pc-btn-secondary w-full justify-start"
+        widthClassName="max-w-2xl"
+        description={tr("Help us fix issues quickly.")}
+      >
+        <form className="space-y-2" onSubmit={submitBugReportFromProfile}>
           <div className="space-y-1">
             <p className="text-xs font-semibold text-app-text">{tr("Issue title")}</p>
             <input
@@ -727,12 +741,20 @@ function ProfileScenariosContent() {
               className="pc-textarea resize-y"
             />
           </div>
-          <details className="pc-state-card px-3 py-2">
-            <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold text-app-text">
-              <AppIcon name="help" className="h-3.5 w-3.5" />
-              {tr("Optional details")}
-            </summary>
-            <div className="mt-2 space-y-1">
+          <ModalDisclosure
+            title={tr("Optional details")}
+            titleIcon={<AppIcon name="help" className="h-3.5 w-3.5" />}
+            trigger={
+              <>
+                <AppIcon name="help" className="h-3.5 w-3.5" />
+                {tr("Optional details")}
+              </>
+            }
+            triggerClassName="pc-btn-secondary w-full justify-start"
+            widthClassName="max-w-lg"
+            description={tr("Extra debug context for faster issue triage.")}
+          >
+            <div className="space-y-1">
               <p className="text-xs font-semibold text-app-text">
                 {tr("Steps to reproduce (optional)")}
               </p>
@@ -753,7 +775,7 @@ function ProfileScenariosContent() {
                 "Context from your profile, workspace, language, theme, and last workflow state is attached automatically.",
               )}
             </p>
-          </details>
+          </ModalDisclosure>
           <button
             type="submit"
             disabled={isSubmittingBugReport}
@@ -778,19 +800,24 @@ function ProfileScenariosContent() {
             </p>
           )}
         </form>
-      </details>
-      <details className="pc-surface pc-surface-soft">
-        <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-          <AppIcon name="help" className="h-3.5 w-3.5" />
-          {tr("How to cancel subscriptions")}
-        </summary>
-        <p className="mt-2 text-xs text-app-text-muted">
-          {tr(
-            "Official instructions from service help centers. Cancellation path may depend on where subscription was activated.",
-          )}
-        </p>
+      </ModalDisclosure>
+      <ModalDisclosure
+        title={tr("How to cancel subscriptions")}
+        titleIcon={<AppIcon name="help" className="h-3.5 w-3.5" />}
+        trigger={
+          <>
+            <AppIcon name="help" className="h-3.5 w-3.5" />
+            {tr("How to cancel subscriptions")}
+          </>
+        }
+        triggerClassName="pc-btn-secondary w-full justify-start"
+        widthClassName="max-w-3xl"
+        description={tr(
+          "Official instructions from service help centers. Cancellation path may depend on where subscription was activated.",
+        )}
+      >
         {selectedCancellationGuide ? (
-          <div className="mt-2 space-y-2">
+          <div className="space-y-2">
             <div className="space-y-1">
               <p className="text-xs font-semibold text-app-text">{tr("Find service")}</p>
               <input
@@ -1007,19 +1034,24 @@ function ProfileScenariosContent() {
             </button>
           </div>
         )}
-      </details>
+      </ModalDisclosure>
       {canManageSupporters && (
-        <details className="pc-surface pc-surface-soft">
-          <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-            <AppIcon name="support" className="h-3.5 w-3.5" />
-            {tr("Supporter badge management")}
-          </summary>
-          <p className="mt-2 text-xs text-app-text-muted">
-            {tr(
-              "Owner-only manual recognition. Badge is cosmetic and does not unlock features.",
-            )}
-          </p>
-          <div className="mt-2 space-y-2">
+        <ModalDisclosure
+          title={tr("Supporter badge management")}
+          titleIcon={<AppIcon name="support" className="h-3.5 w-3.5" />}
+          trigger={
+            <>
+              <AppIcon name="support" className="h-3.5 w-3.5" />
+              {tr("Supporter badge management")}
+            </>
+          }
+          triggerClassName="pc-btn-secondary w-full justify-start"
+          widthClassName="max-w-3xl"
+          description={tr(
+            "Owner-only manual recognition. Badge is cosmetic and does not unlock features.",
+          )}
+        >
+          <div className="space-y-2">
             <div className="space-y-1">
               <p className="text-xs font-semibold text-app-text">
                 {tr("Target Telegram user id")}
@@ -1203,15 +1235,23 @@ function ProfileScenariosContent() {
               </p>
             )}
           </div>
-        </details>
+        </ModalDisclosure>
       )}
-      <details className="pc-surface pc-surface-soft order-last">
-        <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-          <AppIcon name="support" className="h-3.5 w-3.5" />
-          {tr("Support the project")}
-          <span className="pc-status-pill">{tr("Optional")}</span>
-        </summary>
-        <div className="mt-2 space-y-2">
+      <ModalDisclosure
+        title={tr("Support the project")}
+        titleIcon={<AppIcon name="support" className="h-3.5 w-3.5" />}
+        trigger={
+          <>
+            <AppIcon name="support" className="h-3.5 w-3.5" />
+            {tr("Support the project")}
+            <span className="pc-status-pill">{tr("Optional")}</span>
+          </>
+        }
+        triggerClassName="pc-btn-secondary order-last w-full justify-start"
+        widthClassName="max-w-2xl"
+        description={tr("Payment Control is fully usable without donation.")}
+      >
+        <div className="space-y-2">
           <p className="text-xs text-app-text-muted">
             {tr("Payment Control is fully usable without donation.")}
           </p>
@@ -1259,7 +1299,7 @@ function ProfileScenariosContent() {
             {tr("Donations are optional and never unlock access.")}
           </p>
         </div>
-      </details>
+      </ModalDisclosure>
       <div className="pc-surface pc-surface-soft">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
           <AppIcon name="workspace" className="h-3.5 w-3.5" />
@@ -1422,12 +1462,20 @@ function ProfileScenariosContent() {
             )}
           </div>
         ) : (
-          <details className="pc-detail-surface mt-2 bg-app-surface">
-            <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              <AppIcon name="workspace" className="h-3.5 w-3.5" />
-              {tr("Family workspace (optional)")}
-            </summary>
-            <div className="mt-2 space-y-2">
+          <ModalDisclosure
+            title={tr("Family workspace (optional)")}
+            titleIcon={<AppIcon name="workspace" className="h-3.5 w-3.5" />}
+            trigger={
+              <>
+                <AppIcon name="workspace" className="h-3.5 w-3.5" />
+                {tr("Family workspace (optional)")}
+              </>
+            }
+            triggerClassName="pc-btn-secondary mt-2 w-full justify-start"
+            widthClassName="max-w-2xl"
+            description={tr("Create family workspace or join by invite token.")}
+          >
+            <div className="space-y-2">
               <p className="text-xs text-app-text-muted">
                 {tr("Create family workspace or join by invite token.")}
               </p>
@@ -1492,11 +1540,19 @@ function ProfileScenariosContent() {
                   {tr("Accept invite")}
                 </button>
                 {inviteAcceptDiagnostic && (
-                  <details className="pc-state-card px-3 py-2 text-xs text-app-text">
-                    <summary className="pc-summary-action inline-flex items-center gap-1.5 font-semibold text-app-text">
-                      <AppIcon name="alert" className="h-3.5 w-3.5" />
-                      {tr("Accept invite diagnostic")}
-                    </summary>
+                  <ModalDisclosure
+                    title={tr("Accept invite diagnostic")}
+                    titleIcon={<AppIcon name="alert" className="h-3.5 w-3.5" />}
+                    trigger={
+                      <>
+                        <AppIcon name="alert" className="h-3.5 w-3.5" />
+                        {tr("Accept invite diagnostic")}
+                      </>
+                    }
+                    triggerClassName="pc-btn-secondary w-full justify-start"
+                    widthClassName="max-w-lg"
+                    description={tr("Diagnostic status for invite acceptance flow.")}
+                  >
                     <p
                       className={
                         inviteAcceptDiagnostic.status === "success"
@@ -1564,11 +1620,11 @@ function ProfileScenariosContent() {
                       <AppIcon name="refresh" className="h-3 w-3" />
                       {tr("Refresh context")}
                     </button>
-                  </details>
+                  </ModalDisclosure>
                 )}
               </div>
             </div>
-          </details>
+          </ModalDisclosure>
         )}
       </div>
       {actionMessage && (

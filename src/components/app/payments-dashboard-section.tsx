@@ -16,7 +16,6 @@ import {
 import { useLocalization } from "@/lib/i18n/localization";
 import {
   APP_TAB_NAVIGATE_EVENT,
-  clearAllTabNavigationContexts,
   type AppTabNavigationEventDetail,
 } from "@/components/app/app-shell";
 import type {
@@ -25,11 +24,7 @@ import type {
   RecurringPaymentPayload,
 } from "@/lib/payments/types";
 import { AppIcon } from "@/components/app/app-icon";
-import {
-  clearRuntimeSnapshot,
-  readRuntimeSnapshot,
-  type RuntimeContextSnapshot,
-} from "@/lib/app/context-memory";
+import { ModalSheet } from "@/components/app/modal-sheet";
 
 type PaymentsDashboardSectionProps = {
   workspace: WorkspaceSummaryPayload | null;
@@ -97,9 +92,7 @@ export function PaymentsDashboardSection({
   const [activePayments, setActivePayments] = useState<RecurringPaymentPayload[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [continueSnapshot, setContinueSnapshot] = useState<RuntimeContextSnapshot | null>(
-    null,
-  );
+  const [isViewOptionsModalOpen, setIsViewOptionsModalOpen] = useState(false);
   const isFamilyWorkspace = workspace?.kind === "family";
   const isCompact = variant === "compact";
   const workspaceId = workspace?.id ?? null;
@@ -143,95 +136,6 @@ export function PaymentsDashboardSection({
       }),
     );
   }, []);
-
-  const resolveContinueTabLabel = useCallback(
-    (tab: RuntimeContextSnapshot["tab"]): string => {
-      if (tab === "reminders") {
-        return tr("Recurring");
-      }
-
-      if (tab === "travel") {
-        return tr("Travel");
-      }
-
-      if (tab === "history") {
-        return tr("History");
-      }
-
-      return tr("Profile");
-    },
-    [tr],
-  );
-
-  const resolveContinueTabIcon = useCallback(
-    (
-      tab: RuntimeContextSnapshot["tab"],
-    ): "reminders" | "travel" | "history" | "profile" => {
-      if (tab === "reminders") {
-        return "reminders";
-      }
-
-      if (tab === "travel") {
-        return "travel";
-      }
-
-      if (tab === "history") {
-        return "history";
-      }
-
-      return "profile";
-    },
-    [],
-  );
-
-  const resolveContinueIntentLabel = useCallback(
-    (snapshot: RuntimeContextSnapshot): string | null => {
-      if (!snapshot.intent) {
-        return null;
-      }
-
-      if (snapshot.intent === "reminders_action_now") {
-        return tr("Action now");
-      }
-
-      if (snapshot.intent === "reminders_upcoming") {
-        return tr("Upcoming");
-      }
-
-      if (snapshot.intent === "reminders_add_payment") {
-        return tr("Add payment");
-      }
-
-      if (snapshot.intent === "history_recent_paid") {
-        return tr("Paid events");
-      }
-
-      if (snapshot.intent === "history_recent_updates") {
-        return tr("Changes");
-      }
-
-      return null;
-    },
-    [tr],
-  );
-
-  const refreshContinueSnapshot = useCallback(() => {
-    if (typeof window === "undefined") {
-      setContinueSnapshot(null);
-      return;
-    }
-
-    const snapshot = readRuntimeSnapshot({
-      workspaceId: navigationWorkspaceId,
-    });
-
-    if (!snapshot || snapshot.tab === "home") {
-      setContinueSnapshot(null);
-      return;
-    }
-
-    setContinueSnapshot(snapshot);
-  }, [navigationWorkspaceId]);
 
   const loadDashboard = useCallback(async () => {
     if (workspaceUnavailable || !workspaceId) {
@@ -300,10 +204,6 @@ export function PaymentsDashboardSection({
   }, [loadDashboard]);
 
   useEffect(() => {
-    refreshContinueSnapshot();
-  }, [refreshContinueSnapshot]);
-
-  useEffect(() => {
     const refreshOnPaymentChange = () => {
       loadDashboard();
     };
@@ -348,16 +248,73 @@ export function PaymentsDashboardSection({
       .join(" | ");
   }, [monthlyTotals]);
 
-  const continueIntentLabel = useMemo(() => {
-    if (!continueSnapshot) {
-      return null;
-    }
-
-    return resolveContinueIntentLabel(continueSnapshot);
-  }, [continueSnapshot, resolveContinueIntentLabel]);
+  const viewOptionsModal = (
+    <ModalSheet
+      open={isViewOptionsModalOpen}
+      onClose={() => setIsViewOptionsModalOpen(false)}
+      title={tr("View options")}
+      titleIcon={<AppIcon name="workspace" className="h-3.5 w-3.5" />}
+      description={tr("Quick navigation to secondary app areas.")}
+      widthClassName="max-w-md"
+      overlayClassName="z-[96]"
+    >
+      <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => {
+            setIsViewOptionsModalOpen(false);
+            navigateToTab({
+              tab: "travel",
+              sourceTab: "home",
+              reason: "Open Travel workspace from Home.",
+              workspaceId: navigationWorkspaceId,
+            });
+          }}
+          className="pc-btn-secondary w-full"
+        >
+          <AppIcon name="travel" className="h-3.5 w-3.5" />
+          {tr("Open Travel workspace")}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setIsViewOptionsModalOpen(false);
+            navigateToTab({
+              tab: "history",
+              intent: "history_recent_updates",
+              sourceTab: "home",
+              reason: "Review recent changes in History.",
+              workspaceId: navigationWorkspaceId,
+            });
+          }}
+          className="pc-btn-secondary w-full"
+        >
+          <AppIcon name="history" className="h-3.5 w-3.5" />
+          {tr("Open History updates")}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setIsViewOptionsModalOpen(false);
+            navigateToTab({
+              tab: "profile",
+              sourceTab: "home",
+              reason: "Open official cancellation guides from Home helper.",
+              workspaceId: navigationWorkspaceId,
+            });
+          }}
+          className="pc-btn-quiet sm:col-span-2"
+        >
+          <AppIcon name="help" className="h-3.5 w-3.5" />
+          {tr("Open cancellation guides")}
+        </button>
+      </div>
+    </ModalSheet>
+  );
 
   return (
-    <section className="pc-surface pc-screen-stack">
+    <>
+      <section className="pc-surface pc-screen-stack">
       <div>
         <h2 className="pc-section-title">
           <AppIcon name={isCompact ? "home" : "payments"} className="h-4 w-4" />
@@ -380,55 +337,6 @@ export function PaymentsDashboardSection({
             <>
               {dashboard && (
                 <div className="pc-screen-stack">
-                  {continueSnapshot && (
-                    <div className="pc-context-row">
-                      <p className="pc-context-row-main">
-                        <AppIcon
-                          name={resolveContinueTabIcon(continueSnapshot.tab)}
-                          className="h-3.5 w-3.5"
-                        />
-                        <span className="truncate">
-                          {tr("Continue in {tab}", {
-                            tab: resolveContinueTabLabel(continueSnapshot.tab),
-                          })}
-                        </span>
-                        {continueIntentLabel && <span className="pc-status-pill">{continueIntentLabel}</span>}
-                      </p>
-                      <div className="pc-context-row-actions">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            navigateToTab({
-                              tab: continueSnapshot.tab,
-                              intent: continueSnapshot.intent,
-                              sourceTab: "home",
-                              reason:
-                                continueSnapshot.reason ??
-                                "Continue from your last workspace context.",
-                              workspaceId:
-                                continueSnapshot.workspaceId ?? navigationWorkspaceId,
-                            })
-                          }
-                          className="pc-btn-secondary min-h-8 px-2 py-1 text-[11px]"
-                        >
-                          <AppIcon name="undo" className="h-3.5 w-3.5" />
-                          {tr("Continue where you left off")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            clearRuntimeSnapshot();
-                            clearAllTabNavigationContexts();
-                            setContinueSnapshot(null);
-                          }}
-                          className="pc-btn-quiet min-h-8 px-2 py-1 text-[11px]"
-                        >
-                          {tr("Start clean")}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
                   <div className="pc-kpi-grid">
                     <button
                       type="button"
@@ -535,60 +443,14 @@ export function PaymentsDashboardSection({
                     </button>
                   </div>
 
-                  <details className="pc-state-card mt-2 px-3 py-2">
-                    <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold text-app-text">
-                      <AppIcon name="workspace" className="h-3.5 w-3.5" />
-                      {tr("View options")}
-                    </summary>
-                    <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          navigateToTab({
-                            tab: "travel",
-                            sourceTab: "home",
-                            reason: "Open Travel workspace from Home.",
-                            workspaceId: navigationWorkspaceId,
-                          })
-                        }
-                        className="pc-btn-secondary w-full"
-                      >
-                        <AppIcon name="travel" className="h-3.5 w-3.5" />
-                        {tr("Open Travel workspace")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          navigateToTab({
-                            tab: "history",
-                            intent: "history_recent_updates",
-                            sourceTab: "home",
-                            reason: "Review recent changes in History.",
-                            workspaceId: navigationWorkspaceId,
-                          })
-                        }
-                        className="pc-btn-secondary w-full"
-                      >
-                        <AppIcon name="history" className="h-3.5 w-3.5" />
-                        {tr("Open History updates")}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          navigateToTab({
-                            tab: "profile",
-                            sourceTab: "home",
-                            reason: "Open official cancellation guides from Home helper.",
-                            workspaceId: navigationWorkspaceId,
-                          })
-                        }
-                        className="pc-btn-quiet sm:col-span-2"
-                      >
-                        <AppIcon name="help" className="h-3.5 w-3.5" />
-                        {tr("Open cancellation guides")}
-                      </button>
-                    </div>
-                  </details>
+                  <button
+                    type="button"
+                    onClick={() => setIsViewOptionsModalOpen(true)}
+                    className="pc-btn-secondary mt-2 w-full"
+                  >
+                    <AppIcon name="workspace" className="h-3.5 w-3.5" />
+                    {tr("View options")}
+                  </button>
                 </div>
               )}
 
@@ -818,7 +680,9 @@ export function PaymentsDashboardSection({
           <span>{feedback}</span>
         </p>
       )}
-    </section>
+      </section>
+      {viewOptionsModal}
+    </>
   );
 }
 

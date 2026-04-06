@@ -39,6 +39,7 @@ import {
 } from "@/components/app/app-shell";
 import { HelpPopover } from "@/components/app/help-popover";
 import { AppIcon } from "@/components/app/app-icon";
+import { ModalDisclosure } from "@/components/app/modal-disclosure";
 import {
   clearRemindersContextSnapshot,
   rememberRuntimeSnapshot,
@@ -322,7 +323,6 @@ export function RecurringPaymentsSection({
   const [reminderFocusFilter, setReminderFocusFilter] =
     useState<ReminderFocusFilter>("all");
   const [isComposerExpanded, setIsComposerExpanded] = useState(false);
-  const [isAdvancedFormExpanded, setIsAdvancedFormExpanded] = useState(false);
   const [isTemplateSuggestionsOpen, setIsTemplateSuggestionsOpen] = useState(true);
   const [isTemplateQuickLaneDismissed, setIsTemplateQuickLaneDismissed] = useState(false);
   const [formBaseline, setFormBaseline] = useState<PaymentFormState>(createDefaultForm);
@@ -760,7 +760,6 @@ export function RecurringPaymentsSection({
     setFormBaseline(defaultForm);
     setEditingPaymentId(null);
     setBaselineEditingPaymentId(null);
-    setIsAdvancedFormExpanded(false);
     setIsTemplateSuggestionsOpen(true);
     setIsTemplateQuickLaneDismissed(false);
   }, []);
@@ -793,7 +792,6 @@ export function RecurringPaymentsSection({
     setEditingPaymentId(payment.id);
     setBaselineEditingPaymentId(payment.id);
     setIsComposerExpanded(true);
-    setIsAdvancedFormExpanded(false);
     setIsTemplateSuggestionsOpen(false);
     setIsTemplateQuickLaneDismissed(true);
     setIsDiscardConfirmOpen(false);
@@ -829,7 +827,6 @@ export function RecurringPaymentsSection({
     const localizedTemplate = localizeSystemTemplate(template);
     setEditingPaymentId(null);
     setIsComposerExpanded(true);
-    setIsAdvancedFormExpanded(false);
     setIsTemplateSuggestionsOpen(false);
     setIsTemplateQuickLaneDismissed(false);
     setForm(formFromTemplate(localizedTemplate));
@@ -1083,7 +1080,6 @@ export function RecurringPaymentsSection({
     setFormBaseline(defaultForm);
     setEditingPaymentId(null);
     setBaselineEditingPaymentId(null);
-    setIsAdvancedFormExpanded(false);
     setPendingDeletePaymentId(null);
     setIsDiscardConfirmOpen(false);
     setIsTemplateQuickLaneDismissed(false);
@@ -1496,12 +1492,20 @@ export function RecurringPaymentsSection({
                     )}
                 </div>
                 {quickTemplateOptions.length > 0 && (
-                  <details className="pc-detail-surface sm:col-span-2">
-                    <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                      <AppIcon name="template" className="h-3.5 w-3.5" />
-                      {tr("Template shortcuts")}
-                    </summary>
-                    <div className="mt-2">
+                  <ModalDisclosure
+                    title={tr("Template shortcuts")}
+                    titleIcon={<AppIcon name="template" className="h-3.5 w-3.5" />}
+                    trigger={
+                      <>
+                        <AppIcon name="template" className="h-3.5 w-3.5" />
+                        {tr("Template shortcuts")}
+                      </>
+                    }
+                    triggerClassName="pc-btn-secondary w-full justify-start sm:col-span-2"
+                    widthClassName="max-w-xl"
+                    description={tr("Fast template picks for quick entry.")}
+                  >
+                    <div>
                       <button
                         type="button"
                         onClick={continueManualEntry}
@@ -1527,7 +1531,7 @@ export function RecurringPaymentsSection({
                         </button>
                       ))}
                     </div>
-                  </details>
+                  </ModalDisclosure>
                 )}
                 <label className="space-y-1">
                   <span className="block text-[11px] font-semibold text-app-text-muted">
@@ -1614,16 +1618,20 @@ export function RecurringPaymentsSection({
                   />
                 </label>
               </div>
-              <details
-                className="pc-detail-surface mt-2"
-                open={isAdvancedFormExpanded}
-                onToggle={(event) => setIsAdvancedFormExpanded(event.currentTarget.open)}
+              <ModalDisclosure
+                title={tr("Advanced options")}
+                titleIcon={<AppIcon name="template" className="h-3.5 w-3.5" />}
+                trigger={
+                  <>
+                    <AppIcon name="template" className="h-3.5 w-3.5" />
+                    {tr("Advanced options")}
+                  </>
+                }
+                triggerClassName="pc-btn-secondary mt-2 w-full justify-start"
+                widthClassName="max-w-2xl"
+                description={tr("Reminder timing, category, currency, and notes")}
               >
-                <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                  <AppIcon name="template" className="h-3.5 w-3.5" />
-                  {tr("Advanced options")}
-                </summary>
-                <p className="mt-1 text-xs text-app-text-muted">
+                <p className="text-xs text-app-text-muted">
                   {tr("Reminder timing, category, currency, and notes")}
                 </p>
                 <div className="mt-1 flex flex-wrap gap-1">
@@ -1747,12 +1755,20 @@ export function RecurringPaymentsSection({
                   placeholder={tr("Notes (optional)")}
                   className="pc-textarea mt-2 h-20 resize-y"
                 />
-                <details className="pc-state-card mt-2 px-3 py-2">
-                  <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold text-app-text">
-                    <AppIcon name="template" className="h-3.5 w-3.5" />
-                    {tr("Draft and template tools")}
-                  </summary>
-                  <div className="mt-2 flex flex-wrap gap-1.5">
+                <ModalDisclosure
+                  title={tr("Draft and template tools")}
+                  titleIcon={<AppIcon name="template" className="h-3.5 w-3.5" />}
+                  trigger={
+                    <>
+                      <AppIcon name="template" className="h-3.5 w-3.5" />
+                      {tr("Draft and template tools")}
+                    </>
+                  }
+                  triggerClassName="pc-btn-secondary mt-2 w-full justify-start"
+                  widthClassName="max-w-md"
+                  description={tr("Save this form as template or clear draft state.")}
+                >
+                  <div className="flex flex-wrap gap-1.5">
                     <button
                       type="button"
                       onClick={saveCurrentFormAsTemplate}
@@ -1774,8 +1790,8 @@ export function RecurringPaymentsSection({
                       </button>
                     )}
                   </div>
-                </details>
-              </details>
+                </ModalDisclosure>
+              </ModalDisclosure>
 
               <div className="pc-modal-sheet-foot mt-2">
                 <div className="flex flex-wrap gap-2">
@@ -1987,12 +2003,20 @@ export function RecurringPaymentsSection({
           </div>
 
           {shouldShowGuidanceTip && activeGuidanceKind && (
-            <details className="pc-state-card text-xs text-app-text-muted">
-              <summary className="pc-summary-action inline-flex items-center gap-1 font-semibold text-app-text">
-                <AppIcon name="help" className="h-3.5 w-3.5" />
-                {tr("Quick tip")}
-              </summary>
-              <p className="mt-2">
+            <ModalDisclosure
+              title={tr("Quick tip")}
+              titleIcon={<AppIcon name="help" className="h-3.5 w-3.5" />}
+              trigger={
+                <>
+                  <AppIcon name="help" className="h-3.5 w-3.5" />
+                  {tr("Quick tip")}
+                </>
+              }
+              triggerClassName="pc-btn-secondary w-full justify-start text-xs"
+              widthClassName="max-w-md"
+              description={tr("Contextual guidance for current reminders flow.")}
+            >
+              <p>
                 {activeGuidanceKind === "focused_entry" &&
                   tr(
                     "You opened a focused lane from Home. Clear focus anytime to return to the full list.",
@@ -2019,7 +2043,7 @@ export function RecurringPaymentsSection({
                   {tr("Got it")}
                 </button>
               </div>
-            </details>
+            </ModalDisclosure>
           )}
 
           {!isLoading && activePayments.length === 0 && (
@@ -2056,12 +2080,20 @@ export function RecurringPaymentsSection({
                   total: activePayments.length,
                 })}
               </p>
-              <details className="pc-state-card mt-1.5 px-3 py-2">
-                <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold text-app-text">
-                  <AppIcon name="template" className="h-3.5 w-3.5" />
-                  {tr("List view options")}
-                </summary>
-                <div className="mt-2 space-y-2">
+              <ModalDisclosure
+                title={tr("List view options")}
+                titleIcon={<AppIcon name="template" className="h-3.5 w-3.5" />}
+                trigger={
+                  <>
+                    <AppIcon name="template" className="h-3.5 w-3.5" />
+                    {tr("List view options")}
+                  </>
+                }
+                triggerClassName="pc-btn-secondary mt-1.5 w-full justify-start"
+                widthClassName="max-w-lg"
+                description={tr("Adjust recurring list focus and visibility.")}
+              >
+                <div className="space-y-2">
                   {subscriptionsCount > 0 && (
                     <p className="text-[11px] text-app-text-muted">
                       {tr("Subscription type stays as a secondary card label.")}{" "}
@@ -2142,7 +2174,7 @@ export function RecurringPaymentsSection({
                     </div>
                   </div>
                 </div>
-              </details>
+              </ModalDisclosure>
             </div>
           )}
 
@@ -2306,12 +2338,20 @@ export function RecurringPaymentsSection({
                           </p>
                         )}
 
-                      <details className="pc-state-card bg-app-surface-elevated px-1.5 py-1 text-xs text-app-text-muted">
-                        <summary className="inline-flex cursor-pointer items-center gap-1 font-semibold text-app-text">
-                          <AppIcon name="template" className="h-3.5 w-3.5 text-app-text-muted" />
-                          {tr("Details and actions")}
-                        </summary>
-                        <div className="mt-1 flex flex-wrap gap-1">
+                      <ModalDisclosure
+                        title={tr("Details and actions")}
+                        titleIcon={<AppIcon name="template" className="h-3.5 w-3.5" />}
+                        trigger={
+                          <>
+                            <AppIcon name="template" className="h-3.5 w-3.5 text-app-text-muted" />
+                            {tr("Details and actions")}
+                          </>
+                        }
+                        triggerClassName="pc-btn-secondary w-full justify-start text-xs"
+                        widthClassName="max-w-md"
+                        description={tr("Secondary payment metadata and maintenance actions.")}
+                      >
+                        <div className="flex flex-wrap gap-1">
                           <span className="pc-chip">
                             {payment.paymentScope === "shared"
                               ? tr("Family shared")
@@ -2360,7 +2400,7 @@ export function RecurringPaymentsSection({
                             </button>
                           )}
                         </div>
-                      </details>
+                      </ModalDisclosure>
 
                       <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
                         <button
