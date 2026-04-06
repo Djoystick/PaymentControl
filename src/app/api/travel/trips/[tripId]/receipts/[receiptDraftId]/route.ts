@@ -17,6 +17,7 @@ import type {
 type PatchTravelReceiptBody = {
   initData?: string;
   action?: unknown;
+  clientSuggestion?: unknown;
 };
 
 type DeleteTravelReceiptBody = {
@@ -167,6 +168,7 @@ export async function PATCH(request: Request, context: RouteContext) {
           workspaceId: scopeResult.workspace.id,
           tripId,
           receiptDraftId,
+          clientSuggestion: body.clientSuggestion,
         })
       : await resetTravelReceiptDraftForTrip({
           workspaceId: scopeResult.workspace.id,

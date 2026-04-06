@@ -2,6 +2,7 @@
 
 import type {
   TravelApiError,
+  TravelReceiptClientSuggestionPayload,
   TravelReceiptDraftDeleteResponse,
   TravelReceiptDraftMutateResponse,
   TravelExpenseDeleteResponse,
@@ -377,7 +378,17 @@ export const parseTravelReceiptDraft = async (params: {
   tripId: string;
   receiptDraftId: string;
   action?: "parse" | "reset";
+  clientSuggestion?: TravelReceiptClientSuggestionPayload | null;
 }): Promise<TravelReceiptDraftMutateResponse> => {
+  const action = params.action ?? "parse";
+  const body: Record<string, unknown> = {
+    initData: params.initData,
+    action,
+  };
+  if (action === "parse" && params.clientSuggestion) {
+    body.clientSuggestion = params.clientSuggestion;
+  }
+
   const response = await fetch(
     `/api/travel/trips/${params.tripId}/receipts/${params.receiptDraftId}`,
     {
@@ -385,10 +396,7 @@ export const parseTravelReceiptDraft = async (params: {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        initData: params.initData,
-        action: params.action ?? "parse",
-      }),
+      body: JSON.stringify(body),
     },
   );
 

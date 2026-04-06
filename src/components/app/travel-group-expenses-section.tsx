@@ -12,6 +12,8 @@ import {
 import { createPortal } from "react-dom";
 import type { ProfilePayload, WorkspaceSummaryPayload } from "@/lib/auth/types";
 import { normalizeTravelExpenseAmount } from "@/lib/travel/currency";
+import { clientEnv } from "@/lib/config/client-env";
+import { runClientTravelReceiptOcr } from "@/lib/travel/ocr/client-browser-ocr";
 import {
   createTravelExpense,
   createTravelTripInvite,
@@ -38,6 +40,7 @@ import {
   writeCachedTravelTripsList,
 } from "@/lib/travel/client-cache";
 import type {
+  TravelReceiptClientSuggestionPayload,
   TravelTripInvitePayload,
   TravelReceiptDraftPayload,
   TravelSettlementTransferPayload,
@@ -2357,13 +2360,47 @@ export function TravelGroupExpensesSection({
         return;
       }
 
+      const receiptDraft =
+        selectedTrip.receiptDrafts.find((draft) => draft.id === receiptDraftId) ?? null;
+      if (!receiptDraft) {
+        setFeedbackTone("error");
+        setFeedback(tr("Receipt draft was not found."));
+        return;
+      }
+
       setFeedback(null);
       setIsParsingReceiptDraftId(receiptDraftId);
       try {
+        let clientSuggestionPayload: TravelReceiptClientSuggestionPayload | null = null;
+        if (clientEnv.travelReceiptClientOcr.enabled) {
+          setFeedbackTone("info");
+          setFeedback(tr("Running on-device OCR prefill..."));
+
+          const clientOcrResult = await runClientTravelReceiptOcr({
+            imageDataUrl: receiptDraft.imageDataUrl,
+            tripCurrency: selectedTrip.baseCurrency,
+            timeoutMs: clientEnv.travelReceiptClientOcr.timeoutMs,
+          });
+
+          if (!clientOcrResult.ok) {
+            if (!clientEnv.travelReceiptClientOcr.allowServerFallback) {
+              setFeedbackTone("error");
+              setFeedback(tr(clientOcrResult.message));
+              return;
+            }
+
+            setFeedbackTone("info");
+            setFeedback(tr("On-device OCR is unavailable. Switching to server OCR fallback."));
+          } else {
+            clientSuggestionPayload = clientOcrResult.suggestion;
+          }
+        }
+
         const result = await parseTravelReceiptDraft({
           initData,
           tripId: selectedTrip.id,
           receiptDraftId,
+          clientSuggestion: clientSuggestionPayload,
         });
 
         if (!result.ok) {
@@ -2377,7 +2414,9 @@ export function TravelGroupExpensesSection({
         setTrips((current) => mergeTripListWithDetail(current, result.trip));
         setFeedbackTone("success");
         setFeedback(
-          tr("OCR prefill is ready. Review fields before saving expense."),
+          clientSuggestionPayload
+            ? tr("On-device OCR prefill is ready. Review fields before saving expense.")
+            : tr("OCR prefill is ready. Review fields before saving expense."),
         );
       } catch {
         setFeedbackTone("error");

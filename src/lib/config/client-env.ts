@@ -2,6 +2,38 @@ const readEnvValue = (value: string | undefined): string => {
   return value?.trim() ?? "";
 };
 
+const readClientBool = (value: string | undefined, fallback: boolean): boolean => {
+  const normalized = readEnvValue(value).toLowerCase();
+  if (!normalized) {
+    return fallback;
+  }
+  if (normalized === "true") {
+    return true;
+  }
+  if (normalized === "false") {
+    return false;
+  }
+
+  return fallback;
+};
+
+const readClientPositiveInt = (
+  value: string | undefined,
+  fallback: number,
+): number => {
+  const raw = readEnvValue(value);
+  if (!raw) {
+    return fallback;
+  }
+
+  const numeric = Number(raw);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return fallback;
+  }
+
+  return Math.floor(numeric);
+};
+
 type TelegramAnalyticsEnv = "STG" | "PROD";
 
 export type SupportRailId = "boosty" | "cloudtips";
@@ -192,6 +224,20 @@ export const clientEnv = {
     readEnvValue(process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME),
   ),
   telegramAnalytics: resolveTelegramAnalyticsConfig(),
+  travelReceiptClientOcr: {
+    enabled: readClientBool(
+      process.env.NEXT_PUBLIC_TRAVEL_RECEIPT_CLIENT_OCR_ENABLED,
+      true,
+    ),
+    timeoutMs: readClientPositiveInt(
+      process.env.NEXT_PUBLIC_TRAVEL_RECEIPT_CLIENT_OCR_TIMEOUT_MS,
+      30000,
+    ),
+    allowServerFallback: readClientBool(
+      process.env.NEXT_PUBLIC_TRAVEL_RECEIPT_CLIENT_OCR_ALLOW_SERVER_FALLBACK,
+      false,
+    ),
+  },
   supportRails: resolveSupportRails(),
   supabaseUrl: readEnvValue(process.env.NEXT_PUBLIC_SUPABASE_URL),
   supabaseAnonKey: readEnvValue(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),

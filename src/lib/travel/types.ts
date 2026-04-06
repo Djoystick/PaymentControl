@@ -41,6 +41,19 @@ export type TravelReceiptOcrFieldQualityMap = Record<
   TravelReceiptOcrFieldQuality
 >;
 
+export type TravelReceiptClientSuggestionPayload = {
+  source: "client_paddle_ocr";
+  sourceAmount: number | null;
+  sourceCurrency: string | null;
+  spentAt: string | null;
+  merchant: string | null;
+  description: string | null;
+  category: string | null;
+  conversionRate: number | null;
+  rawText: string | null;
+  fieldQuality: TravelReceiptOcrFieldQualityMap;
+};
+
 export type TravelTripMemberPayload = {
   id: string;
   tripId: string;

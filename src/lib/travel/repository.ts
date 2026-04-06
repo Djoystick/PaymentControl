@@ -7,7 +7,11 @@ import {
   runTravelReceiptOcr,
   type TravelReceiptOcrFailureKind,
 } from "@/lib/travel/receipt-ocr";
-import { createDefaultTravelReceiptOcrFieldQuality } from "@/lib/travel/receipt-ocr-normalization";
+import {
+  createDefaultTravelReceiptOcrFieldQuality,
+  normalizeTravelReceiptOcrSuggestion,
+  type TravelReceiptOcrSuggestion,
+} from "@/lib/travel/receipt-ocr-normalization";
 import {
   buildTravelTripSummary,
   resolveTravelExpenseSplits,
@@ -1001,6 +1005,24 @@ const mapTravelReceiptOcrFailureKindToParseReason = (
   }
 };
 
+const hasMeaningfulTravelReceiptOcrSuggestion = (
+  suggestion: TravelReceiptOcrSuggestion,
+): boolean => {
+  if (suggestion.sourceAmount !== null) {
+    return true;
+  }
+
+  if (suggestion.spentAt !== null) {
+    return true;
+  }
+
+  if (suggestion.merchant !== null || suggestion.description !== null) {
+    return true;
+  }
+
+  return Boolean(suggestion.rawText && suggestion.rawText.trim().length >= 8);
+};
+
 export type TravelReceiptDraftDeleteResult =
   | {
       ok: true;
@@ -1419,6 +1441,7 @@ export const parseTravelReceiptDraftForTrip = async (params: {
   workspaceId: string;
   tripId: string;
   receiptDraftId: string;
+  clientSuggestion?: unknown;
 }): Promise<TravelReceiptDraftParseResult> => {
   const supabase = createSupabaseServerClient();
   if (!supabase) {
@@ -1459,10 +1482,6 @@ export const parseTravelReceiptDraftForTrip = async (params: {
     };
   }
 
-  const ocrResult = await runTravelReceiptOcr({
-    imageDataUrl: receiptRow.image_data_url,
-    tripCurrency: tripRow.base_currency,
-  });
   const now = new Date().toISOString();
   const parseAttempts = Math.max(
     0,
@@ -1471,44 +1490,65 @@ export const parseTravelReceiptDraftForTrip = async (params: {
       : 0,
   );
   const nextParseAttempts = parseAttempts + 1;
+  let normalizedSuggestion: TravelReceiptOcrSuggestion | null = null;
+  if (params.clientSuggestion && typeof params.clientSuggestion === "object") {
+    normalizedSuggestion = normalizeTravelReceiptOcrSuggestion(
+      params.clientSuggestion as Record<string, unknown>,
+    );
+    if (!hasMeaningfulTravelReceiptOcrSuggestion(normalizedSuggestion)) {
+      return {
+        ok: false,
+        reason: "VALIDATION_FAILED",
+        message:
+          "On-device OCR found too little readable text. Replace photo or fill fields manually.",
+      };
+    }
+  } else {
+    const ocrResult = await runTravelReceiptOcr({
+      imageDataUrl: receiptRow.image_data_url,
+      tripCurrency: tripRow.base_currency,
+    });
 
-  if (!ocrResult.ok) {
-    await supabase
-      .from("travel_receipt_drafts")
-      .update({
-        status: "ocr_failed" satisfies TravelReceiptDraftStatus,
-        ocr_last_error: ocrResult.message,
-        ocr_field_quality: createDefaultTravelReceiptOcrFieldQuality(),
-        ocr_parse_attempts: nextParseAttempts,
-        ocr_last_attempt_at: now,
-        parsed_at: now,
-        updated_at: now,
-      })
-      .eq("trip_id", params.tripId)
-      .eq("id", params.receiptDraftId);
+    if (!ocrResult.ok) {
+      await supabase
+        .from("travel_receipt_drafts")
+        .update({
+          status: "ocr_failed" satisfies TravelReceiptDraftStatus,
+          ocr_last_error: ocrResult.message,
+          ocr_field_quality: createDefaultTravelReceiptOcrFieldQuality(),
+          ocr_parse_attempts: nextParseAttempts,
+          ocr_last_attempt_at: now,
+          parsed_at: now,
+          updated_at: now,
+        })
+        .eq("trip_id", params.tripId)
+        .eq("id", params.receiptDraftId);
 
-    return {
-      ok: false,
-      reason: mapTravelReceiptOcrFailureKindToParseReason(ocrResult.kind),
-      message: ocrResult.message,
-    };
+      return {
+        ok: false,
+        reason: mapTravelReceiptOcrFailureKindToParseReason(ocrResult.kind),
+        message: ocrResult.message,
+      };
+    }
+
+    normalizedSuggestion = ocrResult.data;
   }
 
   const descriptionFromOcr =
-    ocrResult.data.description ?? ocrResult.data.merchant ?? null;
+    normalizedSuggestion.description ?? normalizedSuggestion.merchant ?? null;
   const { data, error } = await supabase
     .from("travel_receipt_drafts")
     .update({
       status: "parsed" satisfies TravelReceiptDraftStatus,
-      ocr_raw_text: ocrResult.data.rawText,
-      ocr_suggested_amount: ocrResult.data.sourceAmount,
-      ocr_suggested_currency: ocrResult.data.sourceCurrency,
-      ocr_suggested_spent_at: ocrResult.data.spentAt,
-      ocr_suggested_merchant: ocrResult.data.merchant,
+      ocr_raw_text: normalizedSuggestion.rawText,
+      ocr_suggested_amount: normalizedSuggestion.sourceAmount,
+      ocr_suggested_currency: normalizedSuggestion.sourceCurrency,
+      ocr_suggested_spent_at: normalizedSuggestion.spentAt,
+      ocr_suggested_merchant: normalizedSuggestion.merchant,
       ocr_suggested_description: descriptionFromOcr,
-      ocr_suggested_category: ocrResult.data.category,
-      ocr_suggested_conversion_rate: ocrResult.data.conversionRate,
-      ocr_field_quality: ocrResult.data.fieldQuality,
+      ocr_suggested_category: normalizedSuggestion.category,
+      ocr_suggested_conversion_rate: normalizedSuggestion.conversionRate,
+      ocr_field_quality: normalizedSuggestion.fieldQuality,
       ocr_parse_attempts: nextParseAttempts,
       ocr_last_attempt_at: now,
       ocr_last_error: null,
