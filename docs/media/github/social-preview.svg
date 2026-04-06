@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
+  <title id="title">Payment Control GitHub Social Preview</title>
+  <desc id="desc">Telegram Mini App for recurring payments and shared travel expenses.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1220"/>
+      <stop offset="100%" stop-color="#111a2e"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#15233f"/>
+      <stop offset="100%" stop-color="#1d2f54"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="640" fill="url(#bg)"/>
+
+  <g transform="translate(86 78)">
+    <rect x="0" y="0" width="1108" height="484" rx="28" fill="url(#card)" stroke="#2d4371" stroke-width="2"/>
+    <text x="54" y="86" font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="64" font-weight="700" fill="#f2f6ff">Payment Control</text>
+    <text x="54" y="134" font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="30" font-weight="500" fill="#a8bbdf">Telegram Mini App for practical daily money routines</text>
+
+    <g transform="translate(54 190)">
+      <rect width="300" height="74" rx="16" fill="#243b66"/>
+      <text x="24" y="46" font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="30" fill="#eaf2ff">Recurring Payments</text>
+    </g>
+    <g transform="translate(374 190)">
+      <rect width="250" height="74" rx="16" fill="#243b66"/>
+      <text x="24" y="46" font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="30" fill="#eaf2ff">Travel Groups</text>
+    </g>
+    <g transform="translate(644 190)">
+      <rect width="250" height="74" rx="16" fill="#243b66"/>
+      <text x="24" y="46" font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="30" fill="#eaf2ff">History &amp; Profile</text>
+    </g>
+
+    <text x="54" y="336" font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="35" font-weight="600" fill="#f2f6ff">Action-first workflows for short mobile sessions</text>
+    <text x="54" y="387" font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="28" fill="#bfd0f1">Clear primary actions, calm secondary layers, and practical day-to-day control.</text>
+
+    <text x="54" y="444" font-family="Inter, Segoe UI, Roboto, Helvetica, Arial, sans-serif" font-size="24" fill="#8fa5cc">Next.js • React • TypeScript • Supabase • Telegram Mini App</text>
+  </g>
+</svg>

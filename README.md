@@ -127,10 +127,17 @@ Issues and pull requests are welcome for:
 
 Please keep changes practical, scoped, and aligned with existing product behavior.
 
+## Community & Trust
+
+- [Contributing guide](./CONTRIBUTING.md)
+- [Code of Conduct](./CODE_OF_CONDUCT.md)
+- [Security policy](./SECURITY.md)
+- [Support channels](./SUPPORT.md)
+
 ## Project Status
 
 Payment Control is in active development with a stable core baseline for recurring flows and a mature Travel v1 branch.
 
 ## License
 
-No license file is published in this repository yet.
+This project is licensed under the [MIT License](./LICENSE).
