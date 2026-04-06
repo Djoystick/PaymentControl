@@ -21,6 +21,7 @@ import type {
   ReminderDispatchSummaryPayload,
   WorkspaceResponsiblePayerOptionPayload,
 } from "@/lib/payments/types";
+import { ModalDisclosure } from "@/components/app/modal-disclosure";
 
 type ReminderCandidatesSectionProps = {
   workspace: WorkspaceSummaryPayload | null;
@@ -614,142 +615,159 @@ export function ReminderCandidatesSection({
                 {tr("Delivery path is healthy for the current recipient.")}
               </p>
             )}
-            <details className="mt-2 rounded-xl border border-app-border bg-app-surface px-2 py-2 text-xs text-app-text-muted">
-              <summary className="cursor-pointer font-semibold text-app-text">
-                {tr("Diagnostics and dispatch observation")}
-              </summary>
-              <p className="mt-2">
-                {tr("Source")}: {readiness?.recipientSource ?? tr("unknown")}. {tr("Binding")}:{" "}
-                {readiness?.bindingStatus ?? tr("unknown")}
-                {readiness?.bindingVerifiedAt
-                  ? `. ${tr("Verified at")} ${new Date(readiness.bindingVerifiedAt).toLocaleString()}`
-                  : ""}
-                .
-              </p>
-              <p className="mt-1">
-                {tr("Diagnostic source")}: {readiness?.recipientDiagnosticSource ?? tr("unknown")}.
-                {" "}{tr("Type")}: {readiness?.recipientType ?? tr("unknown")}. {tr("Preview")}:{" "}
-                {readiness?.recipientPreview ?? tr("none")}.
-              </p>
-              <p className="mt-1">
-                {tr("Binding diagnostic status")}: {readiness?.bindingDiagnosticStatus ?? tr("unknown")}.
-              </p>
-              <p className="mt-1">
-                {tr("Active recipient source")}:{" "}
-                {readiness?.bindingStatus === "verified" &&
-                readiness?.recipientSource === "stored_chat_id"
-                  ? tr("verified stored chat id (authoritative)")
-                  : readiness?.recipientSource ?? tr("unknown")}
-                .
-              </p>
-              {readiness?.bindingReason && (
-                <p className="mt-1">
-                  {tr("Binding reason")}: {readiness.bindingReason}
-                  {readiness.bindingReasonIsInference ? ` (${tr("inference")})` : ""}
-                </p>
-              )}
-              {readiness?.lastErrorCode && (
-                <p className="mt-1">
-                  {tr("Last error")}: {readiness.lastErrorCode}
-                  {readiness.lastErrorMessage ? `. ${readiness.lastErrorMessage}` : ""}
-                </p>
-              )}
-              <p className="mt-2 font-semibold text-app-text">
-                {tr("Scheduled dispatch observation")}
-              </p>
-              {scheduledDispatchObservation.latestScheduledAttempt ? (
-                <p className="mt-1">
-                  {tr("Last scheduled attempt")}:{" "}
-                  {formatDateTime(
-                    scheduledDispatchObservation.latestScheduledAttempt.createdAt,
-                  )}{" "}
-                  (
-                  {
-                    dispatchStatusMeta[
-                      scheduledDispatchObservation.latestScheduledAttempt.dispatchStatus
-                    ].label
-                  }
-                  ).
-                </p>
-              ) : (
-                <p className="mt-1">{tr("No scheduled attempts in current snapshot.")}</p>
-              )}
-              <p className="mt-1">
-                {tr("Snapshot")}: {scheduledDispatchObservation.scheduledAttemptsCountInSnapshot}{" "}
-                {tr("scheduled rows out of")} {scheduledDispatchObservation.snapshotSize}{" "}
-                {tr("recent attempts rows")}.
-              </p>
-              <p className="mt-1">
-                {tr(
-                  "This is an operational snapshot only. Long-horizon cron health still requires repeated production checks over time.",
-                )}
-              </p>
-            </details>
+            <div className="mt-2">
+              <ModalDisclosure
+                title={tr("Diagnostics and dispatch observation")}
+                description={tr("Read recipient diagnostics and scheduled dispatch snapshot.")}
+                trigger={tr("Diagnostics and dispatch observation")}
+                triggerClassName="pc-btn-secondary w-full justify-start"
+                widthClassName="max-w-xl"
+              >
+                <div className="space-y-1 text-xs text-app-text-muted">
+                  <p>
+                    {tr("Source")}: {readiness?.recipientSource ?? tr("unknown")}. {tr("Binding")}:{" "}
+                    {readiness?.bindingStatus ?? tr("unknown")}
+                    {readiness?.bindingVerifiedAt
+                      ? `. ${tr("Verified at")} ${new Date(readiness.bindingVerifiedAt).toLocaleString()}`
+                      : ""}
+                    .
+                  </p>
+                  <p>
+                    {tr("Diagnostic source")}: {readiness?.recipientDiagnosticSource ?? tr("unknown")}.
+                    {" "}{tr("Type")}: {readiness?.recipientType ?? tr("unknown")}. {tr("Preview")}:{" "}
+                    {readiness?.recipientPreview ?? tr("none")}.
+                  </p>
+                  <p>
+                    {tr("Binding diagnostic status")}: {readiness?.bindingDiagnosticStatus ?? tr("unknown")}.
+                  </p>
+                  <p>
+                    {tr("Active recipient source")}:{" "}
+                    {readiness?.bindingStatus === "verified" &&
+                    readiness?.recipientSource === "stored_chat_id"
+                      ? tr("verified stored chat id (authoritative)")
+                      : readiness?.recipientSource ?? tr("unknown")}
+                    .
+                  </p>
+                  {readiness?.bindingReason && (
+                    <p>
+                      {tr("Binding reason")}: {readiness.bindingReason}
+                      {readiness.bindingReasonIsInference ? ` (${tr("inference")})` : ""}
+                    </p>
+                  )}
+                  {readiness?.lastErrorCode && (
+                    <p>
+                      {tr("Last error")}: {readiness.lastErrorCode}
+                      {readiness.lastErrorMessage ? `. ${readiness.lastErrorMessage}` : ""}
+                    </p>
+                  )}
+                  <p className="pt-1 font-semibold text-app-text">
+                    {tr("Scheduled dispatch observation")}
+                  </p>
+                  {scheduledDispatchObservation.latestScheduledAttempt ? (
+                    <p>
+                      {tr("Last scheduled attempt")}:{" "}
+                      {formatDateTime(
+                        scheduledDispatchObservation.latestScheduledAttempt.createdAt,
+                      )}{" "}
+                      (
+                      {
+                        dispatchStatusMeta[
+                          scheduledDispatchObservation.latestScheduledAttempt.dispatchStatus
+                        ].label
+                      }
+                      ).
+                    </p>
+                  ) : (
+                    <p>{tr("No scheduled attempts in current snapshot.")}</p>
+                  )}
+                  <p>
+                    {tr("Snapshot")}: {scheduledDispatchObservation.scheduledAttemptsCountInSnapshot}{" "}
+                    {tr("scheduled rows out of")} {scheduledDispatchObservation.snapshotSize}{" "}
+                    {tr("recent attempts rows")}.
+                  </p>
+                  <p>
+                    {tr(
+                      "This is an operational snapshot only. Long-horizon cron health still requires repeated production checks over time.",
+                    )}
+                  </p>
+                </div>
+              </ModalDisclosure>
+            </div>
           </div>
 
-          <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              {tr("Telegram onboarding help")}
-            </summary>
-            <p className="mt-2 text-xs text-app-text-muted">
-              {tr("To receive reminders, open the bot in Telegram and press Start.")}
-            </p>
-            {clientEnv.telegramBotUsername ? (
-              <>
-                <p className="mt-2 text-xs text-app-text-muted">
-                  {tr("Bot username")}: @{clientEnv.telegramBotUsername}
-                </p>
-                <a
-                  href={`https://t.me/${clientEnv.telegramBotUsername}?start=reminders`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-2 inline-block rounded-xl border border-app-border px-3 py-1 text-xs font-semibold text-app-text"
-                >
-                  {tr("Open Telegram bot")}
-                </a>
-              </>
-            ) : (
-              <p className="mt-1 text-xs text-app-text-muted">
-                {tr(
-                  "Bot username is not configured in public env. Set `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` and restart dev server.",
+          <div className="mt-3">
+            <ModalDisclosure
+              title={tr("Telegram onboarding help")}
+              description={tr("How to enable Telegram reminders for this workspace.")}
+              trigger={tr("Telegram onboarding help")}
+              triggerClassName="pc-btn-secondary w-full justify-start"
+            >
+              <div className="space-y-2 text-xs text-app-text-muted">
+                <p>{tr("To receive reminders, open the bot in Telegram and press Start.")}</p>
+                {clientEnv.telegramBotUsername ? (
+                  <>
+                    <p>
+                      {tr("Bot username")}: @{clientEnv.telegramBotUsername}
+                    </p>
+                    <a
+                      href={`https://t.me/${clientEnv.telegramBotUsername}?start=reminders`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-block rounded-xl border border-app-border px-3 py-1 text-xs font-semibold text-app-text"
+                    >
+                      {tr("Open Telegram bot")}
+                    </a>
+                  </>
+                ) : (
+                  <p>
+                    {tr(
+                      "Bot username is not configured in public env. Set `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` and restart dev server.",
+                    )}
+                  </p>
                 )}
-                </p>
-              )}
-          </details>
+              </div>
+            </ModalDisclosure>
+          </div>
 
-          <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              {tr("Recipient binding verification")}
-            </summary>
-            <p className="mt-2 text-xs text-app-text-muted">
-              {tr(
-                "Optional: enter numeric private chat id to override recipient binding and verify delivery path.",
-              )}
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <input
-                type="text"
-                value={bindingChatIdInput}
-                onChange={(event) => setBindingChatIdInput(event.target.value)}
-                placeholder={tr("Telegram private chat id")}
-                className="min-w-[220px] flex-1 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
-              />
-              <button
-                type="button"
-                onClick={runBindingVerify}
-                disabled={
-                  isLoading ||
-                  isLoadingReadiness ||
-                  isDispatching ||
-                  isTestSending ||
-                  isVerifyingBinding
-                }
-                className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
-              >
-                {tr("Verify binding")}
-              </button>
-            </div>
-          </details>
+          <div className="mt-3">
+            <ModalDisclosure
+              title={tr("Recipient binding verification")}
+              description={tr("Run optional recipient binding check and override diagnostics.")}
+              trigger={tr("Recipient binding verification")}
+              triggerClassName="pc-btn-secondary w-full justify-start"
+            >
+              <div className="space-y-2">
+                <p className="text-xs text-app-text-muted">
+                  {tr(
+                    "Optional: enter numeric private chat id to override recipient binding and verify delivery path.",
+                  )}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    value={bindingChatIdInput}
+                    onChange={(event) => setBindingChatIdInput(event.target.value)}
+                    placeholder={tr("Telegram private chat id")}
+                    className="min-w-[220px] flex-1 rounded-xl border border-app-border bg-app-surface px-3 py-2 text-sm text-app-text outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={runBindingVerify}
+                    disabled={
+                      isLoading ||
+                      isLoadingReadiness ||
+                      isDispatching ||
+                      isTestSending ||
+                      isVerifyingBinding
+                    }
+                    className="rounded-xl border border-app-border px-4 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
+                  >
+                    {tr("Verify binding")}
+                  </button>
+                </div>
+              </div>
+            </ModalDisclosure>
+          </div>
 
           <div className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
             <p className="text-xs text-app-text-muted">
@@ -827,131 +845,149 @@ export function ReminderCandidatesSection({
           </div>
 
           {lastDispatchSummary && (
-            <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3 text-xs text-app-text-muted">
-              <summary className="cursor-pointer font-semibold text-app-text">
-                {tr("Last dispatch result")}
-              </summary>
-              <p
-                className={`mt-2 ${
-                  lastDispatchSummary.failedCount === 0 &&
-                  lastDispatchSummary.sentCount > 0
-                    ? "font-semibold text-emerald-700"
-                    : "font-semibold text-app-text"
-                }`}
+            <div className="mt-3">
+              <ModalDisclosure
+                title={tr("Last dispatch result")}
+                description={tr("Inspect latest dispatch summary counters.")}
+                trigger={tr("Last dispatch result")}
+                triggerClassName="pc-btn-secondary w-full justify-start"
               >
-                {tr("Dispatch result")}:{" "}
-                {lastDispatchSummary.failedCount === 0 &&
-                lastDispatchSummary.sentCount > 0
-                  ? tr("success")
-                  : lastDispatchSummary.failedCount > 0
-                    ? tr("completed with failures")
-                    : tr("completed")}
-              </p>
-              <p className="mt-1">
-                {tr("Last dispatch")} ({lastDispatchSummary.evaluationDate}): {tr("seen")}{" "}
-                {lastDispatchSummary.totalCandidatesSeen}, {tr("new")}{" "}
-                {lastDispatchSummary.newAttemptsCreated}, {tr("duplicates")}{" "}
-                {lastDispatchSummary.duplicatesSkipped}, {tr("sent")}{" "}
-                {lastDispatchSummary.sentCount}, {tr("skipped")}{" "}
-                {lastDispatchSummary.skippedCount}, {tr("failed")}{" "}
-                {lastDispatchSummary.failedCount}.
-              </p>
-            </details>
+                <div className="space-y-1 text-xs text-app-text-muted">
+                  <p
+                    className={`${
+                      lastDispatchSummary.failedCount === 0 &&
+                      lastDispatchSummary.sentCount > 0
+                        ? "font-semibold text-emerald-700"
+                        : "font-semibold text-app-text"
+                    }`}
+                  >
+                    {tr("Dispatch result")}:{" "}
+                    {lastDispatchSummary.failedCount === 0 &&
+                    lastDispatchSummary.sentCount > 0
+                      ? tr("success")
+                      : lastDispatchSummary.failedCount > 0
+                        ? tr("completed with failures")
+                        : tr("completed")}
+                  </p>
+                  <p>
+                    {tr("Last dispatch")} ({lastDispatchSummary.evaluationDate}): {tr("seen")}{" "}
+                    {lastDispatchSummary.totalCandidatesSeen}, {tr("new")}{" "}
+                    {lastDispatchSummary.newAttemptsCreated}, {tr("duplicates")}{" "}
+                    {lastDispatchSummary.duplicatesSkipped}, {tr("sent")}{" "}
+                    {lastDispatchSummary.sentCount}, {tr("skipped")}{" "}
+                    {lastDispatchSummary.skippedCount}, {tr("failed")}{" "}
+                    {lastDispatchSummary.failedCount}.
+                  </p>
+                </div>
+              </ModalDisclosure>
+            </div>
           )}
 
           {lastTestStatus && (
-            <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3 text-xs text-app-text-muted">
-              <summary className="cursor-pointer font-semibold text-app-text">
-                {tr("Last test send")}
-              </summary>
-              <p
-                className={`mt-2 ${
-                  lastTestStatus.status === "sent"
-                    ? "font-semibold text-emerald-700"
-                    : lastTestStatus.status === "failed"
-                      ? "font-semibold text-rose-700"
-                      : "font-semibold text-amber-700"
-                }`}
+            <div className="mt-3">
+              <ModalDisclosure
+                title={tr("Last test send")}
+                description={tr("Inspect latest test-send diagnostic status.")}
+                trigger={tr("Last test send")}
+                triggerClassName="pc-btn-secondary w-full justify-start"
               >
-                {tr("Last test send")}: {tr(lastTestStatus.status.toUpperCase())}
-              </p>
-              <p className="mt-1">
-                {lastTestStatus.errorCode ? ` | ${lastTestStatus.errorCode}` : ""}
-                {lastTestStatus.errorMessage ? ` | ${lastTestStatus.errorMessage}` : ""}
-                {lastTestStatus.diagnosticCode
-                  ? ` | ${lastTestStatus.diagnosticCode}`
-                  : ""}
-                {lastTestStatus.diagnosticMessage
-                  ? ` | ${lastTestStatus.diagnosticMessage}`
-                  : ""}
-                {lastTestStatus.diagnosticIsInference ? ` (${tr("inference")})` : ""}
-              </p>
-            </details>
+                <div className="space-y-1 text-xs text-app-text-muted">
+                  <p
+                    className={`${
+                      lastTestStatus.status === "sent"
+                        ? "font-semibold text-emerald-700"
+                        : lastTestStatus.status === "failed"
+                          ? "font-semibold text-rose-700"
+                          : "font-semibold text-amber-700"
+                    }`}
+                  >
+                    {tr("Last test send")}: {tr(lastTestStatus.status.toUpperCase())}
+                  </p>
+                  <p>
+                    {lastTestStatus.errorCode ? ` | ${lastTestStatus.errorCode}` : ""}
+                    {lastTestStatus.errorMessage ? ` | ${lastTestStatus.errorMessage}` : ""}
+                    {lastTestStatus.diagnosticCode
+                      ? ` | ${lastTestStatus.diagnosticCode}`
+                      : ""}
+                    {lastTestStatus.diagnosticMessage
+                      ? ` | ${lastTestStatus.diagnosticMessage}`
+                      : ""}
+                    {lastTestStatus.diagnosticIsInference ? ` (${tr("inference")})` : ""}
+                  </p>
+                </div>
+              </ModalDisclosure>
+            </div>
           )}
 
           {lastBindingVerifyStatus && (
-            <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3 text-xs text-app-text-muted">
-              <summary className="cursor-pointer font-semibold text-app-text">
-                {tr("Last binding verify")}
-              </summary>
-              <p className="mt-2">
-                {tr("Last binding verify")}: {tr(lastBindingVerifyStatus.status)}
-                {lastBindingVerifyStatus.errorCode
-                  ? ` | ${lastBindingVerifyStatus.errorCode}`
-                  : ""}
-                {lastBindingVerifyStatus.errorMessage
-                  ? ` | ${lastBindingVerifyStatus.errorMessage}`
-                  : ""}
-                {lastBindingVerifyStatus.diagnosticCode
-                  ? ` | ${lastBindingVerifyStatus.diagnosticCode}`
-                  : ""}
-                {lastBindingVerifyStatus.diagnosticMessage
-                  ? ` | ${lastBindingVerifyStatus.diagnosticMessage}`
-                  : ""}
-                {lastBindingVerifyStatus.diagnosticIsInference ? ` (${tr("inference")})` : ""}
-              </p>
-            </details>
+            <div className="mt-3">
+              <ModalDisclosure
+                title={tr("Last binding verify")}
+                description={tr("Inspect latest recipient binding verification result.")}
+                trigger={tr("Last binding verify")}
+                triggerClassName="pc-btn-secondary w-full justify-start"
+              >
+                <p className="text-xs text-app-text-muted">
+                  {tr("Last binding verify")}: {tr(lastBindingVerifyStatus.status)}
+                  {lastBindingVerifyStatus.errorCode
+                    ? ` | ${lastBindingVerifyStatus.errorCode}`
+                    : ""}
+                  {lastBindingVerifyStatus.errorMessage
+                    ? ` | ${lastBindingVerifyStatus.errorMessage}`
+                    : ""}
+                  {lastBindingVerifyStatus.diagnosticCode
+                    ? ` | ${lastBindingVerifyStatus.diagnosticCode}`
+                    : ""}
+                  {lastBindingVerifyStatus.diagnosticMessage
+                    ? ` | ${lastBindingVerifyStatus.diagnosticMessage}`
+                    : ""}
+                  {lastBindingVerifyStatus.diagnosticIsInference ? ` (${tr("inference")})` : ""}
+                </p>
+              </ModalDisclosure>
+            </div>
           )}
 
           {recentAttempts.length > 0 && (
-            <details className="mt-3 rounded-2xl border border-app-border bg-app-surface-soft p-3">
-              <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                {tr("Recent attempts")} ({recentAttempts.length})
-              </summary>
-              <p className="mt-2 text-xs text-app-text-muted">
-                {tr("Auto-refreshed by `Refresh delivery status`.")}
-              </p>
-              <ul className="mt-2 space-y-1">
-                {recentAttempts.map((attempt) => {
-                  const statusMeta = dispatchStatusMeta[attempt.dispatchStatus];
-                  return (
-                    <li
-                      key={attempt.id}
-                      className="rounded-xl bg-app-surface px-2 py-1.5 text-xs text-app-text"
-                    >
-                      <p>
-                        <span className={`font-semibold ${statusMeta.className}`}>
-                          {tr(statusMeta.label)}
-                        </span>{" "}
-                        {tr(reasonLabel[attempt.reminderReason])}
-                      </p>
-                      <p className="text-app-text-muted">
-                        {tr("Due")} {formatDueDate(attempt.cycleDueDate)}.{" "}
-                        {formatDateTime(attempt.createdAt)}.
-                      </p>
-                      <p className="text-app-text-muted">
-                        {tr("Source")}: {tr(triggerSourceLabel[attempt.triggerSource])}.
-                      </p>
-                      <p className="text-app-text-muted">
-                        {attempt.errorCode
-                          ? `${attempt.errorCode}${attempt.errorMessage ? `. ${attempt.errorMessage}` : ""}`
-                          : tr("ok")}
-                      </p>
-                    </li>
-                  );
-                })}
-              </ul>
-            </details>
+            <div className="mt-3">
+              <ModalDisclosure
+                title={`${tr("Recent attempts")} (${recentAttempts.length})`}
+                description={tr("Auto-refreshed by `Refresh delivery status`.")}
+                trigger={`${tr("Recent attempts")} (${recentAttempts.length})`}
+                triggerClassName="pc-btn-secondary w-full justify-start"
+                widthClassName="max-w-xl"
+              >
+                <ul className="space-y-1">
+                  {recentAttempts.map((attempt) => {
+                    const statusMeta = dispatchStatusMeta[attempt.dispatchStatus];
+                    return (
+                      <li
+                        key={attempt.id}
+                        className="rounded-xl bg-app-surface px-2 py-1.5 text-xs text-app-text"
+                      >
+                        <p>
+                          <span className={`font-semibold ${statusMeta.className}`}>
+                            {tr(statusMeta.label)}
+                          </span>{" "}
+                          {tr(reasonLabel[attempt.reminderReason])}
+                        </p>
+                        <p className="text-app-text-muted">
+                          {tr("Due")} {formatDueDate(attempt.cycleDueDate)}.{" "}
+                          {formatDateTime(attempt.createdAt)}.
+                        </p>
+                        <p className="text-app-text-muted">
+                          {tr("Source")}: {tr(triggerSourceLabel[attempt.triggerSource])}.
+                        </p>
+                        <p className="text-app-text-muted">
+                          {attempt.errorCode
+                            ? `${attempt.errorCode}${attempt.errorMessage ? `. ${attempt.errorMessage}` : ""}`
+                            : tr("ok")}
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </ModalDisclosure>
+            </div>
           )}
             </>
           )}
