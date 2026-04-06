@@ -611,10 +611,6 @@ export function AppShell({ screens }: AppShellProps) {
               </p>
               <p className="text-[11px] text-app-text-muted">{tr(activeTabItem.hint)}</p>
             </div>
-            <span className="pc-status-pill">
-              <AppIcon name="clock" className="h-3 w-3" />
-              {tr(activeTabItem.label)}
-            </span>
           </header>
 
           <main className="relative z-0 flex-1 overflow-x-clip pb-2 pt-0.5">

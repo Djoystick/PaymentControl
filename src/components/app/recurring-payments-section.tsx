@@ -1265,6 +1265,29 @@ export function RecurringPaymentsSection({
     clearAllTabNavigationContexts();
   }, [activeWorkspaceId, clearFeedback]);
 
+  const clearRemindersFocus = useCallback(() => {
+    setReminderFocusFilter("all");
+    setEntryFlowContextReason(null);
+    setIsRestoredContext(false);
+    setLastNavigationIntent(null);
+  }, []);
+
+  const reminderFocusLabel = useMemo(() => {
+    if (reminderFocusFilter === "action_now") {
+      return tr("Action now");
+    }
+
+    if (reminderFocusFilter === "upcoming") {
+      return tr("Upcoming");
+    }
+
+    if (reminderFocusFilter === "paid") {
+      return tr("Paid");
+    }
+
+    return tr("All");
+  }, [reminderFocusFilter, tr]);
+
   const shouldShowGuidanceTip = Boolean(
     activeGuidanceKind && !isComposerExpanded && !isLoading,
   );
@@ -1396,28 +1419,6 @@ export function RecurringPaymentsSection({
                   >
                     <p>{tr("Core fields first. Open advanced options only when needed.")}</p>
                   </HelpPopover>
-                  <span className="pc-state-inline">{tr("Core fields first")}</span>
-                </div>
-              </div>
-              <div className="pc-state-card mt-2">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                  {tr("Main action")}
-                </p>
-                <p className="mt-0.5 text-xs text-app-text-muted">
-                  {tr("Add or edit recurring payments in one compact form.")}
-                </p>
-                <div className="mt-1.5 flex flex-wrap gap-1">
-                  <span className="pc-chip pc-chip-strong">
-                    {editingPaymentId ? tr("Continue editing") : tr("Add payment")}
-                  </span>
-                  <span className="pc-chip">
-                    {form.isSubscription ? tr("Subscription") : tr("Payment")}
-                  </span>
-                  <span className="pc-chip">
-                    {form.cadence === "weekly"
-                      ? `${tr("Weekly")} • ${tr("weekday")} ${form.dueDay || "1"}`
-                      : `${tr("Monthly")} • ${tr("day")} ${form.dueDay || "1"}`}
-                  </span>
                 </div>
               </div>
               <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -1495,11 +1496,12 @@ export function RecurringPaymentsSection({
                     )}
                 </div>
                 {quickTemplateOptions.length > 0 && (
-                  <div className="pc-state-card sm:col-span-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                        {tr("Quick templates")}
-                      </p>
+                  <details className="pc-detail-surface sm:col-span-2">
+                    <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                      <AppIcon name="template" className="h-3.5 w-3.5" />
+                      {tr("Template shortcuts")}
+                    </summary>
+                    <div className="mt-2">
                       <button
                         type="button"
                         onClick={continueManualEntry}
@@ -1508,7 +1510,7 @@ export function RecurringPaymentsSection({
                         {tr("Continue manually")}
                       </button>
                     </div>
-                    <div className="mt-1 flex flex-wrap gap-1.5">
+                    <div className="mt-2 flex flex-wrap gap-1.5">
                       {quickTemplateOptions.map((option) => (
                         <button
                           key={`quick-template-${option.template.id}`}
@@ -1525,7 +1527,7 @@ export function RecurringPaymentsSection({
                         </button>
                       ))}
                     </div>
-                  </div>
+                  </details>
                 )}
                 <label className="space-y-1">
                   <span className="block text-[11px] font-semibold text-app-text-muted">
@@ -1745,28 +1747,34 @@ export function RecurringPaymentsSection({
                   placeholder={tr("Notes (optional)")}
                   className="pc-textarea mt-2 h-20 resize-y"
                 />
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    onClick={saveCurrentFormAsTemplate}
-                    disabled={isSaving}
-                    className="pc-btn-secondary min-h-9 px-3 py-1 text-xs"
-                  >
+                <details className="pc-state-card mt-2 px-3 py-2">
+                  <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold text-app-text">
                     <AppIcon name="template" className="h-3.5 w-3.5" />
-                    {tr("Save as template")}
-                  </button>
-                  {!editingPaymentId && (
+                    {tr("Draft and template tools")}
+                  </summary>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
                     <button
                       type="button"
-                      onClick={resetFormDraft}
+                      onClick={saveCurrentFormAsTemplate}
                       disabled={isSaving}
-                      className="pc-btn-quiet min-h-9 px-3 py-1 text-xs"
+                      className="pc-btn-secondary min-h-9 px-3 py-1 text-xs"
                     >
-                      <AppIcon name="refresh" className="h-3.5 w-3.5" />
-                      {tr("Clear form")}
+                      <AppIcon name="template" className="h-3.5 w-3.5" />
+                      {tr("Save as template")}
                     </button>
-                  )}
-                </div>
+                    {!editingPaymentId && (
+                      <button
+                        type="button"
+                        onClick={resetFormDraft}
+                        disabled={isSaving}
+                        className="pc-btn-quiet min-h-9 px-3 py-1 text-xs"
+                      >
+                        <AppIcon name="refresh" className="h-3.5 w-3.5" />
+                        {tr("Clear form")}
+                      </button>
+                    )}
+                  </div>
+                </details>
               </details>
 
               <div className="pc-modal-sheet-foot mt-2">
@@ -1850,7 +1858,7 @@ export function RecurringPaymentsSection({
           {tr("Recurring Payments")}
         </h2>
         <p className="pc-section-subtitle">
-          {tr("Add and manage recurring payments here first.")}
+          {tr("Recurring payments routine")}
         </p>
       </div>
       {workspace && (
@@ -1884,25 +1892,23 @@ export function RecurringPaymentsSection({
         </p>
       ) : (
         <>
-          {entryFlowContextReason && (
-            <div className="pc-state-card flex items-center justify-between gap-2 text-xs text-app-text-muted">
-              <p className="inline-flex min-w-0 items-center gap-1">
+          {(entryFlowContextReason || reminderFocusFilter !== "all") && (
+            <div className="pc-context-row">
+              <p className="pc-context-row-main">
                 <AppIcon name="reminders" className="h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">
-                  {tr("Continue flow")}: {tr(entryFlowContextReason)}
+                  {entryFlowContextReason
+                    ? `${tr("Continue flow")}: ${tr(entryFlowContextReason)}`
+                    : `${tr("Current focus")}: ${reminderFocusLabel}`}
                 </span>
                 {isRestoredContext && (
                   <span className="pc-status-pill">{tr("Restored context")}</span>
                 )}
               </p>
-              <div className="flex items-center gap-1.5">
+              <div className="pc-context-row-actions">
                 <button
                   type="button"
-                  onClick={() => {
-                    setEntryFlowContextReason(null);
-                    setIsRestoredContext(false);
-                    setLastNavigationIntent(null);
-                  }}
+                  onClick={clearRemindersFocus}
                   className="pc-btn-quiet min-h-8 px-2 py-1 text-[11px]"
                 >
                   {tr("Clear focus")}
@@ -1922,11 +1928,7 @@ export function RecurringPaymentsSection({
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                  {tr("Main action")}
-                </p>
-                <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-app-text-muted">
-                  <AppIcon name="reminders" className="h-3.5 w-3.5" />
-                  {tr("Create and manage payments in one place.")}
+                  {tr("Main action lane")}
                 </p>
               </div>
               <button
@@ -1946,9 +1948,6 @@ export function RecurringPaymentsSection({
               </span>
               <span className="pc-chip">
                 {tr("Overdue")}: {remindersActSummary.overdueCount}
-              </span>
-              <span className="pc-chip">
-                {tr("Active")}: {remindersActSummary.activeCount}
               </span>
               <span className="pc-chip pc-chip-strong">
                 {tr("Action now")}: {actionNowCount}
@@ -1977,39 +1976,23 @@ export function RecurringPaymentsSection({
                   setLastNavigationIntent(null);
                 }}
                 aria-pressed={reminderFocusFilter === "action_now"}
-                className="pc-btn-secondary"
+                className="pc-btn-quiet"
               >
                 <AppIcon name="alert" className="h-3.5 w-3.5" />
                 {actionNowCount > 0
                   ? tr("Action now ({count})", { count: actionNowCount })
                   : tr("Action now")}
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setReminderFocusFilter((current) =>
-                    current === "upcoming" ? "all" : "upcoming",
-                  );
-                  setEntryFlowContextReason("Continue from Home with upcoming focus.");
-                  setIsRestoredContext(false);
-                  setLastNavigationIntent(null);
-                }}
-                aria-pressed={reminderFocusFilter === "upcoming"}
-                className="pc-btn-quiet"
-              >
-                <AppIcon name="clock" className="h-3.5 w-3.5" />
-                {tr("Upcoming")} ({focusFilterCounts.upcoming})
-              </button>
             </div>
           </div>
 
           {shouldShowGuidanceTip && activeGuidanceKind && (
-            <div className="pc-state-card text-xs text-app-text-muted">
-              <p className="inline-flex items-center gap-1 font-semibold text-app-text">
+            <details className="pc-state-card text-xs text-app-text-muted">
+              <summary className="pc-summary-action inline-flex items-center gap-1 font-semibold text-app-text">
                 <AppIcon name="help" className="h-3.5 w-3.5" />
                 {tr("Quick tip")}
-              </p>
-              <p className="mt-1">
+              </summary>
+              <p className="mt-2">
                 {activeGuidanceKind === "focused_entry" &&
                   tr(
                     "You opened a focused lane from Home. Clear focus anytime to return to the full list.",
@@ -2036,7 +2019,7 @@ export function RecurringPaymentsSection({
                   {tr("Got it")}
                 </button>
               </div>
-            </div>
+            </details>
           )}
 
           {!isLoading && activePayments.length === 0 && (
@@ -2048,17 +2031,13 @@ export function RecurringPaymentsSection({
               </p>
               <p className="mt-1 text-xs text-app-text-muted">
                 {isFamilyWorkspace
-                  ? tr(
-                      "Add your first shared payment below. Invite members from Profile when needed.",
-                    )
-                  : tr(
-                      "Add your first payment below. Reminders and History will update after that.",
-                    )}
+                  ? tr("Add your first shared payment.")
+                  : tr("Add your first recurring payment.")}
               </p>
               <button
                 type="button"
                 onClick={openComposer}
-                className="pc-btn-secondary mt-2"
+                className="pc-btn-primary mt-2"
               >
                 <AppIcon name="add" className="h-3.5 w-3.5" />
                 {tr("Open add payment form")}
@@ -2077,79 +2056,93 @@ export function RecurringPaymentsSection({
                   total: activePayments.length,
                 })}
               </p>
-              {subscriptionsCount > 0 && (
-                <p className="mt-1 text-[11px] text-app-text-muted">
-                  {tr("Subscription type stays as a secondary card label.")}{" "}
-                  {tr("Subscriptions")}: {subscriptionsCount}
-                </p>
-              )}
-              <div className="mt-1.5">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-app-text-muted">
-                  {tr("Focus")}
-                </p>
-                <div className="pc-segmented mt-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setReminderFocusFilter("all");
-                      setEntryFlowContextReason(null);
-                      setIsRestoredContext(false);
-                      setLastNavigationIntent(null);
-                    }}
-                    aria-pressed={reminderFocusFilter === "all"}
-                    className={`pc-segment-btn min-h-9 ${
-                      reminderFocusFilter === "all" ? "pc-segment-btn-active" : ""
-                    }`}
-                  >
-                    {tr("All")} ({focusFilterCounts.all})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setReminderFocusFilter("action_now");
-                      setEntryFlowContextReason(null);
-                      setIsRestoredContext(false);
-                      setLastNavigationIntent(null);
-                    }}
-                    aria-pressed={reminderFocusFilter === "action_now"}
-                    className={`pc-segment-btn min-h-9 ${
-                      reminderFocusFilter === "action_now" ? "pc-segment-btn-active" : ""
-                    }`}
-                  >
-                    {tr("Action now")} ({focusFilterCounts.actionNow})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setReminderFocusFilter("upcoming");
-                      setEntryFlowContextReason(null);
-                      setIsRestoredContext(false);
-                      setLastNavigationIntent(null);
-                    }}
-                    aria-pressed={reminderFocusFilter === "upcoming"}
-                    className={`pc-segment-btn min-h-9 ${
-                      reminderFocusFilter === "upcoming" ? "pc-segment-btn-active" : ""
-                    }`}
-                  >
-                    {tr("Upcoming")} ({focusFilterCounts.upcoming})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setReminderFocusFilter("paid");
-                      setEntryFlowContextReason(null);
-                      setIsRestoredContext(false);
-                      setLastNavigationIntent(null);
-                    }}
-                    aria-pressed={reminderFocusFilter === "paid"}
-                    className={`pc-segment-btn min-h-9 ${
-                      reminderFocusFilter === "paid" ? "pc-segment-btn-active" : ""
-                    }`}
-                  >
-                    {tr("Paid")} ({focusFilterCounts.paid})
-                  </button>
+              <details className="pc-state-card mt-1.5 px-3 py-2">
+                <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold text-app-text">
+                  <AppIcon name="template" className="h-3.5 w-3.5" />
+                  {tr("List view options")}
+                </summary>
+                <div className="mt-2 space-y-2">
+                  {subscriptionsCount > 0 && (
+                    <p className="text-[11px] text-app-text-muted">
+                      {tr("Subscription type stays as a secondary card label.")}{" "}
+                      {tr("Subscriptions")}: {subscriptionsCount}
+                    </p>
+                  )}
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-app-text-muted">
+                      {tr("Focus")}
+                    </p>
+                    <div className="pc-segmented mt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReminderFocusFilter("all");
+                          setEntryFlowContextReason(null);
+                          setIsRestoredContext(false);
+                          setLastNavigationIntent(null);
+                        }}
+                        aria-pressed={reminderFocusFilter === "all"}
+                        className={`pc-segment-btn min-h-9 ${
+                          reminderFocusFilter === "all" ? "pc-segment-btn-active" : ""
+                        }`}
+                      >
+                        {tr("All")} ({focusFilterCounts.all})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReminderFocusFilter("action_now");
+                          setEntryFlowContextReason(null);
+                          setIsRestoredContext(false);
+                          setLastNavigationIntent(null);
+                        }}
+                        aria-pressed={reminderFocusFilter === "action_now"}
+                        className={`pc-segment-btn min-h-9 ${
+                          reminderFocusFilter === "action_now"
+                            ? "pc-segment-btn-active"
+                            : ""
+                        }`}
+                      >
+                        {tr("Action now")} ({focusFilterCounts.actionNow})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReminderFocusFilter("upcoming");
+                          setEntryFlowContextReason(null);
+                          setIsRestoredContext(false);
+                          setLastNavigationIntent(null);
+                        }}
+                        aria-pressed={reminderFocusFilter === "upcoming"}
+                        className={`pc-segment-btn min-h-9 ${
+                          reminderFocusFilter === "upcoming"
+                            ? "pc-segment-btn-active"
+                            : ""
+                        }`}
+                      >
+                        {tr("Upcoming")} ({focusFilterCounts.upcoming})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReminderFocusFilter("paid");
+                          setEntryFlowContextReason(null);
+                          setIsRestoredContext(false);
+                          setLastNavigationIntent(null);
+                        }}
+                        aria-pressed={reminderFocusFilter === "paid"}
+                        className={`pc-segment-btn min-h-9 ${
+                          reminderFocusFilter === "paid"
+                            ? "pc-segment-btn-active"
+                            : ""
+                        }`}
+                      >
+                        {tr("Paid")} ({focusFilterCounts.paid})
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              </details>
             </div>
           )}
 

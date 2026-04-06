@@ -448,6 +448,24 @@ export function PaymentsActivitySection({
     clearAllTabNavigationContexts();
   }, [workspaceId]);
 
+  const clearHistoryFocus = useCallback(() => {
+    setActivityFocusFilter("all");
+    setEntryFlowContextReason(null);
+    setIsRestoredContext(false);
+  }, []);
+
+  const historyFocusLabel = useMemo(() => {
+    if (activityFocusFilter === "changes") {
+      return tr("Changes");
+    }
+
+    if (activityFocusFilter === "paid") {
+      return tr("Paid events");
+    }
+
+    return tr("All events");
+  }, [activityFocusFilter, tr]);
+
   const openRemindersAddPayment = useCallback(() => {
     if (typeof window === "undefined") {
       return;
@@ -474,7 +492,7 @@ export function PaymentsActivitySection({
           {tr("History")}
         </h2>
       <p className="pc-section-subtitle">
-        {tr("Recent events from your payment routine.")}
+        {tr("Recent payment updates")}
       </p>
       </div>
 
@@ -484,24 +502,23 @@ export function PaymentsActivitySection({
         </p>
       ) : (
         <>
-          {entryFlowContextReason && (
-            <div className="pc-state-card flex items-center justify-between gap-2 text-xs text-app-text-muted">
-              <p className="inline-flex min-w-0 items-center gap-1">
+          {(entryFlowContextReason || activityFocusFilter !== "all") && (
+            <div className="pc-context-row">
+              <p className="pc-context-row-main">
                 <AppIcon name="history" className="h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">
-                  {tr("Continue flow")}: {tr(entryFlowContextReason)}
+                  {entryFlowContextReason
+                    ? `${tr("Continue flow")}: ${tr(entryFlowContextReason)}`
+                    : `${tr("Current focus")}: ${historyFocusLabel}`}
                 </span>
                 {isRestoredContext && (
                   <span className="pc-status-pill">{tr("Restored context")}</span>
                 )}
               </p>
-              <div className="flex items-center gap-1.5">
+              <div className="pc-context-row-actions">
                 <button
                   type="button"
-                  onClick={() => {
-                    setEntryFlowContextReason(null);
-                    setIsRestoredContext(false);
-                  }}
+                  onClick={clearHistoryFocus}
                   className="pc-btn-quiet min-h-8 px-2 py-1 text-[11px]"
                 >
                   {tr("Clear focus")}
@@ -517,99 +534,105 @@ export function PaymentsActivitySection({
             </div>
           )}
 
-          <details className="pc-detail-surface">
-            <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              <AppIcon name="history" className="h-3.5 w-3.5" />
-              {tr("History context")}
-            </summary>
-            <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-              <div className="pc-state-card px-1.5 py-1.5">
-                <p className="text-[11px] text-app-text-muted">{tr("In scope")}</p>
-                <p className="text-sm font-semibold text-app-text">{scopedPaymentsCount}</p>
-              </div>
-              <div className="pc-state-card px-1.5 py-1.5">
-                <p className="text-[11px] text-app-text-muted">{tr("Recent events")}</p>
-                <p className="text-sm font-semibold text-app-text">{activityItems.length}</p>
-              </div>
-              {isFamilyWorkspace && sharedWhoPaysSummary && (
-                <div className="pc-state-card col-span-2 px-1.5 py-1.5">
-                  <p className="text-[11px] text-app-text-muted">
-                    {tr("Who pays assigned")}: {sharedWhoPaysSummary.assignedCount} · {tr("Missing")}{" "}
-                    {sharedWhoPaysSummary.unassignedCount} · {tr("Mismatch hints")}{" "}
-                    {paidByMismatchCount}
-                  </p>
-                </div>
-              )}
-            </div>
-          </details>
-
           <div className="pc-detail-surface">
-            <div className="mb-2">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-app-text-muted">
-                {tr("Focus")}
-              </p>
-              <div className="pc-segmented mt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActivityFocusFilter("all");
-                    setEntryFlowContextReason(null);
-                    setIsRestoredContext(false);
-                  }}
-                  aria-pressed={activityFocusFilter === "all"}
-                  className={`pc-segment-btn min-h-8 ${
-                    activityFocusFilter === "all" ? "pc-segment-btn-active" : ""
-                  }`}
-                >
-                  {tr("All events")} ({activityFocusCounts.all})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActivityFocusFilter("changes");
-                    setEntryFlowContextReason(null);
-                    setIsRestoredContext(false);
-                  }}
-                  aria-pressed={activityFocusFilter === "changes"}
-                  className={`pc-segment-btn min-h-8 ${
-                    activityFocusFilter === "changes" ? "pc-segment-btn-active" : ""
-                  }`}
-                >
-                  {tr("Changes")} ({activityFocusCounts.changes})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActivityFocusFilter("paid");
-                    setEntryFlowContextReason(null);
-                    setIsRestoredContext(false);
-                  }}
-                  aria-pressed={activityFocusFilter === "paid"}
-                  className={`pc-segment-btn min-h-8 ${
-                    activityFocusFilter === "paid" ? "pc-segment-btn-active" : ""
-                  }`}
-                >
-                  {tr("Paid events")} ({activityFocusCounts.paid})
-                </button>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-app-text-muted">
+              {tr("Recent events list")}
+            </p>
+            <p className="mt-1 text-[11px] text-app-text-muted">
+              {tr("Showing {visible} of {total} events.", {
+                visible: focusedActivityItems.length,
+                total: activityItems.length,
+              })}
+            </p>
+            <details className="pc-state-card mt-2 px-3 py-2">
+              <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold text-app-text">
+                <AppIcon name="template" className="h-3.5 w-3.5" />
+                {tr("View options")}
+              </summary>
+              <div className="mt-2 space-y-2">
+                <div className="grid grid-cols-2 gap-1.5">
+                  <div className="pc-state-card px-1.5 py-1.5">
+                    <p className="text-[11px] text-app-text-muted">{tr("In scope")}</p>
+                    <p className="text-sm font-semibold text-app-text">{scopedPaymentsCount}</p>
+                  </div>
+                  <div className="pc-state-card px-1.5 py-1.5">
+                    <p className="text-[11px] text-app-text-muted">{tr("Recent events")}</p>
+                    <p className="text-sm font-semibold text-app-text">{activityItems.length}</p>
+                  </div>
+                  {isFamilyWorkspace && sharedWhoPaysSummary && (
+                    <div className="pc-state-card col-span-2 px-1.5 py-1.5">
+                      <p className="text-[11px] text-app-text-muted">
+                        {tr("Who pays assigned")}: {sharedWhoPaysSummary.assignedCount} ·{" "}
+                        {tr("Missing")} {sharedWhoPaysSummary.unassignedCount} ·{" "}
+                        {tr("Mismatch hints")} {paidByMismatchCount}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-app-text-muted">
+                    {tr("Focus")}
+                  </p>
+                  <div className="pc-segmented mt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActivityFocusFilter("all");
+                        setEntryFlowContextReason(null);
+                        setIsRestoredContext(false);
+                      }}
+                      aria-pressed={activityFocusFilter === "all"}
+                      className={`pc-segment-btn min-h-8 ${
+                        activityFocusFilter === "all" ? "pc-segment-btn-active" : ""
+                      }`}
+                    >
+                      {tr("All events")} ({activityFocusCounts.all})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActivityFocusFilter("changes");
+                        setEntryFlowContextReason(null);
+                        setIsRestoredContext(false);
+                      }}
+                      aria-pressed={activityFocusFilter === "changes"}
+                      className={`pc-segment-btn min-h-8 ${
+                        activityFocusFilter === "changes" ? "pc-segment-btn-active" : ""
+                      }`}
+                    >
+                      {tr("Changes")} ({activityFocusCounts.changes})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActivityFocusFilter("paid");
+                        setEntryFlowContextReason(null);
+                        setIsRestoredContext(false);
+                      }}
+                      aria-pressed={activityFocusFilter === "paid"}
+                      className={`pc-segment-btn min-h-8 ${
+                        activityFocusFilter === "paid" ? "pc-segment-btn-active" : ""
+                      }`}
+                    >
+                      {tr("Paid events")} ({activityFocusCounts.paid})
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
+            </details>
 
             {scopedPaymentsCount === 0 ? (
               <div className="pc-empty-state space-y-1">
                 <p className="text-sm font-semibold text-app-text">{tr("History is empty")}</p>
                 <p className="text-sm text-app-text-muted">
                   {isFamilyWorkspace
-                    ? tr(
-                        "Add the first shared payment in Recurring. Events will appear here after updates.",
-                      )
-                    : tr(
-                        "Add your first payment in Recurring. Events will appear here after updates.",
-                      )}
+                    ? tr("Add first shared payment in Recurring.")
+                    : tr("Add first payment in Recurring.")}
                 </p>
                 <button
                   type="button"
                   onClick={openRemindersAddPayment}
-                  className="pc-btn-quiet mt-2"
+                  className="pc-btn-secondary mt-2"
                 >
                   <AppIcon name="add" className="h-3.5 w-3.5" />
                   {tr("Open Recurring and add payment")}
@@ -619,12 +642,12 @@ export function PaymentsActivitySection({
               <div className="pc-empty-state space-y-1">
                 <p className="text-sm font-semibold text-app-text">{tr("No recent updates yet")}</p>
                 <p className="text-sm text-app-text-muted">
-                  {tr("Mark paid or edit a payment in Recurring to populate History.")}
+                  {tr("Mark paid or edit a payment in Recurring.")}
                 </p>
                 <button
                   type="button"
                   onClick={openRemindersAddPayment}
-                  className="pc-btn-quiet mt-2"
+                  className="pc-btn-secondary mt-2"
                 >
                   <AppIcon name="add" className="h-3.5 w-3.5" />
                   {tr("Open Recurring and add payment")}

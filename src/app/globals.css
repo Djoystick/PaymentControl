@@ -292,6 +292,20 @@ body {
   box-shadow: none;
 }
 
+.pc-btn-primary > svg,
+.pc-btn-secondary > svg,
+.pc-btn-danger > svg,
+.pc-btn-quiet > svg,
+.pc-icon-btn > svg,
+.pc-section-title > svg,
+.pc-kicker > svg,
+.pc-state-inline > svg,
+.pc-status-pill > svg,
+.pc-summary-action > svg,
+.pc-chip > svg {
+  flex-shrink: 0;
+}
+
 .pc-btn-primary-warning {
   border-color: color-mix(in srgb, var(--app-state-warning-border) 82%, #ffffff 18%);
   background: color-mix(in srgb, var(--app-state-warning-text) 76%, #d99022 24%);
@@ -655,9 +669,11 @@ details.pc-state-card[open] > summary {
   display: inline-flex;
   min-height: 1.5rem;
   min-width: 1.5rem;
+  line-height: 1;
   cursor: pointer;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
   border-radius: 999px;
   border: 1px solid var(--app-border);
   background: var(--app-surface-elevated);
@@ -696,12 +712,70 @@ details.pc-state-card[open] > summary {
 
 .pc-section-title {
   display: inline-flex;
+  min-width: 0;
   align-items: center;
   gap: 0.45rem;
   font-size: 0.985rem;
   font-weight: 700;
   line-height: 1.2;
   color: var(--app-text);
+}
+
+.pc-surface-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.55rem;
+}
+
+.pc-surface-head-main {
+  min-width: 0;
+}
+
+.pc-surface-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.pc-inline-meta {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pc-context-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  border: 1px solid var(--app-state-info-border);
+  border-radius: 0.82rem;
+  background: var(--app-state-info-bg);
+  padding: 0.42rem 0.55rem;
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--app-frame-shadow) 44%, transparent);
+}
+
+.pc-context-row-main {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--app-state-info-text);
+}
+
+.pc-context-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
 }
 
 .pc-section-subtitle {

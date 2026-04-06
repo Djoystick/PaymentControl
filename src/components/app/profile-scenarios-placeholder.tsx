@@ -558,15 +558,17 @@ function ProfileScenariosContent() {
           </h2>
         </div>
         <p className="pc-section-subtitle">
-          {tr("Profile controls context and onboarding")}
+          {tr("Workspace and settings")}
         </p>
-        <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-          <AppIcon name="home" className="h-3.5 w-3.5" />
-          {tr("Quick start")}
-        </p>
-        <p className="mt-0.5 text-xs text-app-text-muted">
-          {tr("Start in Recurring: add a payment, then use Mark paid when done.")}
-        </p>
+        <details className="pc-detail-surface mt-2">
+          <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+            <AppIcon name="home" className="h-3.5 w-3.5" />
+            {tr("Quick start")}
+          </summary>
+          <p className="mt-1 text-xs text-app-text-muted">
+            {tr("Start in Recurring: add a payment and mark it paid when done.")}
+          </p>
+        </details>
       </div>
       <div className="pc-surface">
         <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
@@ -574,9 +576,6 @@ function ProfileScenariosContent() {
           {tr("Session")}
         </p>
         <p className="mt-1 text-sm font-semibold text-app-text">{sourceLabel}</p>
-        {!isLoading && (
-          <p className="mt-1 text-xs text-app-text-muted">{tr("Context ready")}</p>
-        )}
         <div className="mt-1.5">
           <p className="inline-flex items-center gap-1 text-xs font-semibold text-app-text-muted">
             <AppIcon name="language" className="h-3.5 w-3.5" />
@@ -728,27 +727,33 @@ function ProfileScenariosContent() {
               className="pc-textarea resize-y"
             />
           </div>
-          <div className="space-y-1">
-            <p className="text-xs font-semibold text-app-text">
-              {tr("Steps to reproduce (optional)")}
+          <details className="pc-state-card px-3 py-2">
+            <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold text-app-text">
+              <AppIcon name="help" className="h-3.5 w-3.5" />
+              {tr("Optional details")}
+            </summary>
+            <div className="mt-2 space-y-1">
+              <p className="text-xs font-semibold text-app-text">
+                {tr("Steps to reproduce (optional)")}
+              </p>
+              <textarea
+                value={bugReportSteps}
+                onChange={(event) => {
+                  setBugReportSteps(event.target.value);
+                  setBugReportFeedback(null);
+                }}
+                rows={3}
+                maxLength={1200}
+                placeholder={tr("Optional steps, device details, or timing notes.")}
+                className="pc-textarea resize-y"
+              />
+            </div>
+            <p className="mt-2 text-[11px] text-app-text-muted">
+              {tr(
+                "Context from your profile, workspace, language, theme, and last workflow state is attached automatically.",
+              )}
             </p>
-            <textarea
-              value={bugReportSteps}
-              onChange={(event) => {
-                setBugReportSteps(event.target.value);
-                setBugReportFeedback(null);
-              }}
-              rows={3}
-              maxLength={1200}
-              placeholder={tr("Optional steps, device details, or timing notes.")}
-              className="pc-textarea resize-y"
-            />
-          </div>
-          <p className="text-[11px] text-app-text-muted">
-            {tr(
-              "Context from your profile, workspace, language, theme, and last workflow state is attached automatically.",
-            )}
-          </p>
+          </details>
           <button
             type="submit"
             disabled={isSubmittingBugReport}

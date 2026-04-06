@@ -93,8 +93,8 @@ export function AppIcon({
   if (name === "travel") {
     return (
       <svg {...baseProps}>
-        <path d="M2 16l20 -8l-8 20l-2 -9l-10 -3z" />
-        <path d="M12 19l10 -11" />
+        <path d="M3 11l18 -8l-8 18l-2 -7l-8 -3z" />
+        <path d="M11 14l10 -11" />
       </svg>
     );
   }

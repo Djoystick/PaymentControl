@@ -1,7 +1,7 @@
 ﻿# Phase 29B - Travel Surface Context Isolation + Action Deduplication
 
 - Date: 2026-04-05
-- Status: implemented, pending manual verification
+- Status: implemented, manual verification completed by user
 - Scope: targeted UX/UI cleanup pass for Travel tab after 29A/29A.1 (no schema/API/domain expansion)
 - Baseline preserved:
   - donation-only product truth (no premium/paywall return)

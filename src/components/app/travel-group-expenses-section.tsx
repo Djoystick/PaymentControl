@@ -240,6 +240,21 @@ const getTripListFilterLabel = (
   return tr("All");
 };
 
+const getTripWorkspaceLayerLabel = (
+  layer: TripWorkspaceLayer,
+  tr: (text: string) => string,
+): string => {
+  if (layer === "settlements") {
+    return tr("Settlements");
+  }
+
+  if (layer === "history") {
+    return tr("History");
+  }
+
+  return tr("Expenses");
+};
+
 const getReceiptListFilterLabel = (
   filter: ReceiptListFilter,
   tr: (text: string) => string,
@@ -633,6 +648,7 @@ export function TravelGroupExpensesSection({
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [isParticipantPanelOpen, setIsParticipantPanelOpen] = useState(false);
   const [isReceiptPanelOpen, setIsReceiptPanelOpen] = useState(false);
+  const [isExpenseFormPanelOpen, setIsExpenseFormPanelOpen] = useState(false);
   const [receiptListFilter, setReceiptListFilter] =
     useState<ReceiptListFilter>("attention");
   const [tripWorkspaceLayer, setTripWorkspaceLayer] =
@@ -1381,6 +1397,7 @@ export function TravelGroupExpensesSection({
 
   const focusExpenseForm = useCallback(() => {
     setTripWorkspaceLayer("expenses");
+    setIsExpenseFormPanelOpen(true);
 
     if (typeof window === "undefined") {
       return;
@@ -1711,6 +1728,7 @@ export function TravelGroupExpensesSection({
   useEffect(() => {
     setIsParticipantPanelOpen(false);
     setIsReceiptPanelOpen(false);
+    setIsExpenseFormPanelOpen(false);
     setIsJoinModalOpen(false);
     setTripWorkspaceLayer("expenses");
     setActiveReceiptReviewId(null);
@@ -3505,17 +3523,17 @@ export function TravelGroupExpensesSection({
 
   return (
     <section className="pc-surface pc-screen-stack">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
+      <div className="pc-surface-head">
+        <div className="pc-surface-head-main">
           <p className="pc-kicker">{tr("Travel groups")}</p>
           <h2 className="pc-section-title mt-1">
             <AppIcon name="travel" className="h-4 w-4" />
             {tr("Group expenses")}
           </h2>
+          <p className="pc-section-subtitle">
+            {tr("Trips, receipts, and settlements")}
+          </p>
         </div>
-        <span className="pc-state-card inline-flex h-9 w-9 items-center justify-center p-0 text-app-accent">
-          <AppIcon name="travel" className="h-[18px] w-[18px]" />
-        </span>
       </div>
 
       {workspaceUnavailable && (
@@ -3529,38 +3547,33 @@ export function TravelGroupExpensesSection({
         <>
           {selectedTripId === null && (
             <>
-              <div className="pc-surface pc-surface-soft">
-                <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                  <AppIcon name="workspace" className="h-3.5 w-3.5" />
-                  {tr("Trips")}
-                </p>
-                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsCreateTripModalOpen(true)}
-                    disabled={isCreatingTrip || isTripsLoading}
-                    className="pc-btn-primary w-full"
-                  >
-                    <AppIcon name="add" className="h-3.5 w-3.5" />
-                    {tr("Create trip")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsJoinModalOpen(true)}
-                    disabled={isJoiningInvite || isTripsLoading || isTripLoading}
-                    className="pc-btn-secondary w-full"
-                  >
-                    <AppIcon name="workspace" className="h-3.5 w-3.5" />
-                    {tr("Join shared trip")}
-                  </button>
-                </div>
-              </div>
-
               <section className="pc-detail-surface">
-            <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-              <AppIcon name="travel" className="h-3.5 w-3.5" />
-              {tr("Trips")}
-            </p>
+                <div className="pc-surface-head">
+                  <p className="pc-inline-meta text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                    <AppIcon name="workspace" className="h-3.5 w-3.5" />
+                    {tr("Trips")}
+                  </p>
+                  <div className="pc-surface-head-actions">
+                    <button
+                      type="button"
+                      onClick={() => setIsCreateTripModalOpen(true)}
+                      disabled={isCreatingTrip || isTripsLoading}
+                      className="pc-btn-primary min-h-8 px-3 py-1.5"
+                    >
+                      <AppIcon name="add" className="h-3.5 w-3.5" />
+                      {tr("Create trip")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsJoinModalOpen(true)}
+                      disabled={isJoiningInvite || isTripsLoading || isTripLoading}
+                      className="pc-btn-secondary min-h-8 px-3 py-1.5"
+                    >
+                      <AppIcon name="workspace" className="h-3.5 w-3.5" />
+                      {tr("Join shared trip")}
+                    </button>
+                  </div>
+                </div>
             <div className="pc-segmented mt-2">
               {tripListFilters.map((filter) => (
                 <button
@@ -3583,8 +3596,16 @@ export function TravelGroupExpensesSection({
               <div className="pc-empty-state mt-2">
                 <p className="text-sm font-semibold text-app-text">{tr("No trips yet")}</p>
                 <p className="mt-1 text-xs text-app-text-muted">
-                  {tr("Create your first trip, add participants, then log expenses.")}
+                  {tr("Create your first trip.")}
                 </p>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateTripModalOpen(true)}
+                  className="pc-btn-primary mt-2"
+                >
+                  <AppIcon name="add" className="h-3.5 w-3.5" />
+                  {tr("Create trip")}
+                </button>
               </div>
             ) : filteredTrips.length === 0 ? (
               <div className="pc-empty-state mt-2">
@@ -3592,13 +3613,7 @@ export function TravelGroupExpensesSection({
                   {tr("No trips in this section yet")}
                 </p>
                 <p className="mt-1 text-xs text-app-text-muted">
-                  {tripListFilter === "active"
-                    ? tr("Active trips appear here. Closed and archived trips stay in their own sections.")
-                    : tripListFilter === "completed"
-                      ? tr("Completed trips appear here. Archive them when you want to keep active view clean.")
-                      : tripListFilter === "archived"
-                        ? tr("Archived trips stay here until you restore them to completed list.")
-                        : tr("No trips match current filter yet.")}
+                  {tr("Choose another section or show all trips.")}
                 </p>
                 {tripListFilter !== "all" && (
                   <button
@@ -3629,7 +3644,7 @@ export function TravelGroupExpensesSection({
                       <span
                         className={`pc-status-pill ${
                           trip.status === "archived"
-                            ? "pc-status-pill pc-status-pill-error"
+                            ? "pc-status-pill-error"
                             : trip.status === "closed"
                             ? "pc-status-pill-success"
                             : trip.status === "closing"
@@ -3664,17 +3679,6 @@ export function TravelGroupExpensesSection({
               </div>
             )}
               </section>
-
-              {!isTripsLoading && filteredTrips.length > 0 && (
-                <div className="pc-empty-state">
-                  <p className="text-sm font-semibold text-app-text">
-                    {tr("Select a trip to open workspace.")}
-                  </p>
-                  <p className="mt-1 text-xs text-app-text-muted">
-                    {tr("Active, completed, and archived sections stay available through filters above.")}
-                  </p>
-                </div>
-              )}
             </>
           )}
 
@@ -3707,16 +3711,6 @@ export function TravelGroupExpensesSection({
           {selectedTripId !== null && selectedTrip && !isTripLoading && (
             <section className="pc-screen-stack">
               <div className="pc-surface pc-surface-soft">
-                <div className="mb-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedTripId(null)}
-                    className="pc-btn-quiet"
-                  >
-                    <AppIcon name="undo" className="h-3.5 w-3.5" />
-                    {tr("Back to trips")}
-                  </button>
-                </div>
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="text-sm font-semibold text-app-text">{selectedTrip.title}</h3>
                   <div className="flex items-center gap-1.5">
@@ -3749,86 +3743,112 @@ export function TravelGroupExpensesSection({
                     {tr("Archived at")}: {formatDateTime(selectedTrip.archivedAt)}
                   </p>
                 )}
-                <div className="mt-2 grid grid-cols-2 gap-2 text-center sm:grid-cols-6">
-                  <div className="pc-state-card p-2">
-                    <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Active members")}</p>
-                    <p className="mt-1 text-sm font-semibold text-app-text">
-                      {selectedTrip.summary.activeMemberCount}
-                    </p>
-                    <p className="mt-0.5 text-[10px] text-app-text-muted">
-                      {tr("Total")}: {selectedTrip.members.length}
-                    </p>
-                  </div>
-                  <div className="pc-state-card p-2">
-                    <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Expenses")}</p>
-                    <p className="mt-1 text-sm font-semibold text-app-text">{selectedTrip.summary.totalExpensesCount}</p>
-                  </div>
-                  <div className="pc-state-card p-2">
-                    <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Total")}</p>
-                    <p className="mt-1 text-sm font-semibold text-app-text">
-                      {formatAmount(selectedTrip.summary.totalSpent, selectedTrip.baseCurrency)}
-                    </p>
-                  </div>
-                  <div className="pc-state-card p-2">
-                    <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Open settlements")}</p>
-                    <p className="mt-1 text-sm font-semibold text-app-text">
-                      {selectedTrip.summary.unsettledSettlementCount}
-                    </p>
-                  </div>
-                  <div className="pc-state-card p-2">
-                    <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Inactive")}</p>
-                    <p className="mt-1 text-sm font-semibold text-app-text">
-                      {selectedTrip.summary.inactiveMemberCount}
-                    </p>
-                  </div>
-                  <div className="pc-state-card p-2">
-                    <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Settled")}</p>
-                    <p className="mt-1 text-sm font-semibold text-app-text">
-                      {selectedTrip.summary.settledSettlementCount}
-                    </p>
+                <div className="pc-context-row mt-2">
+                  <p className="pc-context-row-main">
+                    <AppIcon name="travel" className="h-3.5 w-3.5" />
+                    <span>
+                      {tr("Current layer")}: {getTripWorkspaceLayerLabel(tripWorkspaceLayer, tr)}
+                    </span>
+                  </p>
+                  <div className="pc-context-row-actions">
+                    {tripWorkspaceLayer !== "expenses" && (
+                      <button
+                        type="button"
+                        onClick={() => setTripWorkspaceLayer("expenses")}
+                        className="pc-btn-quiet min-h-8 px-2 py-1 text-[11px]"
+                      >
+                        <AppIcon name="undo" className="h-3.5 w-3.5" />
+                        {tr("Reset layer")}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTripId(null)}
+                      className="pc-btn-quiet min-h-8 px-2 py-1 text-[11px]"
+                    >
+                      <AppIcon name="undo" className="h-3.5 w-3.5" />
+                      {tr("Back to trips")}
+                    </button>
                   </div>
                 </div>
-                <p className="mt-2 text-[11px] text-app-text-muted">
-                  {selectedTrip.recentExpenses.length > 0
-                    ? tr("Last activity") +
-                      ": " +
-                      selectedTrip.recentExpenses[0]?.description +
-                      " • " +
-                      formatDateTime(selectedTrip.recentExpenses[0]?.spentAt ?? "")
-                    : tr("No expenses yet")}
-                </p>
-                {selectedTrip.status === "closing" && (
-                  <p className="mt-1 text-[11px] text-app-text-muted">
-                    {selectedTrip.summary.readyForClosure
-                      ? tr("Ready to close trip.")
-                      : tr("Settle open transfers before closing trip.")}
+                <details className="pc-detail-surface mt-2">
+                  <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                    <AppIcon name="template" className="h-3.5 w-3.5" />
+                    {tr("Trip overview")}
+                  </summary>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-center sm:grid-cols-6">
+                    <div className="pc-state-card p-2">
+                      <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Active members")}</p>
+                      <p className="mt-1 text-sm font-semibold text-app-text">
+                        {selectedTrip.summary.activeMemberCount}
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-app-text-muted">
+                        {tr("Total")}: {selectedTrip.members.length}
+                      </p>
+                    </div>
+                    <div className="pc-state-card p-2">
+                      <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Expenses")}</p>
+                      <p className="mt-1 text-sm font-semibold text-app-text">{selectedTrip.summary.totalExpensesCount}</p>
+                    </div>
+                    <div className="pc-state-card p-2">
+                      <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Total")}</p>
+                      <p className="mt-1 text-sm font-semibold text-app-text">
+                        {formatAmount(selectedTrip.summary.totalSpent, selectedTrip.baseCurrency)}
+                      </p>
+                    </div>
+                    <div className="pc-state-card p-2">
+                      <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Open settlements")}</p>
+                      <p className="mt-1 text-sm font-semibold text-app-text">
+                        {selectedTrip.summary.unsettledSettlementCount}
+                      </p>
+                    </div>
+                    <div className="pc-state-card p-2">
+                      <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Inactive")}</p>
+                      <p className="mt-1 text-sm font-semibold text-app-text">
+                        {selectedTrip.summary.inactiveMemberCount}
+                      </p>
+                    </div>
+                    <div className="pc-state-card p-2">
+                      <p className="text-[11px] font-semibold uppercase text-app-text-muted">{tr("Settled")}</p>
+                      <p className="mt-1 text-sm font-semibold text-app-text">
+                        {selectedTrip.summary.settledSettlementCount}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-[11px] text-app-text-muted">
+                    {selectedTrip.recentExpenses.length > 0
+                      ? tr("Last activity") +
+                        ": " +
+                        selectedTrip.recentExpenses[0]?.description +
+                        " • " +
+                        formatDateTime(selectedTrip.recentExpenses[0]?.spentAt ?? "")
+                      : tr("No expenses yet")}
                   </p>
-                )}
-                {selectedTrip.status === "archived" && (
+                  {selectedTrip.status === "closing" && (
+                    <p className="mt-1 text-[11px] text-app-text-muted">
+                      {selectedTrip.summary.readyForClosure
+                        ? tr("Ready to close trip.")
+                        : tr("Settle open transfers before closing trip.")}
+                    </p>
+                  )}
+                  {selectedTrip.status === "archived" && (
+                    <p className="mt-1 text-[11px] text-app-text-muted">
+                      {tr("Archived trip is read-only and kept for post-trip reference.")}
+                    </p>
+                  )}
                   <p className="mt-1 text-[11px] text-app-text-muted">
-                    {tr("Archived trip is read-only and kept for post-trip reference.")}
+                    {tr("Trip totals and settlements are calculated in base currency.")}
                   </p>
-                )}
-                <p className="mt-1 text-[11px] text-app-text-muted">
-                  {tr("Trip totals and settlements are calculated in base currency.")}
-                </p>
-                <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                </details>
+                <div className="mt-2">
                   <button
                     type="button"
                     onClick={focusExpenseForm}
                     disabled={!isTripEditable || isClosureMutating || isSettlementMutatingId !== null}
-                    className="pc-btn-primary w-full"
+                    className="pc-btn-primary w-full sm:w-auto"
                   >
                     <AppIcon name="add" className="h-3.5 w-3.5" />
                     {tr("Quick add expense")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={scrollToHistory}
-                    className="pc-btn-secondary w-full"
-                  >
-                    <AppIcon name="history" className="h-3.5 w-3.5" />
-                    {tr("View recent expenses")}
                   </button>
                 </div>
                 <div className="pc-segmented mt-2">
@@ -4576,25 +4596,24 @@ export function TravelGroupExpensesSection({
                   </details>
 
                   {isTripEditable ? (
-                    <form
-                      ref={expenseFormRef}
-                      className="pc-surface space-y-2"
-                      onSubmit={submitExpense}
+                    <details
+                      className="pc-detail-surface"
+                      open={isExpenseFormPanelOpen}
+                      onToggle={(event) => setIsExpenseFormPanelOpen(event.currentTarget.open)}
                     >
-                <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                  <AppIcon name={isEditingExpense ? "edit" : "add"} className="h-3.5 w-3.5" />
-                  {tr(isEditingExpense ? "Edit expense" : "Add expense")}
-                </p>
-                <p className="text-[11px] text-app-text-muted">
-                  {tr("Fast path: amount, payer, description, then save.")}
-                </p>
+                      <summary className="pc-summary-action inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                        <AppIcon name={isEditingExpense ? "edit" : "add"} className="h-3.5 w-3.5" />
+                        {tr(isEditingExpense ? "Edit expense form" : "Expense form")}
+                      </summary>
+                      <form
+                        ref={expenseFormRef}
+                        className="pc-surface mt-2 space-y-2"
+                        onSubmit={submitExpense}
+                      >
                 {isEditingExpense && (
                   <div className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2">
                     <p className="text-xs font-semibold text-amber-900">
                       {tr("You are editing an existing expense.")}
-                    </p>
-                    <p className="mt-1 text-[11px] text-amber-800">
-                      {tr("Save changes to recalculate balances, or cancel to return to quick add.")}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       <button
@@ -5023,17 +5042,33 @@ export function TravelGroupExpensesSection({
                   </div>
                 )}
 
-                <button
-                  type="submit"
-                  disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
-                  className="pc-btn-primary w-full"
-                >
-                  <AppIcon name="check" className="h-4 w-4" />
-                  {isExpenseSaveInProgress
-                    ? tr("Saving...")
-                    : tr(isEditingExpense ? "Save changes" : "Save expense")}
-                </button>
-                    </form>
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            type="submit"
+                            disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
+                            className="pc-btn-primary grow"
+                          >
+                            <AppIcon name="check" className="h-4 w-4" />
+                            {isExpenseSaveInProgress
+                              ? tr("Saving...")
+                              : tr(isEditingExpense ? "Save changes" : "Save expense")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isEditingExpense) {
+                                cancelExpenseEdit();
+                              }
+                              setIsExpenseFormPanelOpen(false);
+                            }}
+                            disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
+                            className="pc-btn-secondary"
+                          >
+                            {tr("Hide form")}
+                          </button>
+                        </div>
+                      </form>
+                    </details>
                   ) : (
                     <div className="pc-surface pc-surface-soft">
                       <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
