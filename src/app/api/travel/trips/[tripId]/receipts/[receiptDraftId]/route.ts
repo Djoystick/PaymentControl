@@ -60,6 +60,13 @@ const codeToStatus: Partial<Record<TravelApiError["error"]["code"], number>> = {
   TRAVEL_RECEIPT_REPLACE_FAILED: 500,
   TRAVEL_RECEIPT_DELETE_FAILED: 500,
   TRAVEL_OCR_UNAVAILABLE: 409,
+  TRAVEL_OCR_INVALID_API_KEY: 502,
+  TRAVEL_OCR_MODEL_ACCESS_DENIED: 502,
+  TRAVEL_OCR_QUOTA_EXCEEDED: 503,
+  TRAVEL_OCR_RATE_LIMITED: 429,
+  TRAVEL_OCR_PROVIDER_REQUEST_FAILED: 502,
+  TRAVEL_OCR_PROVIDER_MALFORMED_RESPONSE: 502,
+  TRAVEL_OCR_INTERNAL_ERROR: 500,
   TRAVEL_SETTLEMENT_NOT_FOUND: 404,
   TRAVEL_SETTLEMENT_UPDATE_FAILED: 500,
 };
@@ -182,6 +189,37 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     if (parseResult.reason === "OCR_UNAVAILABLE") {
       return jsonPatchError("TRAVEL_OCR_UNAVAILABLE", parseResult.message);
+    }
+
+    if (parseResult.reason === "OCR_INVALID_API_KEY") {
+      return jsonPatchError("TRAVEL_OCR_INVALID_API_KEY", parseResult.message);
+    }
+
+    if (parseResult.reason === "OCR_MODEL_ACCESS_DENIED") {
+      return jsonPatchError("TRAVEL_OCR_MODEL_ACCESS_DENIED", parseResult.message);
+    }
+
+    if (parseResult.reason === "OCR_QUOTA_EXCEEDED") {
+      return jsonPatchError("TRAVEL_OCR_QUOTA_EXCEEDED", parseResult.message);
+    }
+
+    if (parseResult.reason === "OCR_RATE_LIMITED") {
+      return jsonPatchError("TRAVEL_OCR_RATE_LIMITED", parseResult.message);
+    }
+
+    if (parseResult.reason === "OCR_PROVIDER_REQUEST_FAILED") {
+      return jsonPatchError("TRAVEL_OCR_PROVIDER_REQUEST_FAILED", parseResult.message);
+    }
+
+    if (parseResult.reason === "OCR_PROVIDER_MALFORMED_RESPONSE") {
+      return jsonPatchError(
+        "TRAVEL_OCR_PROVIDER_MALFORMED_RESPONSE",
+        parseResult.message,
+      );
+    }
+
+    if (parseResult.reason === "OCR_INTERNAL_ERROR") {
+      return jsonPatchError("TRAVEL_OCR_INTERNAL_ERROR", parseResult.message);
     }
 
     if (body.action === "reset") {

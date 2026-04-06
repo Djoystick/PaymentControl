@@ -75,6 +75,7 @@ const receiptListFilters: readonly ReceiptListFilter[] = [
   "processed",
   "all",
 ];
+const RECEIPT_IMAGE_MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 type ExpenseDraft = {
   amount: string;
@@ -2291,6 +2292,18 @@ export function TravelGroupExpensesSection({
         return;
       }
 
+      if (!selectedFile.type?.toLowerCase().startsWith("image/")) {
+        setFeedbackTone("error");
+        setFeedback(tr("Receipt image type must be image/*."));
+        return;
+      }
+
+      if (selectedFile.size > RECEIPT_IMAGE_MAX_UPLOAD_BYTES) {
+        setFeedbackTone("error");
+        setFeedback(tr("Receipt image is too large for upload. Use image up to 4 MB."));
+        return;
+      }
+
       setFeedback(null);
       setIsCreatingReceiptDraft(true);
       try {
@@ -2489,6 +2502,18 @@ export function TravelGroupExpensesSection({
         if (!selectedFile) {
           setReplaceReceiptDraftId(null);
         }
+        return;
+      }
+
+      if (!selectedFile.type?.toLowerCase().startsWith("image/")) {
+        setFeedbackTone("error");
+        setFeedback(tr("Receipt image type must be image/*."));
+        return;
+      }
+
+      if (selectedFile.size > RECEIPT_IMAGE_MAX_UPLOAD_BYTES) {
+        setFeedbackTone("error");
+        setFeedback(tr("Receipt image is too large for upload. Use image up to 4 MB."));
         return;
       }
 
@@ -4545,7 +4570,6 @@ export function TravelGroupExpensesSection({
                     ref={replaceReceiptInputRef}
                     type="file"
                     accept="image/*"
-                    capture="environment"
                     onChange={replaceReceiptDraftPhoto}
                     className="sr-only"
                   />
@@ -4553,7 +4577,6 @@ export function TravelGroupExpensesSection({
                     ref={createReceiptInputRef}
                     type="file"
                     accept="image/*"
-                    capture="environment"
                     disabled={
                       !isTripEditable ||
                       isCreatingReceiptDraft ||

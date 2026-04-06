@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import type {
+  TravelApiError,
   TravelReceiptDraftDeleteResponse,
   TravelReceiptDraftMutateResponse,
   TravelExpenseDeleteResponse,
@@ -17,6 +18,64 @@ import type {
 } from "@/lib/travel/types";
 
 type RequestBody = Record<string, unknown>;
+
+const isJsonResponse = (response: Response): boolean => {
+  const contentType = response.headers.get("content-type") ?? "";
+  return contentType.toLowerCase().includes("application/json");
+};
+
+const toTravelTransportError = (
+  code: TravelApiError["error"]["code"],
+  message: string,
+): TravelApiError => {
+  return {
+    ok: false,
+    error: {
+      code,
+      message,
+    },
+  };
+};
+
+const readTravelResponse = async <T extends { ok: boolean }>(params: {
+  response: Response;
+  fallbackCode: TravelApiError["error"]["code"];
+  fallbackMessage: string;
+  statusMessageMap?: Partial<Record<number, string>>;
+}): Promise<T> => {
+  const statusMessage =
+    params.statusMessageMap?.[params.response.status] ?? params.fallbackMessage;
+
+  if (isJsonResponse(params.response)) {
+    try {
+      return (await params.response.json()) as T;
+    } catch {
+      return toTravelTransportError(
+        params.fallbackCode,
+        statusMessage,
+      ) as unknown as T;
+    }
+  }
+
+  if (!params.response.ok) {
+    if (params.response.status >= 500) {
+      return toTravelTransportError(
+        params.fallbackCode,
+        "Travel request failed on server. Try again in a moment.",
+      ) as unknown as T;
+    }
+
+    return toTravelTransportError(
+      params.fallbackCode,
+      statusMessage,
+    ) as unknown as T;
+  }
+
+  return toTravelTransportError(
+    params.fallbackCode,
+    params.fallbackMessage,
+  ) as unknown as T;
+};
 
 const postJson = async <T>(
   url: string,
@@ -302,7 +361,15 @@ export const createTravelReceiptDraft = async (params: {
     body: formData,
   });
 
-  return (await response.json()) as TravelReceiptDraftMutateResponse;
+  return readTravelResponse<TravelReceiptDraftMutateResponse>({
+    response,
+    fallbackCode: "TRAVEL_RECEIPT_CREATE_FAILED",
+    fallbackMessage: "Failed to save receipt draft.",
+    statusMessageMap: {
+      413: "Receipt image is too large for upload. Use image up to 4 MB.",
+      415: "Receipt image type must be image/*.",
+    },
+  });
 };
 
 export const parseTravelReceiptDraft = async (params: {
@@ -325,7 +392,11 @@ export const parseTravelReceiptDraft = async (params: {
     },
   );
 
-  return (await response.json()) as TravelReceiptDraftMutateResponse;
+  return readTravelResponse<TravelReceiptDraftMutateResponse>({
+    response,
+    fallbackCode: "TRAVEL_RECEIPT_PARSE_FAILED",
+    fallbackMessage: "Failed to parse receipt draft.",
+  });
 };
 
 export const replaceTravelReceiptDraftImage = async (params: {
@@ -346,7 +417,15 @@ export const replaceTravelReceiptDraftImage = async (params: {
     },
   );
 
-  return (await response.json()) as TravelReceiptDraftMutateResponse;
+  return readTravelResponse<TravelReceiptDraftMutateResponse>({
+    response,
+    fallbackCode: "TRAVEL_RECEIPT_REPLACE_FAILED",
+    fallbackMessage: "Failed to replace receipt draft photo.",
+    statusMessageMap: {
+      413: "Receipt image is too large for upload. Use image up to 4 MB.",
+      415: "Receipt image type must be image/*.",
+    },
+  });
 };
 
 export const deleteTravelReceiptDraft = async (params: {
@@ -367,5 +446,9 @@ export const deleteTravelReceiptDraft = async (params: {
     },
   );
 
-  return (await response.json()) as TravelReceiptDraftDeleteResponse;
+  return readTravelResponse<TravelReceiptDraftDeleteResponse>({
+    response,
+    fallbackCode: "TRAVEL_RECEIPT_DELETE_FAILED",
+    fallbackMessage: "Failed to delete receipt draft.",
+  });
 };

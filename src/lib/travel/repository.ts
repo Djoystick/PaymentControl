@@ -3,7 +3,10 @@ import { randomUUID } from "node:crypto";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { normalizeTravelExpenseAmount } from "@/lib/travel/currency";
 import { buildTravelSettlementOverview } from "@/lib/travel/finalization";
-import { runTravelReceiptOcr } from "@/lib/travel/receipt-ocr";
+import {
+  runTravelReceiptOcr,
+  type TravelReceiptOcrFailureKind,
+} from "@/lib/travel/receipt-ocr";
 import { createDefaultTravelReceiptOcrFieldQuality } from "@/lib/travel/receipt-ocr-normalization";
 import {
   buildTravelTripSummary,
@@ -962,9 +965,41 @@ export type TravelReceiptDraftParseResult =
         | "RECEIPT_NOT_FOUND"
         | "VALIDATION_FAILED"
         | "OCR_UNAVAILABLE"
+        | "OCR_INVALID_API_KEY"
+        | "OCR_MODEL_ACCESS_DENIED"
+        | "OCR_QUOTA_EXCEEDED"
+        | "OCR_RATE_LIMITED"
+        | "OCR_PROVIDER_REQUEST_FAILED"
+        | "OCR_PROVIDER_MALFORMED_RESPONSE"
+        | "OCR_INTERNAL_ERROR"
         | "PARSE_FAILED";
       message: string;
     };
+
+const mapTravelReceiptOcrFailureKindToParseReason = (
+  kind: TravelReceiptOcrFailureKind,
+): Extract<TravelReceiptDraftParseResult, { ok: false }>["reason"] => {
+  switch (kind) {
+    case "UNAVAILABLE":
+      return "OCR_UNAVAILABLE";
+    case "INVALID_API_KEY":
+      return "OCR_INVALID_API_KEY";
+    case "MODEL_ACCESS_DENIED":
+      return "OCR_MODEL_ACCESS_DENIED";
+    case "QUOTA_EXCEEDED":
+      return "OCR_QUOTA_EXCEEDED";
+    case "RATE_LIMITED":
+      return "OCR_RATE_LIMITED";
+    case "PROVIDER_REQUEST_FAILED":
+      return "OCR_PROVIDER_REQUEST_FAILED";
+    case "MALFORMED_PROVIDER_RESPONSE":
+      return "OCR_PROVIDER_MALFORMED_RESPONSE";
+    case "INTERNAL_ERROR":
+      return "OCR_INTERNAL_ERROR";
+    default:
+      return "PARSE_FAILED";
+  }
+};
 
 export type TravelReceiptDraftDeleteResult =
   | {
@@ -1272,6 +1307,37 @@ const buildReceiptOcrResetPatch = (params?: {
   return patch;
 };
 
+const resolveReceiptDraftCreateErrorMessage = (
+  error: {
+    code?: string;
+    message?: string;
+    details?: string;
+    hint?: string;
+  } | null
+    | undefined,
+): string => {
+  if (!error) {
+    return "Failed to save receipt draft.";
+  }
+
+  if (
+    error.code === "23514" &&
+    error.message?.toLowerCase().includes("travel_receipt_drafts_image_data_check")
+  ) {
+    return "Receipt image is too large. Max size is 4 MB.";
+  }
+
+  if (error.code === "42P01" || error.code === "42703") {
+    return "Travel receipt schema is not up to date on server. Apply latest migrations and retry.";
+  }
+
+  if (error.message?.toLowerCase().includes("row is too big")) {
+    return "Receipt image is too large. Max size is 4 MB.";
+  }
+
+  return "Failed to save receipt draft.";
+};
+
 export const createTravelReceiptDraftForTrip = async (params: {
   workspaceId: string;
   profileId: string;
@@ -1327,7 +1393,7 @@ export const createTravelReceiptDraftForTrip = async (params: {
     return {
       ok: false,
       reason: "CREATE_FAILED",
-      message: "Failed to save receipt draft.",
+      message: resolveReceiptDraftCreateErrorMessage(error),
     };
   }
 
@@ -1358,7 +1424,7 @@ export const parseTravelReceiptDraftForTrip = async (params: {
   if (!supabase) {
     return {
       ok: false,
-      reason: "PARSE_FAILED",
+      reason: "OCR_INTERNAL_ERROR",
       message: "Supabase server configuration is missing.",
     };
   }
@@ -1423,7 +1489,7 @@ export const parseTravelReceiptDraftForTrip = async (params: {
 
     return {
       ok: false,
-      reason: ocrResult.unavailable ? "OCR_UNAVAILABLE" : "PARSE_FAILED",
+      reason: mapTravelReceiptOcrFailureKindToParseReason(ocrResult.kind),
       message: ocrResult.message,
     };
   }
@@ -1457,7 +1523,7 @@ export const parseTravelReceiptDraftForTrip = async (params: {
   if (error || !data) {
     return {
       ok: false,
-      reason: "PARSE_FAILED",
+      reason: "OCR_INTERNAL_ERROR",
       message: "OCR result was created but failed to update receipt draft.",
     };
   }
@@ -1468,7 +1534,7 @@ export const parseTravelReceiptDraftForTrip = async (params: {
   if (!trip) {
     return {
       ok: false,
-      reason: "PARSE_FAILED",
+      reason: "OCR_INTERNAL_ERROR",
       message: "Receipt draft parsed but failed to refresh trip snapshot.",
     };
   }

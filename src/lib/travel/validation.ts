@@ -438,8 +438,8 @@ export const validateTravelCreateExpenseInput = (
   };
 };
 
-const RECEIPT_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
-const RECEIPT_IMAGE_DATA_URL_MAX_LENGTH = 7 * 1024 * 1024;
+const RECEIPT_IMAGE_MAX_BYTES = 4 * 1024 * 1024;
+const RECEIPT_IMAGE_DATA_URL_MAX_LENGTH = 6 * 1024 * 1024;
 
 const normalizeImageDataUrl = (value: unknown): string => {
   if (typeof value !== "string") {
@@ -527,7 +527,7 @@ export const validateTravelCreateReceiptDraftInput = (
   if (estimatedBytes > RECEIPT_IMAGE_MAX_BYTES) {
     return {
       ok: false,
-      message: "Receipt image is too large. Max size is 5 MB.",
+      message: "Receipt image is too large. Max size is 4 MB.",
     };
   }
 
