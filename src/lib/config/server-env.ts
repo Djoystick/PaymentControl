@@ -8,6 +8,20 @@ const readServerBool = (name: string): boolean => {
   return readServerEnv(name).toLowerCase() === "true";
 };
 
+const readServerPositiveInt = (name: string, fallback: number): number => {
+  const raw = readServerEnv(name);
+  if (!raw) {
+    return fallback;
+  }
+
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    return fallback;
+  }
+
+  return Math.floor(value);
+};
+
 const readTelegramUserIdList = (name: string): string[] => {
   const raw = readServerEnv(name);
   if (!raw) {
@@ -51,6 +65,21 @@ export const serverEnv = {
   ),
   travelReceiptOcrOpenAiModel:
     readServerEnv("TRAVEL_RECEIPT_OCR_OPENAI_MODEL") || "gpt-4o-mini",
+  travelReceiptOcrProvider:
+    readServerEnv("TRAVEL_RECEIPT_OCR_PROVIDER").toLowerCase() || "paddle",
+  travelReceiptOcrPaddleEndpoint: readServerEnv(
+    "TRAVEL_RECEIPT_OCR_PADDLE_ENDPOINT",
+  ),
+  travelReceiptOcrPaddleApiKey: readServerEnv(
+    "TRAVEL_RECEIPT_OCR_PADDLE_API_KEY",
+  ),
+  travelReceiptOcrPaddleTimeoutMs: readServerPositiveInt(
+    "TRAVEL_RECEIPT_OCR_PADDLE_TIMEOUT_MS",
+    15000,
+  ),
+  travelReceiptOcrPreprocessProfile:
+    readServerEnv("TRAVEL_RECEIPT_OCR_PREPROCESS_PROFILE") ||
+    "receipt_basic_v1",
 } as const;
 
 export const isSupabaseServerConfigured = Boolean(
