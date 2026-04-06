@@ -14,6 +14,7 @@ type ModalSheetProps = {
   children: ReactNode;
   widthClassName?: string;
   overlayClassName?: string;
+  bodyClassName?: string;
 };
 
 export function ModalSheet({
@@ -25,6 +26,7 @@ export function ModalSheet({
   children,
   widthClassName = "max-w-lg",
   overlayClassName = "z-[95]",
+  bodyClassName = "",
 }: ModalSheetProps) {
   const { tr } = useLocalization();
 
@@ -60,6 +62,10 @@ export function ModalSheet({
         aria-modal="true"
         aria-label={title}
         className={`pc-modal-dialog w-full ${widthClassName} p-3 sm:p-3.5`}
+        style={{
+          maxHeight:
+            "calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1.5rem)",
+        }}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="pc-modal-sheet-head">
@@ -77,7 +83,7 @@ export function ModalSheet({
             {tr("Close")}
           </button>
         </div>
-        <div className="mt-2">{children}</div>
+        <div className={`pc-modal-sheet-body ${bodyClassName}`.trim()}>{children}</div>
       </div>
     </div>,
     document.body,

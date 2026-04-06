@@ -835,6 +835,9 @@ details.pc-state-card[open] > summary {
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding-left: 0.75rem;
   padding-right: 0.75rem;
   padding-top: max(0.75rem, env(safe-area-inset-top));
@@ -855,12 +858,24 @@ details.pc-state-card[open] > summary {
 
 .pc-modal-dialog {
   width: min(100%, 42rem);
+  display: flex;
+  max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 1.5rem);
+  flex-direction: column;
+  overflow: hidden;
   border-radius: 1.1rem;
   border: 1px solid var(--app-border);
   background: color-mix(in srgb, var(--app-surface) 96%, #ffffff 4%);
   box-shadow:
     0 1px 0 color-mix(in srgb, var(--app-border) 64%, transparent),
     0 20px 42px color-mix(in srgb, var(--app-frame-shadow) 82%, transparent);
+}
+
+.pc-modal-sheet-body {
+  margin-top: 0.5rem;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .pc-modal-sheet-head {

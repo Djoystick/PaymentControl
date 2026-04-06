@@ -695,6 +695,7 @@ export function TravelGroupExpensesSection({
   const tripTitleInputRef = useRef<HTMLInputElement | null>(null);
   const joinInviteInputRef = useRef<HTMLInputElement | null>(null);
   const amountInputRef = useRef<HTMLInputElement | null>(null);
+  const createReceiptInputRef = useRef<HTMLInputElement | null>(null);
   const replaceReceiptInputRef = useRef<HTMLInputElement | null>(null);
   const expenseFormRef = useRef<HTMLFormElement | null>(null);
   const historySectionRef = useRef<HTMLDivElement | null>(null);
@@ -1568,6 +1569,32 @@ export function TravelGroupExpensesSection({
     };
   }, [selectedTripId, initData, workspaceId, workspaceUnavailable, tr]);
 
+  const refreshSelectedTripSnapshot = useCallback(
+    async (tripId: string) => {
+      if (!workspaceId || workspaceUnavailable) {
+        return;
+      }
+
+      try {
+        const result = await readTravelTripDetail({
+          initData,
+          tripId,
+        });
+
+        if (!result.ok) {
+          return;
+        }
+
+        setSelectedTrip(result.trip);
+        setTrips((current) => mergeTripListWithDetail(current, result.trip));
+        writeCachedTravelTripDetail(workspaceId, tripId, { trip: result.trip });
+      } catch {
+        // Ignore refresh errors after optimistic failure paths.
+      }
+    },
+    [initData, workspaceId, workspaceUnavailable],
+  );
+
   useEffect(() => {
     if (!selectedTripIdForInvite || !canManageTripInvite) {
       setActiveTripInvite(null);
@@ -2216,6 +2243,30 @@ export function TravelGroupExpensesSection({
     [initData, isClosureMutating, isSettlementMutatingId, selectedTrip, tr],
   );
 
+  const openCreateReceiptPicker = useCallback(() => {
+    if (
+      !selectedTrip ||
+      !isTripEditable ||
+      isCreatingReceiptDraft ||
+      isParsingReceiptDraftId !== null ||
+      isDeletingReceiptDraftId !== null ||
+      isResettingReceiptDraftId !== null ||
+      isReplacingReceiptDraftId !== null
+    ) {
+      return;
+    }
+
+    createReceiptInputRef.current?.click();
+  }, [
+    isCreatingReceiptDraft,
+    isDeletingReceiptDraftId,
+    isParsingReceiptDraftId,
+    isReplacingReceiptDraftId,
+    isResettingReceiptDraftId,
+    isTripEditable,
+    selectedTrip,
+  ]);
+
   const captureReceiptDraft = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
       const inputElement = event.currentTarget;
@@ -2305,6 +2356,7 @@ export function TravelGroupExpensesSection({
         if (!result.ok) {
           setFeedbackTone("error");
           setFeedback(result.error.message);
+          void refreshSelectedTripSnapshot(selectedTrip.id);
           return;
         }
 
@@ -2317,6 +2369,7 @@ export function TravelGroupExpensesSection({
       } catch {
         setFeedbackTone("error");
         setFeedback(tr("Failed to parse receipt draft."));
+        void refreshSelectedTripSnapshot(selectedTrip.id);
       } finally {
         setIsParsingReceiptDraftId(null);
       }
@@ -2328,6 +2381,7 @@ export function TravelGroupExpensesSection({
       isParsingReceiptDraftId,
       isReplacingReceiptDraftId,
       isResettingReceiptDraftId,
+      refreshSelectedTripSnapshot,
       selectedTrip,
       tr,
     ],
@@ -3840,8 +3894,8 @@ export function TravelGroupExpensesSection({
                     disabled={!isTripEditable || isClosureMutating || isSettlementMutatingId !== null}
                     className="pc-btn-primary w-full sm:w-auto"
                   >
-                    <AppIcon name="add" className="h-3.5 w-3.5" />
-                    {tr("Quick add expense")}
+                    <AppIcon name={isEditingExpense ? "edit" : "add"} className="h-3.5 w-3.5" />
+                    {tr(isEditingExpense ? "Edit expense form" : "Quick add expense")}
                   </button>
                 </div>
                 <div className="pc-segmented mt-2">
@@ -4152,20 +4206,7 @@ export function TravelGroupExpensesSection({
                         <AppIcon name="template" className="h-3.5 w-3.5" />
                         {tr("Receipt drafts")}
                       </button>
-                      {isTripEditable ? (
-                        <button
-                          type="button"
-                          onClick={() => setIsExpenseFormPanelOpen(true)}
-                          disabled={isClosureMutating || isSettlementMutatingId !== null}
-                          className="pc-btn-primary"
-                        >
-                          <AppIcon
-                            name={isEditingExpense ? "edit" : "add"}
-                            className="h-3.5 w-3.5"
-                          />
-                          {tr(isEditingExpense ? "Edit expense form" : "Expense form")}
-                        </button>
-                      ) : (
+                      {!isTripEditable && (
                         <span className="pc-chip">{tr("Expense editing is locked")}</span>
                       )}
                     </div>
@@ -4508,27 +4549,38 @@ export function TravelGroupExpensesSection({
                     onChange={replaceReceiptDraftPhoto}
                     className="sr-only"
                   />
-                  <label
-                    className={`pc-btn-secondary ${isTripEditable ? "cursor-pointer" : "cursor-not-allowed opacity-70"}`}
+                  <input
+                    ref={createReceiptInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    disabled={
+                      !isTripEditable ||
+                      isCreatingReceiptDraft ||
+                      isParsingReceiptDraftId !== null ||
+                      isDeletingReceiptDraftId !== null ||
+                      isResettingReceiptDraftId !== null ||
+                      isReplacingReceiptDraftId !== null
+                    }
+                    onChange={captureReceiptDraft}
+                    className="sr-only"
+                  />
+                  <button
+                    type="button"
+                    onClick={openCreateReceiptPicker}
+                    disabled={
+                      !isTripEditable ||
+                      isCreatingReceiptDraft ||
+                      isParsingReceiptDraftId !== null ||
+                      isDeletingReceiptDraftId !== null ||
+                      isResettingReceiptDraftId !== null ||
+                      isReplacingReceiptDraftId !== null
+                    }
+                    className="pc-btn-secondary"
                   >
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      disabled={
-                        !isTripEditable ||
-                        isCreatingReceiptDraft ||
-                        isParsingReceiptDraftId !== null ||
-                        isDeletingReceiptDraftId !== null ||
-                        isResettingReceiptDraftId !== null ||
-                        isReplacingReceiptDraftId !== null
-                      }
-                      onChange={captureReceiptDraft}
-                      className="sr-only"
-                    />
                     <AppIcon name="add" className="h-3.5 w-3.5" />
                     {isCreatingReceiptDraft ? tr("Saving...") : tr("Add receipt photo")}
-                  </label>
+                  </button>
                   <span className="text-[11px] text-app-text-muted">
                     {tr("Open drafts")}: {pendingReceiptDraftCount}
                   </span>
