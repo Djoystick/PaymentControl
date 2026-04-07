@@ -673,6 +673,7 @@ export function TravelGroupExpensesSection({
     null,
   );
   const [isReceiptRawTextModalOpen, setIsReceiptRawTextModalOpen] = useState(false);
+  const [isReceiptRawDebugMode, setIsReceiptRawDebugMode] = useState(false);
   const [highlightedExpenseId, setHighlightedExpenseId] = useState<string | null>(
     null,
   );
@@ -1412,8 +1413,14 @@ export function TravelGroupExpensesSection({
   useEffect(() => {
     if (!activeReceiptReviewId) {
       setIsReceiptRawTextModalOpen(false);
+      setIsReceiptRawDebugMode(false);
+      return;
     }
-  }, [activeReceiptReviewId]);
+
+    if (isReceiptPanelOpen) {
+      setIsReceiptPanelOpen(false);
+    }
+  }, [activeReceiptReviewId, isReceiptPanelOpen]);
 
   useEffect(() => {
     if (!receiptImagePreviewDraftId || activeReceiptImagePreview) {
@@ -1689,6 +1696,7 @@ export function TravelGroupExpensesSection({
       setPrefillReviewFields([]);
       setActiveReceiptReviewId(null);
       setIsReceiptRawTextModalOpen(false);
+      setIsReceiptRawDebugMode(false);
       setReceiptImagePreviewDraftId(null);
       setHighlightedExpenseId(null);
       setActiveTripInvite(null);
@@ -1831,6 +1839,7 @@ export function TravelGroupExpensesSection({
     setIsJoinModalOpen(false);
     setTripWorkspaceLayer("expenses");
     setActiveReceiptReviewId(null);
+    setIsReceiptRawDebugMode(false);
     setHighlightedExpenseId(null);
   }, [selectedTripId]);
 
@@ -3129,6 +3138,18 @@ export function TravelGroupExpensesSection({
     [scrollToHistory, selectedTrip, tr],
   );
 
+  const openReceiptReview = useCallback((receiptDraftId: string) => {
+    setIsReceiptPanelOpen(false);
+    setIsReceiptRawTextModalOpen(false);
+    setIsReceiptRawDebugMode(false);
+    setActiveReceiptReviewId(receiptDraftId);
+  }, []);
+
+  const openReceiptTextDetails = useCallback((debugMode: boolean) => {
+    setIsReceiptRawDebugMode(debugMode);
+    setIsReceiptRawTextModalOpen(true);
+  }, []);
+
   const toggleSelectedMember = (memberId: string) => {
     if (!expenseFormMemberIds.has(memberId)) {
       return;
@@ -3432,7 +3453,7 @@ export function TravelGroupExpensesSection({
     typeof document !== "undefined" && activeReceiptReview
       ? createPortal(
           <div
-            className="pc-modal-overlay pc-modal-overlay-sheet z-[95]"
+            className="pc-modal-overlay pc-modal-overlay-sheet z-[102]"
             onClick={() => setActiveReceiptReviewId(null)}
           >
             <div
@@ -3536,55 +3557,107 @@ export function TravelGroupExpensesSection({
                 </div>
 
                 {activeReceiptReview.status !== "draft" && (
-                  <div className="pc-state-card space-y-1">
-                    <p className="text-xs font-semibold text-app-text">
-                      {tr("Detected values")}
-                    </p>
-                    <p className="text-[11px] text-app-text-muted">
-                      {activeReceiptReview.ocrSuggestedAmount &&
-                      activeReceiptReview.ocrSuggestedCurrency
-                        ? `${tr("OCR amount")}: ${formatAmount(
-                            activeReceiptReview.ocrSuggestedAmount,
-                            activeReceiptReview.ocrSuggestedCurrency,
-                          )}. `
-                        : ""}
-                      {activeReceiptReview.ocrSuggestedDescription
-                        ? `${tr("OCR description")}: ${activeReceiptReview.ocrSuggestedDescription}.`
-                        : tr("OCR parsed the receipt. Review details in expense form before saving.")}
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {(
-                        [
-                          ["sourceAmount", tr("Amount")],
-                          ["sourceCurrency", tr("Expense currency")],
-                          ["spentAt", tr("Expense date")],
-                          ["merchant", tr("Merchant")],
-                          ["description", tr("Description")],
-                          ["category", tr("Category")],
-                        ] as const
-                      ).map(([key, label]) => (
-                        <span
-                          key={`${activeReceiptReview.id}-${key}`}
-                          className={`pc-status-pill ${getReceiptFieldQualityClass(
-                            activeReceiptReview.ocrFieldQuality[key],
-                          )}`}
-                        >
-                          {label}:{" "}
-                          {getReceiptFieldQualityLabel(activeReceiptReview.ocrFieldQuality[key], tr)}
-                        </span>
-                      ))}
+                  <>
+                    <div className="pc-state-card space-y-2">
+                      <p className="text-xs font-semibold text-app-text">
+                        {tr("Key receipt fields")}
+                      </p>
+                      <div className="grid gap-1.5 sm:grid-cols-2">
+                        {(
+                          [
+                            [
+                              "merchant",
+                              tr("Merchant"),
+                              activeReceiptReview.ocrSuggestedMerchant,
+                              activeReceiptReview.ocrFieldQuality.merchant,
+                            ],
+                            [
+                              "amount",
+                              tr("OCR amount"),
+                              activeReceiptReview.ocrSuggestedAmount &&
+                              activeReceiptReview.ocrSuggestedCurrency
+                                ? formatAmount(
+                                    activeReceiptReview.ocrSuggestedAmount,
+                                    activeReceiptReview.ocrSuggestedCurrency,
+                                  )
+                                : null,
+                              activeReceiptReview.ocrFieldQuality.sourceAmount,
+                            ],
+                            [
+                              "spentAt",
+                              tr("Expense date"),
+                              activeReceiptReview.ocrSuggestedSpentAt
+                                ? formatDateTime(activeReceiptReview.ocrSuggestedSpentAt)
+                                : null,
+                              activeReceiptReview.ocrFieldQuality.spentAt,
+                            ],
+                            [
+                              "description",
+                              tr("OCR description"),
+                              activeReceiptReview.ocrSuggestedDescription,
+                              activeReceiptReview.ocrFieldQuality.description,
+                            ],
+                          ] as const
+                        ).map(([key, label, value, quality]) => (
+                          <div
+                            key={`${activeReceiptReview.id}-${key}`}
+                            className="rounded-lg border border-app-border/70 bg-app-surface/60 px-2 py-1.5"
+                          >
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-app-text-muted">
+                              {label}
+                            </p>
+                            <p className="mt-0.5 text-xs font-semibold text-app-text">
+                              {value ?? tr("Not detected yet")}
+                            </p>
+                            <p
+                              className={`mt-1 inline-flex rounded-full px-1.5 py-0.5 text-[10px] ${getReceiptFieldQualityClass(
+                                quality,
+                              )}`}
+                            >
+                              {getReceiptFieldQualityLabel(quality, tr)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-app-text-muted">
+                        {tr("OCR parsed the receipt. Review details in expense form before saving.")}
+                      </p>
                     </div>
-                    {activeReceiptReview.status === "parsed" && activeReceiptReview.ocrRawText && (
-                      <button
-                        type="button"
-                        onClick={() => setIsReceiptRawTextModalOpen(true)}
-                        className="pc-btn-secondary mt-1 min-h-8 px-2 py-1 text-[11px]"
-                      >
-                        <AppIcon name="template" className="h-3.5 w-3.5" />
-                        {tr("OCR text snippet")}
-                      </button>
+
+                    {activeReceiptReview.ocrRawText && (
+                      <div className="pc-state-card space-y-2">
+                        <p className="text-xs font-semibold text-app-text">
+                          {tr("Clean OCR text")}
+                        </p>
+                        <p className="text-[11px] text-app-text-muted">
+                          {tr("Line-grouped OCR excerpt for quick manual check.")}
+                        </p>
+                        <div className="max-h-32 overflow-y-auto rounded-lg border border-app-border/60 bg-app-surface/50 px-2 py-1.5">
+                          <p className="whitespace-pre-wrap text-[11px] leading-5 text-app-text-muted">
+                            {activeReceiptReview.ocrRawText.slice(0, 520)}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => openReceiptTextDetails(false)}
+                            className="pc-btn-secondary min-h-8 px-2 py-1 text-[11px]"
+                          >
+                            <AppIcon name="template" className="h-3.5 w-3.5" />
+                            {tr("Open OCR text fragment")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openReceiptTextDetails(true)}
+                            className="pc-btn-secondary min-h-8 px-2 py-1 text-[11px]"
+                          >
+                            <AppIcon name="history" className="h-3.5 w-3.5" />
+                            {tr("Open raw OCR debug")}
+                          </button>
+                        </div>
+                      </div>
                     )}
-                  </div>
+                  </>
                 )}
 
                 {activeReceiptReview.finalizedExpenseId && (
@@ -3724,16 +3797,23 @@ export function TravelGroupExpensesSection({
         isReceiptRawTextModalOpen &&
         Boolean(activeReceiptReview && activeReceiptReview.status === "parsed" && activeReceiptReview.ocrRawText)
       }
-      onClose={() => setIsReceiptRawTextModalOpen(false)}
-      title={tr("OCR text snippet")}
+      onClose={() => {
+        setIsReceiptRawTextModalOpen(false);
+        setIsReceiptRawDebugMode(false);
+      }}
+      title={isReceiptRawDebugMode ? tr("OCR raw debug") : tr("OCR text snippet")}
       titleIcon={<AppIcon name="template" className="h-3.5 w-3.5" />}
-      description={tr("Clean OCR preview for manual verification.")}
+      description={
+        isReceiptRawDebugMode
+          ? tr("Full OCR debug text dump for manual troubleshooting.")
+          : tr("Clean OCR preview for manual verification.")
+      }
       widthClassName="max-w-lg"
-      overlayClassName="z-[99]"
+      overlayClassName="z-[103]"
     >
       <div className="max-h-72 overflow-y-auto rounded-xl border border-app-border/70 bg-app-surface/70 px-2 py-2">
         <p className="whitespace-pre-wrap text-[11px] leading-5 text-app-text-muted">
-          {activeReceiptReview?.ocrRawText?.slice(0, 1600) ?? ""}
+          {activeReceiptReview?.ocrRawText?.slice(0, isReceiptRawDebugMode ? 6000 : 1800) ?? ""}
         </p>
       </div>
     </ModalSheet>
@@ -3747,7 +3827,7 @@ export function TravelGroupExpensesSection({
       titleIcon={<AppIcon name="template" className="h-3.5 w-3.5" />}
       description={tr("Open full-size preview for easier amount/date verification.")}
       widthClassName="max-w-5xl"
-      overlayClassName="z-[100]"
+      overlayClassName="z-[104]"
     >
       {activeReceiptImagePreview && (
         <div className="space-y-2">
@@ -4870,7 +4950,7 @@ export function TravelGroupExpensesSection({
                               <div className="mt-2 flex flex-wrap gap-1.5">
                                 <button
                                   type="button"
-                                  onClick={() => setActiveReceiptReviewId(receiptDraft.id)}
+                                  onClick={() => openReceiptReview(receiptDraft.id)}
                                   className="pc-btn-secondary"
                                 >
                                   <AppIcon name="history" className="h-3.5 w-3.5" />
@@ -5747,7 +5827,7 @@ export function TravelGroupExpensesSection({
                             </p>
                             <button
                               type="button"
-                              onClick={() => setActiveReceiptReviewId(linkedReceiptDraft.id)}
+                              onClick={() => openReceiptReview(linkedReceiptDraft.id)}
                               className="pc-btn-secondary"
                             >
                               <AppIcon name="history" className="h-3.5 w-3.5" />

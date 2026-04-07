@@ -87,12 +87,162 @@ const DATE_PATTERN_DAY_FIRST =
 const DATE_PATTERN_ISO =
   /(20\d{2})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/g;
 
+const CYRILLIC_LETTER_PATTERN = /[\u0410-\u044f\u0401\u0451]/;
+const DIGIT_PATTERN = /\d/;
+const TOKEN_CLEANUP_PATTERN = /[A-Za-z\u0410-\u044f\u0401\u04510-9]+/g;
+
+const LATIN_TO_CYRILLIC_MAP: Record<string, string> = {
+  A: "\u0410",
+  a: "\u0430",
+  B: "\u0412",
+  C: "\u0421",
+  c: "\u0441",
+  E: "\u0415",
+  e: "\u0435",
+  H: "\u041d",
+  h: "\u043d",
+  K: "\u041a",
+  k: "\u043a",
+  M: "\u041c",
+  m: "\u043c",
+  O: "\u041e",
+  o: "\u043e",
+  P: "\u0420",
+  p: "\u0440",
+  T: "\u0422",
+  t: "\u0442",
+  X: "\u0425",
+  x: "\u0445",
+  Y: "\u0423",
+  y: "\u0443",
+  V: "\u0412",
+  v: "\u0432",
+};
+
+const DIGIT_TO_CYRILLIC_LOWER_MAP: Record<string, string> = {
+  "0": "\u043e",
+  "3": "\u0437",
+  "6": "\u0431",
+};
+
+const DIGIT_TO_CYRILLIC_UPPER_MAP: Record<string, string> = {
+  "0": "\u041e",
+  "3": "\u0417",
+  "6": "\u0411",
+};
+
+const isCyrillicChar = (value: string): boolean => {
+  return CYRILLIC_LETTER_PATTERN.test(value);
+};
+
+const normalizeConfusableNeighbor = (value: string): string => {
+  if (!value) {
+    return value;
+  }
+  return LATIN_TO_CYRILLIC_MAP[value] ?? value;
+};
+
+const toTitleCaseCyrillic = (value: string): string => {
+  if (!value) {
+    return value;
+  }
+  return value.slice(0, 1).toUpperCase() + value.slice(1).toLowerCase();
+};
+
+const normalizeLikelyCyrillicToken = (token: string): string => {
+  if (!token) {
+    return token;
+  }
+
+  const cyrillicCount = (token.match(/[\u0410-\u044f\u0401\u0451]/g) ?? []).length;
+  const latinCount = (token.match(/[A-Za-z]/g) ?? []).length;
+  const digitCount = (token.match(/\d/g) ?? []).length;
+  if (cyrillicCount === 0) {
+    return token;
+  }
+  if (latinCount === 0 && digitCount === 0) {
+    return token;
+  }
+  if (digitCount > 0 && digitCount >= cyrillicCount + latinCount) {
+    return token;
+  }
+
+  const mappedChars = token.split("").map((char, index) => {
+    if (char === "b") {
+      const prev = token[index - 1] ?? "";
+      const next = token[index + 1] ?? "";
+      const normalizedPrev = normalizeConfusableNeighbor(prev);
+      const normalizedNext = normalizeConfusableNeighbor(next);
+      if (
+        isCyrillicChar(normalizedPrev) &&
+        (!next || isCyrillicChar(normalizedNext))
+      ) {
+        return "\u044c";
+      }
+      return "\u0432";
+    }
+    return LATIN_TO_CYRILLIC_MAP[char] ?? char;
+  });
+
+  for (let index = 0; index < mappedChars.length; index += 1) {
+    const char = mappedChars[index];
+    if (!DIGIT_PATTERN.test(char)) {
+      continue;
+    }
+    const digitReplacementLower = DIGIT_TO_CYRILLIC_LOWER_MAP[char];
+    const digitReplacementUpper = DIGIT_TO_CYRILLIC_UPPER_MAP[char];
+    if (!digitReplacementLower || !digitReplacementUpper) {
+      continue;
+    }
+
+    const prev = mappedChars[index - 1] ?? "";
+    const next = mappedChars[index + 1] ?? "";
+    if (!isCyrillicChar(prev) || !isCyrillicChar(next)) {
+      continue;
+    }
+
+    const shouldUpperCase =
+      prev === prev.toUpperCase() &&
+      next === next.toUpperCase() &&
+      prev !== prev.toLowerCase() &&
+      next !== next.toLowerCase();
+    mappedChars[index] = shouldUpperCase
+      ? digitReplacementUpper
+      : digitReplacementLower;
+  }
+
+  const mappedToken = mappedChars.join("");
+  const hasDigits = /\d/.test(mappedToken);
+  if (hasDigits) {
+    return mappedToken;
+  }
+
+  const upperCount = (mappedToken.match(/[\u0410-\u042f\u0401]/g) ?? []).length;
+  const lowerCount = (mappedToken.match(/[\u0430-\u044f\u0451]/g) ?? []).length;
+  const hadMixedCase =
+    /[\u0410-\u042f\u0401A-Z]/.test(token) &&
+    /[\u0430-\u044f\u0451a-z]/.test(token);
+
+  if (hadMixedCase || (upperCount >= 2 && lowerCount >= 1)) {
+    return toTitleCaseCyrillic(mappedToken);
+  }
+
+  return mappedToken;
+};
+
 const normalizeReceiptLine = (value: string): string => {
-  return value
+  const compact = value
     .replace(/[\u0000-\u001f]+/g, " ")
     .replace(/[\u00a0\t]+/g, " ")
     .replace(/[ ]{2,}/g, " ")
     .trim();
+  if (!compact) {
+    return compact;
+  }
+
+  return compact.replace(TOKEN_CLEANUP_PATTERN, (token) =>
+    normalizeLikelyCyrillicToken(token),
+  );
 };
 
 const hasLetters = (value: string): boolean => {

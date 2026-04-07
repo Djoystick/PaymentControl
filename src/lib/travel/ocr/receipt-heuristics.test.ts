@@ -75,3 +75,13 @@ test("buildReceiptFieldQualityFromExtraction marks amount/date as high for QR re
   assert.equal(quality.sourceAmount, "high");
   assert.equal(quality.spentAt, "high");
 });
+
+test("extractReceiptInsights cleans mixed latin/cyrillic tokens for likely Russian words", () => {
+  const extraction = extractReceiptInsights({
+    rawText: ["MaГHИT", "BЫ6paTb"].join("\n"),
+    tripCurrency: "RUB",
+  });
+
+  assert.equal(extraction.merchant, "Магнит");
+  assert.match(extraction.rawText ?? "", /Выбрать/);
+});
