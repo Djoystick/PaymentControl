@@ -45,7 +45,8 @@ type ReceiptAmountCandidate = {
 };
 
 const AMOUNT_MAX = 10_000_000;
-const READABLE_TEXT_MAX_CHARS = 2800;
+const READABLE_TEXT_MAX_CHARS = 1200;
+const READABLE_TEXT_MAX_LINES = 26;
 const MAX_LINES = 180;
 
 const TOTAL_MARKER_PATTERN =
@@ -58,6 +59,8 @@ const NON_TOTAL_MARKER_PATTERN =
   /(?:\u0441\u043a\u0438\u0434|\u0431\u043e\u043d\u0443\u0441|discount|cashback|change|round|vat|\u043d\u0434\u0441|\u043d\u0430\u043b\u043e\u0433|\u0441\u0434\u0430\u0447)/i;
 const ITEM_LIKE_MARKER_PATTERN =
   /(?:\bqty\b|\u043a\u043e\u043b-?\u0432\u043e|\d+\s*[x\u0445]\s*\d+|[x\u0445]\s*\d+|\d+[.,]\d{2}\s*[x\u0445])/i;
+const RECEIPT_KEY_MARKER_PATTERN =
+  /(?:\u0438\u0442\u043e\u0433(?:\u043e)?|\u043a\s*\u043e\u043f\u043b\u0430\u0442\u0435|\u0432\u0441\u0435\u0433\u043e|\u043e\u043f\u043b\u0430\u0442\u0430|\u0431\u0435\u0437\u043d\u0430\u043b\u0438\u0447|\u043a\u0430\u0440\u0442\u043e\u0439|\u0434\u0430\u0442\u0430|\u0432\u0440\u0435\u043c\u044f|date|time|receipt|total|amount\s*due|grand\s*total|to\s*pay|payable)/i;
 
 const DATE_MARKER_PATTERN =
   /(?:\u0434\u0430\u0442\u0430|\u0432\u0440\u0435\u043c\u044f|date|time|issued|receipt)/i;
@@ -68,6 +71,11 @@ const MERCHANT_SKIP_PATTERN =
   /(?:\u0438\u043d\u043d|\u043a\u043f\u043f|\u0444\u043d|\u0444\u0434|\u0444\u043f|\u043a\u0430\u0441\u0441\u0438\u0440|\u0441\u043c\u0435\u043d\u0430|qr|receipt|www\.|http|email|phone|tel|\u0430\u0434\u0440\u0435\u0441|\u0441\u0430\u0439\u0442|terminal|term|bank|payment)/i;
 const MERCHANT_LEGAL_ENTITY_PATTERN =
   /(?:\u043e\u043e\u043e|\u0438\u043f|\u0430\u043e|\u043f\u0430\u043e|\u0437\u0430\u043e|llc|ltd|inc)/i;
+const MERCHANT_BRAND_HINT_PATTERN =
+  /(?:\u043c\u0430\u0433\u0430\u0437\u0438\u043d|market|shop|store|mart|\u043c\u0430\u0433\u043d\u0438\u0442|\u043f\u044f\u0442\u0435\u0440\u043e\u0447|\u043f\u0435\u0440\u0435\u043a\u0440\u0435\u0441\u0442|\u043b\u0435\u043d\u0442\u0430|spar|\u0434\u0438\u043a\u0441\u0438|\u0432\u043a\u0443\u0441\u0432\u0438\u043b\u043b|\u0430\u0448\u0430\u043d|fix\s*price|\u0430\u043f\u0442\u0435\u043a\u0430|pharmacy|kfc|burger\s*king|mcdonald|\u0432\u043a\u0443\u0441\u043d\u043e\s*\u0438\s*\u0442\u043e\u0447\u043a\u0430)/i;
+const MERCHANT_PREFIX_PATTERN =
+  /^(?:(?:\u041e\u041e\u041e|\u0418\u041f|\u0410\u041e|\u041f\u0410\u041e|\u0417\u0410\u041e|LLC|LTD|INC|OAO|OOO)\s+)+/i;
+const QUOTE_EDGE_PATTERN = /^[«»"'`“”]+|[«»"'`“”]+$/g;
 
 const FOOD_PATTERN =
   /(?:\u0435\u0434\u0430|food|cafe|caf\u00e9|restaurant|\u0440\u0435\u0441\u0442|\u043a\u043e\u0444\u0435|coffee|bar|\u0434\u043e\u0441\u0442\u0430\u0432\u043a\u0430)/i;
@@ -86,10 +94,14 @@ const DATE_PATTERN_DAY_FIRST =
   /(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/g;
 const DATE_PATTERN_ISO =
   /(20\d{2})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?/g;
+const SIMPLE_DATE_LINE_PATTERN =
+  /(?:\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|20\d{2}-\d{2}-\d{2})/;
 
 const CYRILLIC_LETTER_PATTERN = /[\u0410-\u044f\u0401\u0451]/;
 const DIGIT_PATTERN = /\d/;
 const TOKEN_CLEANUP_PATTERN = /[A-Za-z\u0410-\u044f\u0401\u04510-9]+/g;
+const MIXED_SCRIPT_TOKEN_PATTERN =
+  /(?=[A-Za-z\u0410-\u044f\u0401\u04510-9]*[A-Za-z])(?=[A-Za-z\u0410-\u044f\u0401\u04510-9]*[\u0410-\u044f\u0401\u0451])[A-Za-z\u0410-\u044f\u0401\u04510-9]+/g;
 
 const LATIN_TO_CYRILLIC_MAP: Record<string, string> = {
   A: "\u0410",
@@ -147,6 +159,23 @@ const toTitleCaseCyrillic = (value: string): string => {
     return value;
   }
   return value.slice(0, 1).toUpperCase() + value.slice(1).toLowerCase();
+};
+
+const toTitleCaseWord = (word: string): string => {
+  if (!word) {
+    return word;
+  }
+  if (/^[A-Z\u0410-\u042f\u04010-9]{1,3}$/.test(word)) {
+    return word;
+  }
+  return word.slice(0, 1).toUpperCase() + word.slice(1).toLowerCase();
+};
+
+const toTitleCaseWords = (value: string): string => {
+  return value
+    .split(/\s+/)
+    .map((word) => toTitleCaseWord(word))
+    .join(" ");
 };
 
 const normalizeLikelyCyrillicToken = (token: string): string => {
@@ -230,6 +259,32 @@ const normalizeLikelyCyrillicToken = (token: string): string => {
   return mappedToken;
 };
 
+const normalizeMerchantName = (value: string): string => {
+  if (!value) {
+    return value;
+  }
+
+  const original = value.replace(/[ ]{2,}/g, " ").trim().slice(0, 120);
+  let cleaned = original.replace(QUOTE_EDGE_PATTERN, "").trim();
+  cleaned = cleaned.replace(MERCHANT_PREFIX_PATTERN, "").trim();
+  cleaned = cleaned.replace(QUOTE_EDGE_PATTERN, "").trim();
+  cleaned = cleaned
+    .replace(/^[^A-Za-z\u0410-\u044f\u0401\u04510-9]+/, "")
+    .replace(/[^A-Za-z\u0410-\u044f\u0401\u04510-9]+$/, "")
+    .trim();
+  if (!cleaned || cleaned.length < 3) {
+    return original;
+  }
+
+  if (/^[\u0410-\u042f\u04010-9 .,'-]+$/.test(cleaned) && /[\u0410-\u042f\u0401]/.test(cleaned)) {
+    cleaned = toTitleCaseWords(cleaned);
+  } else if (/^[A-Z0-9 .,'-]+$/.test(cleaned) && /[A-Z]/.test(cleaned) && cleaned.length > 5) {
+    cleaned = toTitleCaseWords(cleaned);
+  }
+
+  return cleaned.slice(0, 120);
+};
+
 const normalizeReceiptLine = (value: string): string => {
   const compact = value
     .replace(/[\u0000-\u001f]+/g, " ")
@@ -240,7 +295,13 @@ const normalizeReceiptLine = (value: string): string => {
     return compact;
   }
 
-  return compact.replace(TOKEN_CLEANUP_PATTERN, (token) =>
+  if (RECEIPT_KEY_MARKER_PATTERN.test(compact) || MERCHANT_BRAND_HINT_PATTERN.test(compact)) {
+    return compact.replace(TOKEN_CLEANUP_PATTERN, (token) =>
+      normalizeLikelyCyrillicToken(token),
+    );
+  }
+
+  return compact.replace(MIXED_SCRIPT_TOKEN_PATTERN, (token) =>
     normalizeLikelyCyrillicToken(token),
   );
 };
@@ -411,6 +472,9 @@ const rankAmountCandidates = (lines: string[]): ReceiptAmountCandidate[] => {
   if (lines.length === 0) {
     return candidates;
   }
+  const hasAnyTotalMarker = lines.some((line) =>
+    TOTAL_MARKER_PATTERN.test(line.toLowerCase()),
+  );
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
@@ -442,6 +506,18 @@ const rankAmountCandidates = (lines: string[]): ReceiptAmountCandidate[] => {
       }
       if (nearMarkedLine) {
         score += 70;
+      }
+      if (
+        hasAnyTotalMarker &&
+        !hasTotalMarker &&
+        !hasStrongTotalMarker &&
+        !nearMarkedLine
+      ) {
+        if (zone === "items") {
+          score -= 90;
+        } else if (zone === "header") {
+          score -= 50;
+        }
       }
       if (zone === "totals") {
         score += 95;
@@ -558,6 +634,9 @@ const detectSpentAtFromText = (
   lines: string[],
 ): { spentAt: string | null; source: DateSource } => {
   const now = new Date();
+  const nowMs = now.getTime();
+  const futureToleranceMs = 3 * 24 * 60 * 60 * 1000;
+  const minYear = now.getUTCFullYear() - 10;
   const maxYear = now.getUTCFullYear() + 1;
   const candidates: Array<{ value: string; score: number }> = [];
 
@@ -570,6 +649,11 @@ const detectSpentAtFromText = (
     if (!value) {
       return;
     }
+    const parsedMs = Date.parse(value);
+    if (!Number.isFinite(parsedMs) || parsedMs > nowMs + futureToleranceMs) {
+      return;
+    }
+
     const zone = getLineZone(lineIndex, lines.length);
     const lower = line.toLowerCase();
     let score = baseScore;
@@ -578,6 +662,12 @@ const detectSpentAtFromText = (
     }
     if (NON_SPENT_DATE_PATTERN.test(lower)) {
       score -= 140;
+    }
+    if (TOTAL_MARKER_PATTERN.test(lower) || PAYMENT_MARKER_PATTERN.test(lower)) {
+      score += 20;
+    }
+    if (lineIndex > 0 && DATE_MARKER_PATTERN.test(lines[lineIndex - 1].toLowerCase())) {
+      score += 20;
     }
     if (zone === "header" || zone === "footer") {
       score += 30;
@@ -597,7 +687,7 @@ const detectSpentAtFromText = (
       if (year < 100) {
         year += 2000;
       }
-      if (year < 2000 || year > maxYear) {
+      if (year < minYear || year > maxYear) {
         continue;
       }
       const day = Number(match[1]);
@@ -612,7 +702,7 @@ const detectSpentAtFromText = (
     DATE_PATTERN_ISO.lastIndex = 0;
     for (const match of line.matchAll(DATE_PATTERN_ISO)) {
       const year = Number(match[1]);
-      if (year < 2000 || year > maxYear) {
+      if (year < minYear || year > maxYear) {
         continue;
       }
       const month = Number(match[2]);
@@ -644,7 +734,12 @@ const detectMerchant = (
     return { merchant: null, source: "none" };
   }
 
-  const candidates: Array<{ value: string; score: number; source: MerchantSource }> = [];
+  const candidates: Array<{
+    value: string;
+    score: number;
+    source: MerchantSource;
+    lineIndex: number;
+  }> = [];
   const upperBound = Math.min(lines.length, Math.max(8, Math.floor(lines.length * 0.34)));
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
@@ -667,17 +762,32 @@ const detectMerchant = (
     if (MERCHANT_LEGAL_ENTITY_PATTERN.test(line)) {
       score += 25;
     }
+    if (MERCHANT_BRAND_HINT_PATTERN.test(line)) {
+      score += 42;
+    }
     if (/^[A-Z\u0410-\u042f0-9 .,'"-]{3,}$/.test(line)) {
       score += 10;
     }
+    if (index === 0 && inHeader) {
+      score += 15;
+    }
+    if (AMOUNT_TOKEN_PATTERN.test(line)) {
+      score -= 35;
+    }
+    if (TOTAL_MARKER_PATTERN.test(line) || DATE_MARKER_PATTERN.test(line)) {
+      score -= 70;
+    }
     if (line.length > 70) {
       score -= 20;
+    } else if (line.length <= 24) {
+      score += 10;
     }
 
     candidates.push({
       value: line.slice(0, 120),
       score,
       source: inHeader ? "header" : "fallback",
+      lineIndex: index,
     });
   }
 
@@ -685,10 +795,30 @@ const detectMerchant = (
     return { merchant: null, source: "none" };
   }
 
-  candidates.sort((left, right) => right.score - left.score);
+  candidates.sort((left, right) => {
+    if (right.score !== left.score) {
+      return right.score - left.score;
+    }
+    return left.lineIndex - right.lineIndex;
+  });
+
+  let selected = candidates[0];
+  if (MERCHANT_LEGAL_ENTITY_PATTERN.test(selected.value)) {
+    const fallbackBrandCandidate = candidates.find(
+      (candidate) =>
+        candidate.source === "header" &&
+        !MERCHANT_LEGAL_ENTITY_PATTERN.test(candidate.value) &&
+        candidate.score >= selected.score - 25 &&
+        candidate.lineIndex <= Math.max(selected.lineIndex + 2, 4),
+    );
+    if (fallbackBrandCandidate) {
+      selected = fallbackBrandCandidate;
+    }
+  }
+
   return {
-    merchant: candidates[0].value,
-    source: candidates[0].source,
+    merchant: normalizeMerchantName(selected.value),
+    source: selected.source,
   };
 };
 
@@ -750,49 +880,59 @@ const buildReadableReceiptText = (lines: string[], highlightedTotalLine?: number
 
   const headerEnd = Math.max(2, Math.floor(lines.length * 0.26));
   const totalsStart = Math.max(headerEnd, Math.floor(lines.length * 0.62));
-  const footerStart = Math.max(totalsStart, Math.floor(lines.length * 0.84));
-
-  const header = lines.slice(0, headerEnd).slice(0, 6);
-  const items = lines
-    .slice(headerEnd, totalsStart)
-    .filter((line) => !MERCHANT_SKIP_PATTERN.test(line))
-    .slice(0, 12);
+  const header = lines
+    .slice(0, headerEnd)
+    .filter((line) => !MERCHANT_SKIP_PATTERN.test(line) || MERCHANT_BRAND_HINT_PATTERN.test(line))
+    .slice(0, 4);
+  const dateLines = lines
+    .filter((line) => DATE_MARKER_PATTERN.test(line) || SIMPLE_DATE_LINE_PATTERN.test(line))
+    .slice(0, 4);
   const totals = lines
     .slice(totalsStart)
-    .filter((line) => TOTAL_MARKER_PATTERN.test(line) || AMOUNT_TOKEN_PATTERN.test(line))
-    .slice(0, 10);
-  const footer = lines.slice(footerStart).slice(0, 4);
+    .filter((line) => TOTAL_MARKER_PATTERN.test(line) || PAYMENT_MARKER_PATTERN.test(line))
+    .slice(0, 8);
+  const markerLines = lines
+    .filter((line) => RECEIPT_KEY_MARKER_PATTERN.test(line))
+    .slice(0, 8);
 
-  const blocks: string[][] = [];
-  if (header.length > 0) {
-    blocks.push(header);
-  }
-  if (items.length > 0) {
-    blocks.push(items);
-  }
-  if (totals.length > 0) {
-    blocks.push(totals);
-  }
-  if (footer.length > 0) {
-    blocks.push(footer);
-  }
+  const mergedLines: string[] = [];
+  const seen = new Set<string>();
+  const appendUniqueLines = (entries: string[]): void => {
+    for (const entry of entries) {
+      if (seen.has(entry)) {
+        continue;
+      }
+      seen.add(entry);
+      mergedLines.push(entry);
+      if (mergedLines.length >= READABLE_TEXT_MAX_LINES) {
+        return;
+      }
+    }
+  };
 
-  if (highlightedTotalLine !== undefined && highlightedTotalLine >= 0 && highlightedTotalLine < lines.length) {
+  appendUniqueLines(header);
+  appendUniqueLines(dateLines);
+  appendUniqueLines(totals);
+  appendUniqueLines(markerLines);
+
+  if (
+    highlightedTotalLine !== undefined &&
+    highlightedTotalLine >= 0 &&
+    highlightedTotalLine < lines.length
+  ) {
     const totalLine = lines[highlightedTotalLine];
-    const alreadyIncluded = blocks.some((block) => block.includes(totalLine));
-    if (!alreadyIncluded) {
-      blocks.push([totalLine]);
+    if (!seen.has(totalLine)) {
+      mergedLines.push(totalLine);
     }
   }
 
-  const joined = blocks
-    .filter((block) => block.length > 0)
-    .map((block) => block.join("\n"))
-    .join("\n\n")
+  const joined = mergedLines
+    .slice(0, READABLE_TEXT_MAX_LINES)
+    .join("\n")
     .trim();
 
   if (!joined) {
-    return lines.slice(0, 30).join("\n");
+    return lines.slice(0, 12).join("\n");
   }
 
   if (joined.length <= READABLE_TEXT_MAX_CHARS) {

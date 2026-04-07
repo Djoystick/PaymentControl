@@ -341,6 +341,18 @@ const getReceiptFieldQualityClass = (
   return "pc-status-pill-error";
 };
 
+const isReceiptFieldNeedsManualReview = (
+  quality: TravelReceiptDraftPayload["ocrFieldQuality"][keyof TravelReceiptDraftPayload["ocrFieldQuality"]],
+): boolean => {
+  return quality === "low" || quality === "missing";
+};
+
+const shouldShowReceiptFieldQualityBadge = (
+  quality: TravelReceiptDraftPayload["ocrFieldQuality"][keyof TravelReceiptDraftPayload["ocrFieldQuality"]],
+): boolean => {
+  return quality !== "high";
+};
+
 const getReceiptDraftNextActionLabel = (
   receiptDraft: TravelReceiptDraftPayload,
   tr: (text: string) => string,
@@ -1401,6 +1413,65 @@ export function TravelGroupExpensesSection({
 
     return receiptDrafts.find((draft) => draft.id === activeReceiptReviewId) ?? null;
   }, [activeReceiptReviewId, receiptDrafts]);
+
+  const activeReceiptSummary = useMemo(() => {
+    if (!activeReceiptReview) {
+      return null;
+    }
+
+    const amountLabel =
+      activeReceiptReview.ocrSuggestedAmount &&
+      activeReceiptReview.ocrSuggestedCurrency
+        ? formatAmount(
+            activeReceiptReview.ocrSuggestedAmount,
+            activeReceiptReview.ocrSuggestedCurrency,
+          )
+        : tr("Not detected yet");
+    const merchantLabel =
+      activeReceiptReview.ocrSuggestedMerchant ?? tr("Not detected yet");
+    const dateLabel = activeReceiptReview.ocrSuggestedSpentAt
+      ? formatDateTime(activeReceiptReview.ocrSuggestedSpentAt)
+      : tr("Not detected yet");
+    const shortDescription = activeReceiptReview.ocrSuggestedDescription
+      ? activeReceiptReview.ocrSuggestedDescription.slice(0, 160)
+      : null;
+    const compactParts: string[] = [];
+    if (
+      activeReceiptReview.ocrSuggestedAmount &&
+      activeReceiptReview.ocrSuggestedCurrency
+    ) {
+      compactParts.push(
+        formatAmount(
+          activeReceiptReview.ocrSuggestedAmount,
+          activeReceiptReview.ocrSuggestedCurrency,
+        ),
+      );
+    }
+    if (activeReceiptReview.ocrSuggestedMerchant) {
+      compactParts.push(activeReceiptReview.ocrSuggestedMerchant);
+    }
+    if (activeReceiptReview.ocrSuggestedSpentAt) {
+      compactParts.push(formatDateTime(activeReceiptReview.ocrSuggestedSpentAt));
+    }
+
+    return {
+      amountLabel,
+      merchantLabel,
+      dateLabel,
+      shortDescription,
+      compactLine:
+        compactParts.length > 0 ? compactParts.join(" • ") : tr("Not detected yet"),
+      needsManualReview:
+        isReceiptFieldNeedsManualReview(
+          activeReceiptReview.ocrFieldQuality.sourceAmount,
+        ) ||
+        isReceiptFieldNeedsManualReview(
+          activeReceiptReview.ocrFieldQuality.merchant,
+        ) ||
+        isReceiptFieldNeedsManualReview(activeReceiptReview.ocrFieldQuality.spentAt),
+      referencePreview: activeReceiptReview.ocrRawText?.slice(0, 140).trim() ?? null,
+    };
+  }, [activeReceiptReview, tr]);
 
   const activeReceiptImagePreview = useMemo(() => {
     if (!receiptImagePreviewDraftId) {
@@ -3522,80 +3593,58 @@ export function TravelGroupExpensesSection({
               </div>
 
               <div className="mt-2 space-y-2">
-                <div className="overflow-hidden rounded-xl border border-app-border/70 bg-app-surface/70">
-                  <img
-                    src={activeReceiptReview.imageDataUrl}
-                    alt={tr("Receipt photo")}
-                    className="h-44 w-full object-cover sm:h-52"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setReceiptImagePreviewDraftId(activeReceiptReview.id)}
-                  className="pc-btn-secondary"
-                >
-                  <AppIcon name="template" className="h-3.5 w-3.5" />
-                  {tr("Open full receipt")}
-                </button>
-
-                <div className="pc-state-card space-y-1">
-                  <p className="text-xs font-semibold text-app-text">
-                    {tr("Receipt summary")}
-                  </p>
-                  <p className="text-[11px] text-app-text-muted">
-                    {getReceiptDraftNextActionLabel(activeReceiptReview, tr)}
-                  </p>
-                  <p className="text-[11px] text-app-text-muted">
-                    {tr("Parse attempts")}: {activeReceiptReview.ocrParseAttempts}
-                    {activeReceiptReview.ocrLastAttemptAt
-                      ? ` • ${tr("Last parse attempt")}: ${formatDateTime(activeReceiptReview.ocrLastAttemptAt)}`
-                      : ""}
-                  </p>
-                  <p className="text-[11px] text-app-text-muted">
-                    {tr("Image updated")}: {formatDateTime(activeReceiptReview.sourceImageUpdatedAt)}
-                  </p>
+                <div className="space-y-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setReceiptImagePreviewDraftId(activeReceiptReview.id)}
+                    aria-label={tr("Open full receipt")}
+                    className="block w-full overflow-hidden rounded-xl border border-app-border/70 bg-app-surface/70"
+                  >
+                    <img
+                      src={activeReceiptReview.imageDataUrl}
+                      alt={tr("Receipt photo")}
+                      className="h-44 w-full object-cover sm:h-52"
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReceiptImagePreviewDraftId(activeReceiptReview.id)}
+                    className="pc-btn-quiet min-h-8 px-2 py-1 text-[11px]"
+                  >
+                    <AppIcon name="template" className="h-3.5 w-3.5" />
+                    {tr("Open full receipt")}
+                  </button>
                 </div>
 
                 {activeReceiptReview.status !== "draft" && (
                   <>
                     <div className="pc-state-card space-y-2">
                       <p className="text-xs font-semibold text-app-text">
-                        {tr("Key receipt fields")}
+                        {tr("Receipt key summary")}
                       </p>
-                      <div className="grid gap-1.5 sm:grid-cols-2">
+                      <p className="rounded-lg border border-app-border/60 bg-app-surface/50 px-2 py-1.5 text-xs font-semibold text-app-text">
+                        {activeReceiptSummary?.compactLine ?? tr("Not detected yet")}
+                      </p>
+                      <div className="grid gap-1.5 sm:grid-cols-3">
                         {(
                           [
                             [
-                              "merchant",
-                              tr("Merchant"),
-                              activeReceiptReview.ocrSuggestedMerchant,
-                              activeReceiptReview.ocrFieldQuality.merchant,
-                            ],
-                            [
                               "amount",
                               tr("OCR amount"),
-                              activeReceiptReview.ocrSuggestedAmount &&
-                              activeReceiptReview.ocrSuggestedCurrency
-                                ? formatAmount(
-                                    activeReceiptReview.ocrSuggestedAmount,
-                                    activeReceiptReview.ocrSuggestedCurrency,
-                                  )
-                                : null,
+                              activeReceiptSummary?.amountLabel ?? tr("Not detected yet"),
                               activeReceiptReview.ocrFieldQuality.sourceAmount,
+                            ],
+                            [
+                              "merchant",
+                              tr("Merchant"),
+                              activeReceiptSummary?.merchantLabel ?? tr("Not detected yet"),
+                              activeReceiptReview.ocrFieldQuality.merchant,
                             ],
                             [
                               "spentAt",
                               tr("Expense date"),
-                              activeReceiptReview.ocrSuggestedSpentAt
-                                ? formatDateTime(activeReceiptReview.ocrSuggestedSpentAt)
-                                : null,
+                              activeReceiptSummary?.dateLabel ?? tr("Not detected yet"),
                               activeReceiptReview.ocrFieldQuality.spentAt,
-                            ],
-                            [
-                              "description",
-                              tr("OCR description"),
-                              activeReceiptReview.ocrSuggestedDescription,
-                              activeReceiptReview.ocrFieldQuality.description,
                             ],
                           ] as const
                         ).map(([key, label, value, quality]) => (
@@ -3609,53 +3658,69 @@ export function TravelGroupExpensesSection({
                             <p className="mt-0.5 text-xs font-semibold text-app-text">
                               {value ?? tr("Not detected yet")}
                             </p>
-                            <p
-                              className={`mt-1 inline-flex rounded-full px-1.5 py-0.5 text-[10px] ${getReceiptFieldQualityClass(
-                                quality,
-                              )}`}
-                            >
-                              {getReceiptFieldQualityLabel(quality, tr)}
-                            </p>
+                            {shouldShowReceiptFieldQualityBadge(quality) && (
+                              <p
+                                className={`mt-1 inline-flex rounded-full px-1.5 py-0.5 text-[10px] ${getReceiptFieldQualityClass(
+                                  quality,
+                                )}`}
+                              >
+                                {getReceiptFieldQualityLabel(quality, tr)}
+                              </p>
+                            )}
                           </div>
                         ))}
                       </div>
-                      <p className="text-[11px] text-app-text-muted">
-                        {tr("OCR parsed the receipt. Review details in expense form before saving.")}
-                      </p>
+                      {activeReceiptSummary?.shortDescription && (
+                        <div className="rounded-lg border border-app-border/60 bg-app-surface/50 px-2 py-1.5">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-app-text-muted">
+                            {tr("OCR description")}
+                          </p>
+                          <p className="mt-0.5 text-xs font-semibold text-app-text">
+                            {activeReceiptSummary.shortDescription}
+                          </p>
+                        </div>
+                      )}
+                      {activeReceiptSummary?.needsManualReview && (
+                        <p className="text-[11px] text-app-text-muted">
+                          {tr("Some OCR key fields still need manual check before applying.")}
+                        </p>
+                      )}
                     </div>
 
                     {activeReceiptReview.ocrRawText && (
-                      <div className="pc-state-card space-y-2">
-                        <p className="text-xs font-semibold text-app-text">
-                          {tr("Clean OCR text")}
-                        </p>
-                        <p className="text-[11px] text-app-text-muted">
-                          {tr("Line-grouped OCR excerpt for quick manual check.")}
-                        </p>
-                        <div className="max-h-32 overflow-y-auto rounded-lg border border-app-border/60 bg-app-surface/50 px-2 py-1.5">
-                          <p className="whitespace-pre-wrap text-[11px] leading-5 text-app-text-muted">
-                            {activeReceiptReview.ocrRawText.slice(0, 520)}
+                      <details className="pc-state-card">
+                        <summary className="list-none text-xs font-semibold text-app-text">
+                          {tr("Secondary OCR reference")}
+                        </summary>
+                        <div className="mt-1.5 space-y-1.5">
+                          <p className="text-[11px] text-app-text-muted">
+                            {tr("Secondary OCR excerpt for manual cross-check. This text may be incomplete.")}
                           </p>
+                          <div className="max-h-16 overflow-hidden rounded-lg border border-app-border/60 bg-app-surface/50 px-2 py-1.5">
+                            <p className="whitespace-pre-wrap text-[11px] leading-5 text-app-text-muted">
+                              {activeReceiptSummary?.referencePreview ?? ""}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => openReceiptTextDetails(false)}
+                              className="pc-btn-quiet min-h-8 px-2 py-1 text-[11px]"
+                            >
+                              <AppIcon name="template" className="h-3.5 w-3.5" />
+                              {tr("Open OCR reference")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openReceiptTextDetails(true)}
+                              className="pc-btn-quiet min-h-8 px-2 py-1 text-[11px]"
+                            >
+                              <AppIcon name="history" className="h-3.5 w-3.5" />
+                              {tr("Open raw OCR diagnostics")}
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => openReceiptTextDetails(false)}
-                            className="pc-btn-secondary min-h-8 px-2 py-1 text-[11px]"
-                          >
-                            <AppIcon name="template" className="h-3.5 w-3.5" />
-                            {tr("Open OCR text fragment")}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openReceiptTextDetails(true)}
-                            className="pc-btn-secondary min-h-8 px-2 py-1 text-[11px]"
-                          >
-                            <AppIcon name="history" className="h-3.5 w-3.5" />
-                            {tr("Open raw OCR debug")}
-                          </button>
-                        </div>
-                      </div>
+                      </details>
                     )}
                   </>
                 )}
@@ -3691,98 +3756,122 @@ export function TravelGroupExpensesSection({
                   </div>
                 )}
 
-                <div className="flex flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => void parseReceiptDraft(activeReceiptReview.id)}
-                    disabled={
-                      !isTripEditable ||
-                      activeReceiptReview.status === "finalized" ||
-                      isParsingReceiptDraftId !== null ||
-                      isCreatingReceiptDraft ||
-                      isDeletingReceiptDraftId !== null ||
-                      isResettingReceiptDraftId !== null ||
-                      isReplacingReceiptDraftId !== null
-                    }
-                    className="pc-btn-secondary"
-                  >
-                    <AppIcon name="refresh" className="h-3.5 w-3.5" />
-                    {isParsingReceiptDraftId === activeReceiptReview.id
-                      ? tr("Parsing...")
-                      : activeReceiptReview.status === "parsed"
-                        ? tr("Reparse OCR")
-                        : tr("Run OCR prefill")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void resetReceiptDraftHints(activeReceiptReview.id)}
-                    disabled={
-                      !isTripEditable ||
-                      activeReceiptReview.status === "finalized" ||
-                      isResettingReceiptDraftId !== null ||
-                      isCreatingReceiptDraft ||
-                      isParsingReceiptDraftId !== null ||
-                      isDeletingReceiptDraftId !== null ||
-                      isReplacingReceiptDraftId !== null
-                    }
-                    className="pc-btn-secondary"
-                  >
-                    <AppIcon name="undo" className="h-3.5 w-3.5" />
-                    {isResettingReceiptDraftId === activeReceiptReview.id
-                      ? tr("Saving...")
-                      : tr("Reset OCR hints")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openReplaceReceiptImagePicker(activeReceiptReview.id)}
-                    disabled={
-                      !isTripEditable ||
-                      activeReceiptReview.status === "finalized" ||
-                      isReplacingReceiptDraftId !== null ||
-                      isCreatingReceiptDraft ||
-                      isParsingReceiptDraftId !== null ||
-                      isDeletingReceiptDraftId !== null ||
-                      isResettingReceiptDraftId !== null
-                    }
-                    className="pc-btn-secondary"
-                  >
-                    <AppIcon name="edit" className="h-3.5 w-3.5" />
-                    {isReplacingReceiptDraftId === activeReceiptReview.id
-                      ? tr("Saving...")
-                      : tr("Replace photo")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyReceiptPrefillToExpenseForm(activeReceiptReview)}
-                    disabled={
-                      !isTripEditable ||
-                      activeReceiptReview.status === "finalized" ||
-                      isResettingReceiptDraftId !== null
-                    }
-                    className="pc-btn-secondary"
-                  >
-                    <AppIcon name="edit" className="h-3.5 w-3.5" />
-                    {tr("Use in expense form")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void deleteReceiptDraft(activeReceiptReview.id)}
-                    disabled={
-                      !isTripEditable ||
-                      activeReceiptReview.status === "finalized" ||
-                      isDeletingReceiptDraftId !== null ||
-                      isCreatingReceiptDraft ||
-                      isParsingReceiptDraftId !== null ||
-                      isResettingReceiptDraftId !== null ||
-                      isReplacingReceiptDraftId !== null
-                    }
-                    className="pc-btn-danger"
-                  >
-                    <AppIcon name="archive" className="h-3.5 w-3.5" />
-                    {isDeletingReceiptDraftId === activeReceiptReview.id
-                      ? tr("Deleting...")
-                      : tr("Delete draft")}
-                  </button>
+                <div className="space-y-1.5">
+                  {activeReceiptReview.status !== "finalized" && (
+                    <button
+                      type="button"
+                      onClick={() => applyReceiptPrefillToExpenseForm(activeReceiptReview)}
+                      disabled={!isTripEditable || isResettingReceiptDraftId !== null}
+                      className="pc-btn-primary w-full"
+                    >
+                      <AppIcon name="edit" className="h-3.5 w-3.5" />
+                      {tr("Use in expense form")}
+                    </button>
+                  )}
+                  {activeReceiptReview.status !== "finalized" && (
+                    <button
+                      type="button"
+                      onClick={() => void parseReceiptDraft(activeReceiptReview.id)}
+                      disabled={
+                        !isTripEditable ||
+                        isParsingReceiptDraftId !== null ||
+                        isCreatingReceiptDraft ||
+                        isDeletingReceiptDraftId !== null ||
+                        isResettingReceiptDraftId !== null ||
+                        isReplacingReceiptDraftId !== null
+                      }
+                      className="pc-btn-secondary"
+                    >
+                      <AppIcon name="refresh" className="h-3.5 w-3.5" />
+                      {isParsingReceiptDraftId === activeReceiptReview.id
+                        ? tr("Parsing...")
+                        : activeReceiptReview.status === "parsed"
+                          ? tr("Reparse OCR")
+                          : tr("Run OCR prefill")}
+                    </button>
+                  )}
+                  <details className="pc-state-card">
+                    <summary className="list-none text-xs font-semibold text-app-text">
+                      {tr("Details and actions")}
+                    </summary>
+                    <div className="mt-1.5 space-y-1.5">
+                      <p className="text-[11px] text-app-text-muted">
+                        {tr("Next action")}: {getReceiptDraftNextActionLabel(activeReceiptReview, tr)}
+                      </p>
+                      <p className="text-[11px] text-app-text-muted">
+                        {tr("Parse attempts")}: {activeReceiptReview.ocrParseAttempts}
+                        {activeReceiptReview.ocrLastAttemptAt
+                          ? ` • ${tr("Last parse attempt")}: ${formatDateTime(activeReceiptReview.ocrLastAttemptAt)}`
+                          : ""}
+                      </p>
+                      <p className="text-[11px] text-app-text-muted">
+                        {tr("Image updated")}: {formatDateTime(activeReceiptReview.sourceImageUpdatedAt)}
+                      </p>
+                      {activeReceiptReview.ocrLastError && (
+                        <p className="text-[11px] text-app-text-muted">
+                          {tr("Last OCR error")}: {activeReceiptReview.ocrLastError}
+                        </p>
+                      )}
+                      {activeReceiptReview.status !== "finalized" && (
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => void resetReceiptDraftHints(activeReceiptReview.id)}
+                            disabled={
+                              !isTripEditable ||
+                              isResettingReceiptDraftId !== null ||
+                              isCreatingReceiptDraft ||
+                              isParsingReceiptDraftId !== null ||
+                              isDeletingReceiptDraftId !== null ||
+                              isReplacingReceiptDraftId !== null
+                            }
+                            className="pc-btn-secondary"
+                          >
+                            <AppIcon name="undo" className="h-3.5 w-3.5" />
+                            {isResettingReceiptDraftId === activeReceiptReview.id
+                              ? tr("Saving...")
+                              : tr("Reset OCR hints")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openReplaceReceiptImagePicker(activeReceiptReview.id)}
+                            disabled={
+                              !isTripEditable ||
+                              isReplacingReceiptDraftId !== null ||
+                              isCreatingReceiptDraft ||
+                              isParsingReceiptDraftId !== null ||
+                              isDeletingReceiptDraftId !== null ||
+                              isResettingReceiptDraftId !== null
+                            }
+                            className="pc-btn-secondary"
+                          >
+                            <AppIcon name="edit" className="h-3.5 w-3.5" />
+                            {isReplacingReceiptDraftId === activeReceiptReview.id
+                              ? tr("Saving...")
+                              : tr("Replace photo")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void deleteReceiptDraft(activeReceiptReview.id)}
+                            disabled={
+                              !isTripEditable ||
+                              isDeletingReceiptDraftId !== null ||
+                              isCreatingReceiptDraft ||
+                              isParsingReceiptDraftId !== null ||
+                              isResettingReceiptDraftId !== null ||
+                              isReplacingReceiptDraftId !== null
+                            }
+                            className="pc-btn-danger"
+                          >
+                            <AppIcon name="archive" className="h-3.5 w-3.5" />
+                            {isDeletingReceiptDraftId === activeReceiptReview.id
+                              ? tr("Deleting...")
+                              : tr("Delete draft")}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </details>
                 </div>
               </div>
             </div>
@@ -3801,19 +3890,19 @@ export function TravelGroupExpensesSection({
         setIsReceiptRawTextModalOpen(false);
         setIsReceiptRawDebugMode(false);
       }}
-      title={isReceiptRawDebugMode ? tr("OCR raw debug") : tr("OCR text snippet")}
+      title={isReceiptRawDebugMode ? tr("Raw OCR diagnostics") : tr("OCR reference fragment")}
       titleIcon={<AppIcon name="template" className="h-3.5 w-3.5" />}
       description={
         isReceiptRawDebugMode
-          ? tr("Full OCR debug text dump for manual troubleshooting.")
-          : tr("Clean OCR preview for manual verification.")
+          ? tr("Full raw OCR text for troubleshooting. Not a final receipt result.")
+          : tr("Secondary OCR excerpt for manual cross-check. This text may be incomplete.")
       }
       widthClassName="max-w-lg"
       overlayClassName="z-[103]"
     >
       <div className="max-h-72 overflow-y-auto rounded-xl border border-app-border/70 bg-app-surface/70 px-2 py-2">
         <p className="whitespace-pre-wrap text-[11px] leading-5 text-app-text-muted">
-          {activeReceiptReview?.ocrRawText?.slice(0, isReceiptRawDebugMode ? 6000 : 1800) ?? ""}
+          {activeReceiptReview?.ocrRawText?.slice(0, isReceiptRawDebugMode ? 5200 : 640) ?? ""}
         </p>
       </div>
     </ModalSheet>
