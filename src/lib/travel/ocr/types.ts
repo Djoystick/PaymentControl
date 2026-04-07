@@ -43,6 +43,9 @@ export type TravelReceiptOcrPreprocessHints = {
   adaptiveThreshold: boolean;
   deskew: boolean;
   cropToReceipt: boolean;
+  perspectiveCorrection: boolean;
+  denoise: boolean;
+  qrFirst: boolean;
   maxSidePx: number;
 };
 

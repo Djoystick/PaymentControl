@@ -1,7 +1,11 @@
+import { normalizeTravelReceiptOcrSuggestion } from "@/lib/travel/receipt-ocr-normalization";
 import {
-  createDefaultTravelReceiptOcrFieldQuality,
-  normalizeTravelReceiptOcrSuggestion,
-} from "@/lib/travel/receipt-ocr-normalization";
+  buildReceiptFieldQualityFromExtraction,
+  collectReceiptTextLinesFromUnknown,
+  extractReceiptInsights,
+  parseReceiptQrPayload,
+  type TravelReceiptQrPayload,
+} from "@/lib/travel/ocr/receipt-heuristics";
 import type { TravelReceiptClientSuggestionPayload } from "@/lib/travel/types";
 
 type TravelClientReceiptOcrFailureKind =
@@ -42,12 +46,27 @@ type WindowWithClientOcr = Window & {
   };
 };
 
+type BarcodeDetectionResult = {
+  rawValue?: string;
+};
+
+type BarcodeDetectorShape = {
+  detect: (
+    source: CanvasImageSource,
+  ) => Promise<BarcodeDetectionResult[]>;
+};
+
+type BarcodeDetectorCtor = new (options?: {
+  formats?: string[];
+}) => BarcodeDetectorShape;
+
 const CLIENT_OCR_DEFAULT_TIMEOUT_MS = 30000;
 const CLIENT_OCR_MIN_TIMEOUT_MS = 5000;
 const CLIENT_OCR_MAX_TIMEOUT_MS = 120000;
 const CLIENT_OCR_MAX_SIDE_PX = 1800;
 const CLIENT_OCR_BINARIZE_THRESHOLD = 162;
-const CLIENT_OCR_TEXT_COLLECT_DEPTH_LIMIT = 4;
+const CLIENT_OCR_QR_TIMEOUT_MS = 1200;
+const CLIENT_OCR_RECEIPT_LANDSCAPE_RATIO = 1.26;
 
 const ORT_SCRIPT_URL = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js";
 const OPENCV_SCRIPT_URL = "https://docs.opencv.org/4.8.0/opencv.js";
@@ -57,25 +76,6 @@ const MODEL_BASE_URL = "https://cdn.jsdelivr.net/npm/paddleocr-browser@1.0.3/dis
 const DETECTION_MODEL_URL = `${MODEL_BASE_URL}/ppocr_det.onnx`;
 const RECOGNITION_MODEL_URL = `${MODEL_BASE_URL}/ppocr_rec.onnx`;
 const DICTIONARY_URL = `${MODEL_BASE_URL}/ppocr_keys_v1.txt`;
-
-const TOTAL_HINT_PATTERN =
-  /(итог|сумма|к оплате|всего|total|amount due|grand total)/i;
-const DATE_PATTERN =
-  /(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/;
-const AMOUNT_TOKEN_PATTERN =
-  /\d{1,3}(?:[ \u00A0.,]\d{3})*(?:[.,]\d{2})|\d+(?:[.,]\d{2})/g;
-const MERCHANT_SKIP_PATTERN =
-  /(кассир|qr|чек|receipt|vat|налог|инн|кпп|телефон|www\.|http|банк|payment|card|terminal|term)/i;
-
-const FOOD_PATTERN =
-  /(еда|food|cafe|café|restaurant|рест|кофе|coffee|bar|доставка)/i;
-const TRANSPORT_PATTERN =
-  /(такси|taxi|uber|metro|поезд|train|bus|автобус|transport|fuel|бензин)/i;
-const HOTEL_PATTERN =
-  /(hotel|hostel|booking|отель|гостиниц|apartment|bnb|airbnb)/i;
-const SHOPPING_PATTERN =
-  /(shop|store|market|магазин|супермаркет|mall|shopping)/i;
-const TICKETS_PATTERN = /(ticket|билет|flight|авиабилет|avia|rail)/i;
 
 class ClientOcrTimeoutError extends Error {
   constructor(message: string) {
@@ -99,6 +99,10 @@ const toFailure = (
     kind,
     message,
   };
+};
+
+const normalizeLineText = (value: string): string => {
+  return value.replace(/\s+/g, " ").trim();
 };
 
 const clampTimeout = (value?: number): number => {
@@ -138,7 +142,9 @@ const loadScriptOnce = async (params: {
   src: string;
   timeoutMs: number;
 }): Promise<void> => {
-  const existing = document.querySelector<HTMLScriptElement>(`script[data-ocr-id='${params.id}']`);
+  const existing = document.querySelector<HTMLScriptElement>(
+    `script[data-ocr-id='${params.id}']`,
+  );
   if (existing?.dataset.loaded === "true") {
     return;
   }
@@ -188,7 +194,9 @@ const importEsearchOcrModule = async (): Promise<Record<string, unknown>> => {
   return loaded as Record<string, unknown>;
 };
 
-const createBrowserOcrRuntime = async (timeoutMs: number): Promise<BrowserOcrRuntime> => {
+const createBrowserOcrRuntime = async (
+  timeoutMs: number,
+): Promise<BrowserOcrRuntime> => {
   await loadScriptOnce({
     id: "travel-ocr-ort",
     src: ORT_SCRIPT_URL,
@@ -245,7 +253,9 @@ const createBrowserOcrRuntime = async (timeoutMs: number): Promise<BrowserOcrRun
   };
 };
 
-const getBrowserOcrRuntime = async (timeoutMs: number): Promise<BrowserOcrRuntime> => {
+const getBrowserOcrRuntime = async (
+  timeoutMs: number,
+): Promise<BrowserOcrRuntime> => {
   if (!runtimePromise) {
     runtimePromise = createBrowserOcrRuntime(timeoutMs).catch((error) => {
       runtimePromise = null;
@@ -256,7 +266,9 @@ const getBrowserOcrRuntime = async (timeoutMs: number): Promise<BrowserOcrRuntim
   return runtimePromise;
 };
 
-const loadImageFromDataUrl = async (imageDataUrl: string): Promise<HTMLImageElement> => {
+const loadImageFromDataUrl = async (
+  imageDataUrl: string,
+): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(image);
@@ -288,7 +300,36 @@ const buildScaledCanvas = (
   return canvas;
 };
 
-const buildEnhancedCanvas = (sourceCanvas: HTMLCanvasElement): HTMLCanvasElement => {
+const rotateCanvasToPortrait = (
+  sourceCanvas: HTMLCanvasElement,
+): HTMLCanvasElement => {
+  if (
+    sourceCanvas.width <= sourceCanvas.height * CLIENT_OCR_RECEIPT_LANDSCAPE_RATIO
+  ) {
+    return sourceCanvas;
+  }
+
+  const rotated = document.createElement("canvas");
+  rotated.width = sourceCanvas.height;
+  rotated.height = sourceCanvas.width;
+  const context = rotated.getContext("2d");
+  if (!context) {
+    return sourceCanvas;
+  }
+
+  context.translate(rotated.width / 2, rotated.height / 2);
+  context.rotate(Math.PI / 2);
+  context.drawImage(
+    sourceCanvas,
+    -sourceCanvas.width / 2,
+    -sourceCanvas.height / 2,
+  );
+  return rotated;
+};
+
+const buildEnhancedCanvas = (
+  sourceCanvas: HTMLCanvasElement,
+): HTMLCanvasElement => {
   const canvas = document.createElement("canvas");
   canvas.width = sourceCanvas.width;
   canvas.height = sourceCanvas.height;
@@ -297,14 +338,15 @@ const buildEnhancedCanvas = (sourceCanvas: HTMLCanvasElement): HTMLCanvasElement
     throw new Error("Canvas 2D context is unavailable for OCR preprocessing.");
   }
 
-  context.filter = "grayscale(100%) contrast(145%) brightness(108%)";
+  context.filter = "grayscale(100%) contrast(158%) brightness(110%)";
   context.drawImage(sourceCanvas, 0, 0);
   context.filter = "none";
 
   const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
   const { data } = imageData;
   for (let index = 0; index < data.length; index += 4) {
-    const luminance = 0.299 * data[index] + 0.587 * data[index + 1] + 0.114 * data[index + 2];
+    const luminance =
+      0.299 * data[index] + 0.587 * data[index + 1] + 0.114 * data[index + 2];
     const value = luminance >= CLIENT_OCR_BINARIZE_THRESHOLD ? 255 : 0;
     data[index] = value;
     data[index + 1] = value;
@@ -314,185 +356,158 @@ const buildEnhancedCanvas = (sourceCanvas: HTMLCanvasElement): HTMLCanvasElement
   return canvas;
 };
 
-const normalizeLineText = (value: string): string => {
-  return value.replace(/\s+/g, " ").trim();
+const cropCanvasToReceiptContent = (
+  sourceCanvas: HTMLCanvasElement,
+): HTMLCanvasElement => {
+  const context = sourceCanvas.getContext("2d");
+  if (!context) {
+    return sourceCanvas;
+  }
+
+  const imageData = context.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+  const { data, width, height } = imageData;
+
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const offset = (y * width + x) * 4;
+      const luminance =
+        0.299 * data[offset] + 0.587 * data[offset + 1] + 0.114 * data[offset + 2];
+      if (luminance < 245) {
+        if (x < minX) {
+          minX = x;
+        }
+        if (y < minY) {
+          minY = y;
+        }
+        if (x > maxX) {
+          maxX = x;
+        }
+        if (y > maxY) {
+          maxY = y;
+        }
+      }
+    }
+  }
+
+  if (maxX <= minX || maxY <= minY) {
+    return sourceCanvas;
+  }
+
+  const padding = 18;
+  minX = Math.max(0, minX - padding);
+  minY = Math.max(0, minY - padding);
+  maxX = Math.min(width - 1, maxX + padding);
+  maxY = Math.min(height - 1, maxY + padding);
+
+  const cropWidth = Math.max(1, maxX - minX + 1);
+  const cropHeight = Math.max(1, maxY - minY + 1);
+  const areaRatio = (cropWidth * cropHeight) / (width * height);
+  if (areaRatio > 0.98 || areaRatio < 0.08) {
+    return sourceCanvas;
+  }
+
+  const cropped = document.createElement("canvas");
+  cropped.width = cropWidth;
+  cropped.height = cropHeight;
+  const croppedContext = cropped.getContext("2d");
+  if (!croppedContext) {
+    return sourceCanvas;
+  }
+
+  croppedContext.drawImage(
+    sourceCanvas,
+    minX,
+    minY,
+    cropWidth,
+    cropHeight,
+    0,
+    0,
+    cropWidth,
+    cropHeight,
+  );
+  return cropped;
 };
 
-const parseAmountToken = (token: string): number | null => {
-  const compact = token.replace(/[\s\u00A0]/g, "");
-  if (!compact) {
+const getBarcodeDetectorCtor = (): BarcodeDetectorCtor | null => {
+  const detectorCtor = (globalThis as {
+    BarcodeDetector?: BarcodeDetectorCtor;
+  }).BarcodeDetector;
+  if (!detectorCtor) {
     return null;
   }
-
-  let normalized = compact;
-  const lastComma = normalized.lastIndexOf(",");
-  const lastDot = normalized.lastIndexOf(".");
-  if (lastComma >= 0 || lastDot >= 0) {
-    const decimalSeparator = lastComma > lastDot ? "," : ".";
-    const thousandsSeparator = decimalSeparator === "," ? "." : ",";
-    normalized = normalized.split(thousandsSeparator).join("");
-    if (decimalSeparator === ",") {
-      normalized = normalized.replace(",", ".");
-    }
-  } else {
-    return null;
-  }
-
-  const amount = Number(normalized);
-  if (!Number.isFinite(amount) || amount <= 0 || amount > 10_000_000) {
-    return null;
-  }
-
-  return Number(amount.toFixed(2));
+  return detectorCtor;
 };
 
-const detectAmount = (lineTexts: string[]): number | null => {
-  const totalCandidates: number[] = [];
-  const fallbackCandidates: number[] = [];
-
-  for (const line of lineTexts) {
-    const tokens = line.match(AMOUNT_TOKEN_PATTERN) ?? [];
-    if (tokens.length === 0) {
-      continue;
-    }
-
-    const numericTokens = tokens
-      .map(parseAmountToken)
-      .filter((value): value is number => value !== null);
-    if (numericTokens.length === 0) {
-      continue;
-    }
-
-    if (TOTAL_HINT_PATTERN.test(line)) {
-      totalCandidates.push(...numericTokens);
-      continue;
-    }
-
-    fallbackCandidates.push(...numericTokens);
-  }
-
-  const candidatePool = totalCandidates.length > 0 ? totalCandidates : fallbackCandidates;
-  if (candidatePool.length === 0) {
+const tryDecodeQrFromCanvas = async (
+  sourceCanvas: HTMLCanvasElement,
+  timeoutMs: number,
+): Promise<TravelReceiptQrPayload | null> => {
+  const detectorCtor = getBarcodeDetectorCtor();
+  if (!detectorCtor) {
     return null;
   }
 
-  return Math.max(...candidatePool);
-};
-
-const detectCurrency = (rawText: string, tripCurrency: string): string | null => {
-  const source = rawText.toUpperCase();
-  if (/[₽]|RUB|РУБ/.test(source)) {
-    return "RUB";
-  }
-  if (/[€]|EUR/.test(source)) {
-    return "EUR";
-  }
-  if (/[£]|GBP/.test(source)) {
-    return "GBP";
-  }
-  if (/[$]|USD/.test(source)) {
-    return "USD";
-  }
-  if (source.includes(tripCurrency.toUpperCase())) {
-    return tripCurrency.toUpperCase();
+  try {
+    const detector = new detectorCtor({ formats: ["qr_code"] });
+    const detections = await runWithTimeout(
+      detector.detect(sourceCanvas),
+      timeoutMs,
+      "QR detection timed out.",
+    );
+    for (const detection of detections) {
+      const parsed = parseReceiptQrPayload(detection.rawValue ?? "");
+      if (parsed) {
+        return parsed;
+      }
+    }
+  } catch {
+    return null;
   }
 
   return null;
 };
 
-const detectSpentAt = (rawText: string): string | null => {
-  const match = rawText.match(DATE_PATTERN);
-  if (!match) {
-    return null;
+const tryDecodeReceiptQrPayload = async (params: {
+  sourceCanvas: HTMLCanvasElement;
+  processedCanvas: HTMLCanvasElement;
+}): Promise<TravelReceiptQrPayload | null> => {
+  const fromSource = await tryDecodeQrFromCanvas(
+    params.sourceCanvas,
+    CLIENT_OCR_QR_TIMEOUT_MS,
+  );
+  if (fromSource) {
+    return fromSource;
   }
 
-  const day = Number(match[1]);
-  const month = Number(match[2]);
-  let year = Number(match[3]);
-  if (year < 100) {
-    year += 2000;
-  }
-  const hour = match[4] ? Number(match[4]) : 12;
-  const minute = match[5] ? Number(match[5]) : 0;
-  const parsed = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
-  if (Number.isNaN(parsed.getTime())) {
-    return null;
-  }
-
-  return parsed.toISOString();
+  return tryDecodeQrFromCanvas(params.processedCanvas, CLIENT_OCR_QR_TIMEOUT_MS);
 };
 
-const detectMerchant = (lineTexts: string[]): string | null => {
-  for (const line of lineTexts) {
-    if (line.length < 3 || line.length > 80) {
-      continue;
-    }
-    if (/\d{4,}/.test(line)) {
-      continue;
-    }
-    if (MERCHANT_SKIP_PATTERN.test(line)) {
-      continue;
-    }
-    return line;
+const buildQrReadableText = (payload: TravelReceiptQrPayload): string => {
+  const lines: string[] = ["QR metadata"];
+  if (payload.sourceAmount !== null) {
+    lines.push(`Total: ${payload.sourceAmount.toFixed(2)}`);
   }
-
-  return null;
-};
-
-const inferCategory = (rawText: string): string | null => {
-  if (FOOD_PATTERN.test(rawText)) {
-    return "Food";
+  if (payload.sourceCurrency) {
+    lines.push(`Currency: ${payload.sourceCurrency}`);
   }
-  if (TRANSPORT_PATTERN.test(rawText)) {
-    return "Transport";
+  if (payload.spentAt) {
+    lines.push(`Date: ${payload.spentAt}`);
   }
-  if (HOTEL_PATTERN.test(rawText)) {
-    return "Accommodation";
+  if (payload.fiscalNumber) {
+    lines.push(`FN: ${payload.fiscalNumber}`);
   }
-  if (SHOPPING_PATTERN.test(rawText)) {
-    return "Shopping";
+  if (payload.fiscalDocumentNumber) {
+    lines.push(`FD: ${payload.fiscalDocumentNumber}`);
   }
-  if (TICKETS_PATTERN.test(rawText)) {
-    return "Tickets";
+  if (payload.fiscalSign) {
+    lines.push(`FP: ${payload.fiscalSign}`);
   }
-
-  return "General";
-};
-
-const buildFieldQuality = (params: {
-  sourceAmount: number | null;
-  sourceCurrency: string | null;
-  spentAt: string | null;
-  merchant: string | null;
-  description: string | null;
-  category: string | null;
-  conversionRate: number | null;
-  currencyDetectedFromText: boolean;
-}): TravelReceiptClientSuggestionPayload["fieldQuality"] => {
-  const fieldQuality = createDefaultTravelReceiptOcrFieldQuality();
-  if (params.sourceAmount !== null) {
-    fieldQuality.sourceAmount = "medium";
-  }
-  if (params.sourceCurrency !== null) {
-    fieldQuality.sourceCurrency = params.currencyDetectedFromText ? "medium" : "low";
-  }
-  if (params.spentAt !== null) {
-    fieldQuality.spentAt = "medium";
-  }
-  if (params.merchant !== null) {
-    fieldQuality.merchant = "medium";
-  }
-  if (params.description !== null) {
-    fieldQuality.description = "medium";
-  }
-  if (params.category !== null) {
-    fieldQuality.category = "low";
-  }
-  if (params.conversionRate !== null) {
-    fieldQuality.conversionRate = "medium";
-  }
-
-  return fieldQuality;
+  return lines.join("\n");
 };
 
 const hasMeaningfulSuggestion = (
@@ -513,79 +528,34 @@ const hasMeaningfulSuggestion = (
   return Boolean(suggestion.rawText && suggestion.rawText.trim().length >= 8);
 };
 
-const collectTextFromUnknown = (
-  value: unknown,
-  depth: number,
-  output: string[],
-): void => {
-  if (depth > CLIENT_OCR_TEXT_COLLECT_DEPTH_LIMIT || value === null || value === undefined) {
-    return;
-  }
-
-  if (typeof value === "string") {
-    const normalized = normalizeLineText(value);
-    if (normalized) {
-      output.push(normalized);
-    }
-    return;
-  }
-
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      collectTextFromUnknown(item, depth + 1, output);
-    }
-    return;
-  }
-
-  if (typeof value === "object") {
-    const objectValue = value as Record<string, unknown>;
-    if (typeof objectValue.text === "string") {
-      collectTextFromUnknown(objectValue.text, depth + 1, output);
-    }
-
-    for (const nested of Object.values(objectValue)) {
-      collectTextFromUnknown(nested, depth + 1, output);
-    }
-  }
-};
-
 const mapOcrOutputToSuggestion = (params: {
   rawOutput: unknown;
   tripCurrency: string;
+  qrPayload?: TravelReceiptQrPayload | null;
 }): TravelReceiptClientSuggestionPayload => {
-  const lineTexts: string[] = [];
-  collectTextFromUnknown(params.rawOutput, 0, lineTexts);
-  const uniqueLines = [...new Set(lineTexts)];
-  const rawText = normalizeLineText(uniqueLines.join("\n"));
+  const lineTexts = collectReceiptTextLinesFromUnknown(params.rawOutput);
+  const ocrRawText = lineTexts.join("\n");
+  const extraction = extractReceiptInsights({
+    rawText: ocrRawText,
+    tripCurrency: params.tripCurrency,
+    qrPayload: params.qrPayload ?? null,
+  });
 
-  const sourceAmount = detectAmount(uniqueLines);
-  const detectedCurrency = detectCurrency(rawText, params.tripCurrency);
-  const sourceCurrency = detectedCurrency ?? params.tripCurrency.toUpperCase();
-  const spentAt = detectSpentAt(rawText);
-  const merchant = detectMerchant(uniqueLines);
-  const description = merchant;
-  const category = inferCategory(rawText.toLowerCase());
-  const conversionRate = null;
+  const rawText =
+    extraction.rawText ??
+    (params.qrPayload ? buildQrReadableText(params.qrPayload) : null);
 
   const normalized = normalizeTravelReceiptOcrSuggestion({
-    sourceAmount,
-    sourceCurrency,
-    spentAt,
-    merchant,
-    description,
-    category,
-    conversionRate,
+    sourceAmount: extraction.sourceAmount,
+    sourceCurrency:
+      extraction.sourceCurrency ?? params.tripCurrency.toUpperCase(),
+    spentAt: extraction.spentAt,
+    merchant: extraction.merchant,
+    description: extraction.description,
+    category: extraction.category,
+    conversionRate: null,
     rawText,
-    fieldQuality: buildFieldQuality({
-      sourceAmount,
-      sourceCurrency,
-      spentAt,
-      merchant,
-      description,
-      category,
-      conversionRate,
-      currencyDetectedFromText: detectedCurrency !== null,
-    }),
+    fieldQuality: buildReceiptFieldQualityFromExtraction(extraction),
   });
 
   return {
@@ -602,16 +572,23 @@ const mapOcrOutputToSuggestion = (params: {
   };
 };
 
+const countReadableLines = (value: string | null): number => {
+  if (!value) {
+    return 0;
+  }
+  return value
+    .split(/\r?\n/)
+    .map(normalizeLineText)
+    .filter((line) => line.length > 0).length;
+};
+
 export const runClientTravelReceiptOcr = async (params: {
   imageDataUrl: string;
   tripCurrency: string;
   timeoutMs?: number;
 }): Promise<TravelClientReceiptOcrResult> => {
   if (!isBrowserRuntime()) {
-    return toFailure(
-      "UNAVAILABLE",
-      "On-device OCR is not available in this runtime.",
-    );
+    return toFailure("UNAVAILABLE", "On-device OCR is not available in this runtime.");
   }
 
   const timeoutMs = clampTimeout(params.timeoutMs);
@@ -619,30 +596,70 @@ export const runClientTravelReceiptOcr = async (params: {
     typeof performance !== "undefined" ? performance.now() : Date.now();
 
   try {
+    const sourceImage = await runWithTimeout(
+      loadImageFromDataUrl(params.imageDataUrl),
+      timeoutMs,
+      "On-device OCR image decoding timed out.",
+    );
+
+    const scaledCanvas = buildScaledCanvas(sourceImage, CLIENT_OCR_MAX_SIDE_PX);
+    const orientedCanvas = rotateCanvasToPortrait(scaledCanvas);
+    const enhancedCanvas = buildEnhancedCanvas(orientedCanvas);
+    const processedCanvas = cropCanvasToReceiptContent(enhancedCanvas);
+    const qrPayload = await tryDecodeReceiptQrPayload({
+      sourceCanvas: orientedCanvas,
+      processedCanvas,
+    });
+
+    if (
+      qrPayload &&
+      qrPayload.sourceAmount !== null &&
+      qrPayload.spentAt !== null
+    ) {
+      const suggestion = mapOcrOutputToSuggestion({
+        rawOutput: null,
+        tripCurrency: params.tripCurrency,
+        qrPayload,
+      });
+      const finishedAt =
+        typeof performance !== "undefined" ? performance.now() : Date.now();
+      return {
+        ok: true,
+        suggestion,
+        meta: {
+          durationMs: Math.max(0, Math.round(finishedAt - startedAt)),
+          lineCount: countReadableLines(suggestion.rawText),
+          textLength: suggestion.rawText?.length ?? 0,
+        },
+      };
+    }
+
+    const processedDataUrl = processedCanvas.toDataURL("image/png");
     const runtime = await runWithTimeout(
       getBrowserOcrRuntime(timeoutMs),
       timeoutMs,
       "On-device OCR model loading timed out.",
     );
 
-    const sourceImage = await runWithTimeout(
-      loadImageFromDataUrl(params.imageDataUrl),
-      timeoutMs,
-      "On-device OCR image decoding timed out.",
-    );
-    const scaledCanvas = buildScaledCanvas(sourceImage, CLIENT_OCR_MAX_SIDE_PX);
-    const processedCanvas = buildEnhancedCanvas(scaledCanvas);
-    const processedDataUrl = processedCanvas.toDataURL("image/png");
-
-    const rawOutput = await runWithTimeout(
-      runtime.ocr(processedDataUrl),
-      timeoutMs,
-      "On-device OCR processing timed out.",
-    );
+    let rawOutput: unknown;
+    try {
+      rawOutput = await runWithTimeout(
+        runtime.ocr(processedDataUrl),
+        timeoutMs,
+        "On-device OCR processing timed out.",
+      );
+    } catch (error) {
+      if (qrPayload && (qrPayload.sourceAmount !== null || qrPayload.spentAt !== null)) {
+        rawOutput = null;
+      } else {
+        throw error;
+      }
+    }
 
     const suggestion = mapOcrOutputToSuggestion({
       rawOutput,
       tripCurrency: params.tripCurrency,
+      qrPayload,
     });
     if (!hasMeaningfulSuggestion(suggestion)) {
       return toFailure(
@@ -653,19 +670,13 @@ export const runClientTravelReceiptOcr = async (params: {
 
     const finishedAt =
       typeof performance !== "undefined" ? performance.now() : Date.now();
-    const rawTextLength = suggestion.rawText?.length ?? 0;
-    const lineCount =
-      suggestion.rawText
-        ?.split(/\r?\n/)
-        .map((line) => normalizeLineText(line))
-        .filter((line) => line.length > 0).length ?? 0;
     return {
       ok: true,
       suggestion,
       meta: {
         durationMs: Math.max(0, Math.round(finishedAt - startedAt)),
-        lineCount,
-        textLength: rawTextLength,
+        lineCount: countReadableLines(suggestion.rawText),
+        textLength: suggestion.rawText?.length ?? 0,
       },
     };
   } catch (error) {

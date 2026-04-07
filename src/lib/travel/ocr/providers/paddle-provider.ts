@@ -16,6 +16,13 @@ import {
   parseProviderErrorPayload,
   toCompactSnippet,
 } from "@/lib/travel/ocr/provider-utils";
+import {
+  buildReceiptFieldQualityFromExtraction,
+  collectReceiptTextLinesFromUnknown,
+  extractReceiptInsights,
+  parseReceiptQrPayload,
+  type TravelReceiptQrPayload,
+} from "@/lib/travel/ocr/receipt-heuristics";
 
 const SUGGESTION_KEYS = [
   "sourceAmount",
@@ -29,19 +36,6 @@ const SUGGESTION_KEYS = [
   "fieldQuality",
 ] as const;
 
-const CURRENCY_SYMBOL_MAP: Record<string, string> = {
-  "$": "USD",
-  "€": "EUR",
-  "£": "GBP",
-  "¥": "JPY",
-  "₽": "RUB",
-};
-
-const RECEIPT_CURRENCY_ALIASES: Record<string, string> = {
-  RUR: "RUB",
-  US$: "USD",
-};
-
 const toSafeObject = (value: unknown): Record<string, unknown> | null => {
   if (!value || typeof value !== "object") {
     return null;
@@ -50,10 +44,10 @@ const toSafeObject = (value: unknown): Record<string, unknown> | null => {
   return value as Record<string, unknown>;
 };
 
-const looksLikeSuggestionPayload = (
-  payload: Record<string, unknown>,
-): boolean => {
-  return SUGGESTION_KEYS.some((key) => Object.prototype.hasOwnProperty.call(payload, key));
+const looksLikeSuggestionPayload = (payload: Record<string, unknown>): boolean => {
+  return SUGGESTION_KEYS.some((key) =>
+    Object.prototype.hasOwnProperty.call(payload, key),
+  );
 };
 
 const extractTextFromPayload = (payload: Record<string, unknown>): string | null => {
@@ -72,189 +66,197 @@ const extractTextFromPayload = (payload: Record<string, unknown>): string | null
         if (typeof line === "string") {
           return line.trim();
         }
-
         if (line && typeof line === "object") {
           const lineObj = line as Record<string, unknown>;
           if (typeof lineObj.text === "string") {
             return lineObj.text.trim();
           }
         }
-
         return "";
       })
       .filter((line) => line.length > 0);
-
     if (lineTexts.length > 0) {
       return lineTexts.join("\n");
     }
   }
 
+  const recursiveLines = collectReceiptTextLinesFromUnknown(payload, 4);
+  if (recursiveLines.length > 0) {
+    return recursiveLines.join("\n");
+  }
+
   return null;
 };
 
-const parseReceiptAmount = (rawText: string): number | null => {
-  const amountTokens = rawText.match(/\d{1,3}(?:[ \u00A0.,]\d{3})*(?:[.,]\d{2})|\d+[.,]\d{2}/g);
-  if (!amountTokens || amountTokens.length === 0) {
-    return null;
-  }
-
-  const candidates = amountTokens
-    .map((token) => Number(token.replace(/\s+/g, "").replace(",", ".")))
-    .filter((value) => Number.isFinite(value) && value > 0 && value < 10_000_000);
-
-  if (candidates.length === 0) {
-    return null;
-  }
-
-  const bestCandidate = Math.max(...candidates);
-  return Number(bestCandidate.toFixed(2));
-};
-
-const parseReceiptCurrency = (rawText: string, tripCurrency: string): string | null => {
-  for (const [symbol, currency] of Object.entries(CURRENCY_SYMBOL_MAP)) {
-    if (rawText.includes(symbol)) {
-      return currency;
-    }
-  }
-
-  const currencyMatch = rawText.match(/\b[A-Z]{3}\b/g);
-  if (currencyMatch) {
-    for (const entry of currencyMatch) {
-      const normalized = RECEIPT_CURRENCY_ALIASES[entry] ?? entry;
-      if (/^[A-Z]{3}$/.test(normalized)) {
-        return normalized;
+const extractQrPayloadFromCandidate = (
+  payload: Record<string, unknown>,
+): TravelReceiptQrPayload | null => {
+  const directQrKeys = ["qr", "qrText", "qrRawText", "qrValue"] as const;
+  for (const key of directQrKeys) {
+    const value = payload[key];
+    if (typeof value === "string") {
+      const parsed = parseReceiptQrPayload(value);
+      if (parsed) {
+        return parsed;
       }
     }
   }
 
-  return tripCurrency;
-};
-
-const parseReceiptDate = (rawText: string): string | null => {
-  const dayFirst = rawText.match(/\b(\d{1,2})[./-](\d{1,2})[./-](\d{4})(?:\s+(\d{1,2}):(\d{2}))?\b/);
-  if (dayFirst) {
-    const day = Number(dayFirst[1]);
-    const month = Number(dayFirst[2]);
-    const year = Number(dayFirst[3]);
-    const hour = dayFirst[4] ? Number(dayFirst[4]) : 12;
-    const minute = dayFirst[5] ? Number(dayFirst[5]) : 0;
-    const parsed = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toISOString();
-    }
-  }
-
-  const iso = rawText.match(/\b(20\d{2})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?\b/);
-  if (iso) {
-    const year = Number(iso[1]);
-    const month = Number(iso[2]);
-    const day = Number(iso[3]);
-    const hour = iso[4] ? Number(iso[4]) : 12;
-    const minute = iso[5] ? Number(iso[5]) : 0;
-    const parsed = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
-    if (!Number.isNaN(parsed.getTime())) {
-      return parsed.toISOString();
+  const qrObject = toSafeObject(payload.qrData ?? payload.qr_data);
+  if (qrObject) {
+    const possibleRaw =
+      typeof qrObject.rawValue === "string"
+        ? qrObject.rawValue
+        : typeof qrObject.raw === "string"
+          ? qrObject.raw
+          : null;
+    if (possibleRaw) {
+      const parsed = parseReceiptQrPayload(possibleRaw);
+      if (parsed) {
+        return parsed;
+      }
     }
   }
 
   return null;
 };
 
-const parseReceiptDescription = (rawText: string): string | null => {
-  const lines = rawText
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-
-  const descriptiveLine = lines.find((line) => {
-    const alphaChars = line.replace(/[^A-Za-zА-Яа-я]/g, "");
-    return alphaChars.length >= 3;
-  });
-
-  if (!descriptiveLine) {
-    return null;
+const qualityRank = (value: string | undefined): number => {
+  if (value === "high") {
+    return 4;
   }
-
-  return descriptiveLine.slice(0, 240);
+  if (value === "medium") {
+    return 3;
+  }
+  if (value === "low") {
+    return 2;
+  }
+  return 1;
 };
 
-const inferReceiptCategory = (rawText: string): string | null => {
-  const normalized = rawText.toLowerCase();
-  if (
-    normalized.includes("taxi") ||
-    normalized.includes("uber") ||
-    normalized.includes("metro") ||
-    normalized.includes("bus") ||
-    normalized.includes("transport")
-  ) {
-    return "Transport";
+const pickHigherQuality = (left: string, right: string): string => {
+  return qualityRank(right) > qualityRank(left) ? right : left;
+};
+
+const mergeFieldQuality = (params: {
+  base: TravelReceiptOcrSuggestion["fieldQuality"];
+  derived: TravelReceiptOcrSuggestion["fieldQuality"];
+}): TravelReceiptOcrSuggestion["fieldQuality"] => {
+  const merged = createDefaultTravelReceiptOcrFieldQuality();
+  for (const key of Object.keys(merged) as Array<keyof TravelReceiptOcrSuggestion["fieldQuality"]>) {
+    merged[key] = pickHigherQuality(params.base[key], params.derived[key]) as TravelReceiptOcrSuggestion["fieldQuality"][typeof key];
+  }
+  return merged;
+};
+
+const enrichSuggestionWithReceiptHeuristics = (params: {
+  suggestion: TravelReceiptOcrSuggestion;
+  tripCurrency: string;
+  qrPayload: TravelReceiptQrPayload | null;
+}): TravelReceiptOcrSuggestion => {
+  const rawText = params.suggestion.rawText ?? "";
+  const extraction = extractReceiptInsights({
+    rawText,
+    tripCurrency: params.tripCurrency,
+    qrPayload: params.qrPayload,
+  });
+
+  const extractedFieldQuality = buildReceiptFieldQualityFromExtraction(extraction);
+  const next = { ...params.suggestion };
+
+  const shouldPreferExtractedAmount =
+    params.qrPayload?.sourceAmount !== null ||
+    next.sourceAmount === null ||
+    next.fieldQuality.sourceAmount === "low" ||
+    next.fieldQuality.sourceAmount === "missing";
+  if (shouldPreferExtractedAmount && extraction.sourceAmount !== null) {
+    next.sourceAmount = extraction.sourceAmount;
+  }
+
+  const shouldPreferExtractedCurrency =
+    params.qrPayload?.sourceCurrency !== null ||
+    next.sourceCurrency === null ||
+    next.fieldQuality.sourceCurrency === "low" ||
+    next.fieldQuality.sourceCurrency === "missing";
+  if (shouldPreferExtractedCurrency && extraction.sourceCurrency !== null) {
+    next.sourceCurrency = extraction.sourceCurrency;
+  }
+
+  const shouldPreferExtractedDate =
+    params.qrPayload?.spentAt !== null ||
+    next.spentAt === null ||
+    next.fieldQuality.spentAt === "low" ||
+    next.fieldQuality.spentAt === "missing";
+  if (shouldPreferExtractedDate && extraction.spentAt !== null) {
+    next.spentAt = extraction.spentAt;
   }
 
   if (
-    normalized.includes("hotel") ||
-    normalized.includes("booking") ||
-    normalized.includes("hostel") ||
-    normalized.includes("stay")
+    (next.merchant === null ||
+      next.fieldQuality.merchant === "low" ||
+      next.fieldQuality.merchant === "missing") &&
+    extraction.merchant !== null
   ) {
-    return "Stay";
+    next.merchant = extraction.merchant;
   }
 
   if (
-    normalized.includes("restaurant") ||
-    normalized.includes("cafe") ||
-    normalized.includes("coffee") ||
-    normalized.includes("food")
+    (next.description === null ||
+      next.fieldQuality.description === "low" ||
+      next.fieldQuality.description === "missing") &&
+    extraction.description !== null
   ) {
-    return "Food";
+    next.description = extraction.description;
   }
 
-  return "General";
+  if (
+    (next.category === null ||
+      next.fieldQuality.category === "missing") &&
+    extraction.category !== null
+  ) {
+    next.category = extraction.category;
+  }
+
+  if (extraction.rawText) {
+    next.rawText = extraction.rawText;
+  }
+
+  next.fieldQuality = mergeFieldQuality({
+    base: next.fieldQuality,
+    derived: extractedFieldQuality,
+  });
+
+  return normalizeTravelReceiptOcrSuggestion(next);
 };
 
 const buildSuggestionFromRawText = (params: {
   rawText: string;
   tripCurrency: string;
+  qrPayload: TravelReceiptQrPayload | null;
 }): TravelReceiptOcrSuggestion => {
-  const quality = createDefaultTravelReceiptOcrFieldQuality();
-  const sourceAmount = parseReceiptAmount(params.rawText);
-  const sourceCurrency = parseReceiptCurrency(params.rawText, params.tripCurrency);
-  const spentAt = parseReceiptDate(params.rawText);
-  const description = parseReceiptDescription(params.rawText);
-  const category = inferReceiptCategory(params.rawText);
-
-  if (sourceAmount !== null) {
-    quality.sourceAmount = "medium";
-  }
-  if (sourceCurrency !== null) {
-    quality.sourceCurrency = "medium";
-  }
-  if (spentAt !== null) {
-    quality.spentAt = "low";
-  }
-  if (description !== null) {
-    quality.description = "medium";
-    quality.merchant = "low";
-  }
-  if (category !== null) {
-    quality.category = "low";
-  }
+  const extraction = extractReceiptInsights({
+    rawText: params.rawText,
+    tripCurrency: params.tripCurrency,
+    qrPayload: params.qrPayload,
+  });
 
   return normalizeTravelReceiptOcrSuggestion({
-    sourceAmount,
-    sourceCurrency,
-    spentAt,
-    merchant: null,
-    description,
-    category,
+    sourceAmount: extraction.sourceAmount,
+    sourceCurrency: extraction.sourceCurrency,
+    spentAt: extraction.spentAt,
+    merchant: extraction.merchant,
+    description: extraction.description,
+    category: extraction.category,
     conversionRate: null,
-    rawText: params.rawText.slice(0, 8000),
-    fieldQuality: quality,
+    rawText: extraction.rawText,
+    fieldQuality: buildReceiptFieldQualityFromExtraction(extraction),
   });
 };
 
 const extractSuggestionPayload = (payload: Record<string, unknown>): {
   suggestion: TravelReceiptOcrSuggestion | null;
   rawTextHint: string | null;
+  qrPayload: TravelReceiptQrPayload | null;
 } => {
   const candidates: Record<string, unknown>[] = [payload];
   const dataObject = toSafeObject(payload.data);
@@ -267,11 +269,19 @@ const extractSuggestionPayload = (payload: Record<string, unknown>): {
     candidates.push(resultObject);
   }
 
+  let qrPayload: TravelReceiptQrPayload | null = null;
+  for (const candidate of candidates) {
+    if (!qrPayload) {
+      qrPayload = extractQrPayloadFromCandidate(candidate);
+    }
+  }
+
   for (const candidate of candidates) {
     if (looksLikeSuggestionPayload(candidate)) {
       return {
         suggestion: normalizeTravelReceiptOcrSuggestion(candidate),
         rawTextHint: null,
+        qrPayload,
       };
     }
   }
@@ -282,6 +292,7 @@ const extractSuggestionPayload = (payload: Record<string, unknown>): {
       return {
         suggestion: null,
         rawTextHint: text,
+        qrPayload,
       };
     }
   }
@@ -289,6 +300,7 @@ const extractSuggestionPayload = (payload: Record<string, unknown>): {
   return {
     suggestion: null,
     rawTextHint: null,
+    qrPayload,
   };
 };
 
@@ -416,14 +428,19 @@ export const runTravelReceiptOcrWithPaddle = async (params: {
     }
 
     const extracted = extractSuggestionPayload(payload);
-    const suggestion =
-      extracted.suggestion ??
-      (extracted.rawTextHint
+    const suggestion = extracted.suggestion
+      ? enrichSuggestionWithReceiptHeuristics({
+          suggestion: extracted.suggestion,
+          tripCurrency: params.input.tripCurrency,
+          qrPayload: extracted.qrPayload,
+        })
+      : extracted.rawTextHint
         ? buildSuggestionFromRawText({
             rawText: extracted.rawTextHint,
             tripCurrency: params.input.tripCurrency,
+            qrPayload: extracted.qrPayload,
           })
-        : null);
+        : null;
 
     if (!suggestion) {
       logTravelOcrDiagnostics({
@@ -452,7 +469,9 @@ export const runTravelReceiptOcrWithPaddle = async (params: {
       kind: "INTERNAL_ERROR",
       endpoint: params.endpoint,
       errorMessage:
-        error instanceof Error ? toCompactSnippet(error.message) : "Unknown OCR internal error",
+        error instanceof Error
+          ? toCompactSnippet(error.message)
+          : "Unknown OCR internal error",
     });
     return buildProviderFailure({
       provider: "paddle",

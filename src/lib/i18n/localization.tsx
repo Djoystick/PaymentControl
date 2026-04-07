@@ -1550,6 +1550,7 @@ const ruTranslations: Record<string, string> = {
   "OCR assistant JSON parsing failed.": "Не удалось разобрать JSON ответа OCR помощника.",
   "OCR assistant returned invalid object payload.": "OCR помощник вернул некорректный объект данных.",
   "OCR result was created but failed to update receipt draft.": "OCR результат получен, но обновить черновик чека не удалось.",
+  "Clean OCR preview for manual verification.": "Очищенный OCR-фрагмент для ручной проверки.",
   "Travel request failed on server. Try again in a moment.": "Запрос к поездкам завершился ошибкой на сервере. Повторите через минуту.",
   "Receipt draft parsed but failed to refresh trip snapshot.": "Черновик чека распознан, но обновить снимок поездки не удалось.",
   "Finalized receipt draft is linked to saved expense and cannot be deleted.": "Финализированный черновик чека связан с сохраненной тратой и не может быть удален.",

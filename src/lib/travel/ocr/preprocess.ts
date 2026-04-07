@@ -49,7 +49,10 @@ export const preprocessTravelReceiptImageForOcr = (params: {
       adaptiveThreshold: true,
       deskew: true,
       cropToReceipt: true,
-      maxSidePx: 2200,
+      perspectiveCorrection: true,
+      denoise: true,
+      qrFirst: true,
+      maxSidePx: 2400,
     },
   };
 };

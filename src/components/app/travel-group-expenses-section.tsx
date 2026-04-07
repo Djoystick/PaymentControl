@@ -3727,13 +3727,15 @@ export function TravelGroupExpensesSection({
       onClose={() => setIsReceiptRawTextModalOpen(false)}
       title={tr("OCR text snippet")}
       titleIcon={<AppIcon name="template" className="h-3.5 w-3.5" />}
-      description={tr("Raw OCR output preview for manual verification.")}
+      description={tr("Clean OCR preview for manual verification.")}
       widthClassName="max-w-lg"
       overlayClassName="z-[99]"
     >
-      <p className="whitespace-pre-wrap text-[11px] text-app-text-muted">
-        {activeReceiptReview?.ocrRawText?.slice(0, 900) ?? ""}
-      </p>
+      <div className="max-h-72 overflow-y-auto rounded-xl border border-app-border/70 bg-app-surface/70 px-2 py-2">
+        <p className="whitespace-pre-wrap text-[11px] leading-5 text-app-text-muted">
+          {activeReceiptReview?.ocrRawText?.slice(0, 1600) ?? ""}
+        </p>
+      </div>
     </ModalSheet>
   );
 
