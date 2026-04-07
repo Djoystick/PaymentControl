@@ -669,6 +669,9 @@ export function TravelGroupExpensesSection({
   const [activeReceiptReviewId, setActiveReceiptReviewId] = useState<string | null>(
     null,
   );
+  const [receiptImagePreviewDraftId, setReceiptImagePreviewDraftId] = useState<string | null>(
+    null,
+  );
   const [isReceiptRawTextModalOpen, setIsReceiptRawTextModalOpen] = useState(false);
   const [highlightedExpenseId, setHighlightedExpenseId] = useState<string | null>(
     null,
@@ -1398,11 +1401,27 @@ export function TravelGroupExpensesSection({
     return receiptDrafts.find((draft) => draft.id === activeReceiptReviewId) ?? null;
   }, [activeReceiptReviewId, receiptDrafts]);
 
+  const activeReceiptImagePreview = useMemo(() => {
+    if (!receiptImagePreviewDraftId) {
+      return null;
+    }
+
+    return receiptDrafts.find((draft) => draft.id === receiptImagePreviewDraftId) ?? null;
+  }, [receiptDrafts, receiptImagePreviewDraftId]);
+
   useEffect(() => {
     if (!activeReceiptReviewId) {
       setIsReceiptRawTextModalOpen(false);
     }
   }, [activeReceiptReviewId]);
+
+  useEffect(() => {
+    if (!receiptImagePreviewDraftId || activeReceiptImagePreview) {
+      return;
+    }
+
+    setReceiptImagePreviewDraftId(null);
+  }, [activeReceiptImagePreview, receiptImagePreviewDraftId]);
 
   const linkedExpenseForActiveReceipt = useMemo(() => {
     if (!selectedTrip || !activeReceiptReview?.finalizedExpenseId) {
@@ -1670,6 +1689,7 @@ export function TravelGroupExpensesSection({
       setPrefillReviewFields([]);
       setActiveReceiptReviewId(null);
       setIsReceiptRawTextModalOpen(false);
+      setReceiptImagePreviewDraftId(null);
       setHighlightedExpenseId(null);
       setActiveTripInvite(null);
       setInviteCopyState("idle");
@@ -1718,6 +1738,13 @@ export function TravelGroupExpensesSection({
       setActiveReceiptReviewId(null);
     }
 
+    if (
+      receiptImagePreviewDraftId &&
+      !selectedTrip.receiptDrafts.some((draft) => draft.id === receiptImagePreviewDraftId)
+    ) {
+      setReceiptImagePreviewDraftId(null);
+    }
+
     if (attachedReceiptDraft?.status === "finalized") {
       setAttachedReceiptDraftId(null);
       setPrefillReviewFields([]);
@@ -1726,11 +1753,17 @@ export function TravelGroupExpensesSection({
     setPendingDeleteExpenseId(null);
     setAllowCloseWithUnsettledConfirm(false);
     setAllowArchiveTripConfirm(false);
+
+    if (attachedReceiptDraftId) {
+      return;
+    }
+
     resetExpenseDraftToDefaults(selectedTrip);
   }, [
     attachedReceiptDraft,
     attachedReceiptDraftId,
     activeReceiptReviewId,
+    receiptImagePreviewDraftId,
     editingMemberId,
     editingExpenseId,
     resetExpenseDraftToDefaults,
@@ -2616,6 +2649,9 @@ export function TravelGroupExpensesSection({
       setPendingDeleteExpenseId(null);
       setAttachedReceiptDraftId(receiptDraft.id);
       setPrefillReviewFields(derivePrefillReviewFields(receiptDraft));
+      setIsReceiptRawTextModalOpen(false);
+      setActiveReceiptReviewId(null);
+      setIsReceiptPanelOpen(false);
       setExpenseDraft((current) =>
         createExpenseDraftFromReceiptSuggestion({
           trip: selectedTrip,
@@ -3472,6 +3508,14 @@ export function TravelGroupExpensesSection({
                     className="h-44 w-full object-cover sm:h-52"
                   />
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setReceiptImagePreviewDraftId(activeReceiptReview.id)}
+                  className="pc-btn-secondary"
+                >
+                  <AppIcon name="template" className="h-3.5 w-3.5" />
+                  {tr("Open full receipt")}
+                </button>
 
                 <div className="pc-state-card space-y-1">
                   <p className="text-xs font-semibold text-app-text">
@@ -3690,6 +3734,33 @@ export function TravelGroupExpensesSection({
       <p className="whitespace-pre-wrap text-[11px] text-app-text-muted">
         {activeReceiptReview?.ocrRawText?.slice(0, 900) ?? ""}
       </p>
+    </ModalSheet>
+  );
+
+  const receiptImagePreviewModal = (
+    <ModalSheet
+      open={Boolean(activeReceiptImagePreview)}
+      onClose={() => setReceiptImagePreviewDraftId(null)}
+      title={tr("Receipt preview")}
+      titleIcon={<AppIcon name="template" className="h-3.5 w-3.5" />}
+      description={tr("Open full-size preview for easier amount/date verification.")}
+      widthClassName="max-w-5xl"
+      overlayClassName="z-[100]"
+    >
+      {activeReceiptImagePreview && (
+        <div className="space-y-2">
+          <div className="overflow-hidden rounded-xl border border-app-border/70 bg-black/80">
+            <img
+              src={activeReceiptImagePreview.imageDataUrl}
+              alt={tr("Receipt photo")}
+              className="mx-auto h-auto max-h-[calc(100dvh-13rem)] w-full object-contain"
+            />
+          </div>
+          <p className="text-[11px] text-app-text-muted">
+            {activeReceiptImagePreview.imageFileName ?? tr("Receipt photo")}
+          </p>
+        </div>
+      )}
     </ModalSheet>
   );
 
@@ -4918,10 +4989,31 @@ export function TravelGroupExpensesSection({
                         {tr("OCR quality is stable. Still review before saving.")}
                       </p>
                     )}
-                    <div className="mt-2 flex flex-wrap gap-1.5">
+                    <div className="mt-2 flex flex-wrap items-start gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setReceiptImagePreviewDraftId(attachedReceiptDraft.id)}
+                        className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-app-border/60 bg-app-surface/70"
+                        aria-label={tr("Open full receipt")}
+                      >
+                        <img
+                          src={attachedReceiptDraft.imageDataUrl}
+                          alt={tr("Receipt photo")}
+                          className="h-full w-full object-cover"
+                        />
+                      </button>
                       <span className="pc-chip">
                         {attachedReceiptDraft.imageFileName ?? tr("Receipt photo")}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => setReceiptImagePreviewDraftId(attachedReceiptDraft.id)}
+                        disabled={isExpenseSaveInProgress || isDeletingExpenseId !== null}
+                        className="pc-btn-secondary"
+                      >
+                        <AppIcon name="template" className="h-3.5 w-3.5" />
+                        {tr("Open full receipt")}
+                      </button>
                       <button
                         type="button"
                         onClick={() => {
@@ -5792,6 +5884,7 @@ export function TravelGroupExpensesSection({
       {joinTripModal}
       {receiptReviewModal}
       {receiptRawTextModal}
+      {receiptImagePreviewModal}
     </section>
   );
 }
