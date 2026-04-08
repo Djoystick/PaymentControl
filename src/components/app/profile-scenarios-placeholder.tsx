@@ -30,12 +30,14 @@ import { TravelGroupExpensesSection } from "@/components/app/travel-group-expens
 import { HelpPopover } from "@/components/app/help-popover";
 import { AppIcon } from "@/components/app/app-icon";
 import { ModalDisclosure } from "@/components/app/modal-disclosure";
+import { ModalSheet } from "@/components/app/modal-sheet";
 import { clientEnv } from "@/lib/config/client-env";
 import { ThemeProvider, useTheme } from "@/lib/theme/theme-context";
 import { buildBugReportRuntimeContextPayload } from "@/lib/app/context-memory";
 import {
   filterSubscriptionGuides,
   getGuideCategoryLabel,
+  getGuideChannelLabel,
   getLocalizedGuideText,
   subscriptionCancellationGuidesCatalog,
   subscriptionGuideCategories,
@@ -75,6 +77,28 @@ const formatDateTime = (value: string | null, noExpiryLabel = "No expiry"): stri
 const normalizeTelegramUserIdInput = (value: string): string => {
   return value.replace(/\D+/g, "").slice(0, 20);
 };
+
+const guideUiCopy = {
+  findService: { ru: "Найдите сервис", en: "Find service" },
+  searchPlaceholder: { ru: "Поиск по названию, каналу или ключевым словам", en: "Search by service name, channel, or keyword" },
+  categories: { ru: "Категории", en: "Categories" },
+  allCategories: { ru: "Все категории", en: "All categories" },
+  popularServices: { ru: "Популярные сервисы", en: "Popular services" },
+  servicesFound: { ru: "Найдено инструкций: {count}", en: "{count} guides found" },
+  openGuide: { ru: "Открыть инструкцию", en: "Open guide" },
+  checkedOn: { ru: "Проверено: {date}", en: "Verified on {date}" },
+  channels: { ru: "Канал отключения", en: "Cancellation channels" },
+  whatIsDisabled: { ru: "Что отключаем", en: "What is being disabled" },
+  steps: { ru: "Пошагово", en: "Step-by-step" },
+  checkResult: { ru: "Как понять, что отключено", en: "How to verify cancellation" },
+  appStoreGooglePlay: { ru: "Если оформляли через App Store / Google Play", en: "If billed via App Store / Google Play" },
+  importantNotes: { ru: "Важные примечания", en: "Important notes" },
+  supportNote: { ru: "Куда писать, если не получилось", en: "Support note" },
+  officialSources: { ru: "Официальные источники", en: "Official sources" },
+  staleNotice: { ru: "Если интерфейс сервиса изменился, сверяйтесь с официальной страницей из списка ниже.", en: "If service UI changed, cross-check with official source links below." },
+  noGuides: { ru: "По текущему запросу инструкции не найдены.", en: "No guides found for current query." },
+  clearSearch: { ru: "Очистить поиск", en: "Clear guide search" },
+} as const;
 
 function ProfileScenariosContent() {
   const { tr, language, setLanguage } = useLocalization();
@@ -148,6 +172,7 @@ function ProfileScenariosContent() {
   const [selectedCancellationGuideId, setSelectedCancellationGuideId] = useState(
     subscriptionCancellationGuidesCatalog[0]?.id ?? "",
   );
+  const [isGuideDetailsOpen, setIsGuideDetailsOpen] = useState(false);
 
   const sourceLabel = useMemo(() => {
     if (source === "telegram") {
@@ -205,6 +230,16 @@ function ProfileScenariosContent() {
       ) ?? filteredCancellationGuides[0]
     );
   }, [filteredCancellationGuides, selectedCancellationGuideId]);
+
+  useEffect(() => {
+    if (!selectedCancellationGuide) {
+      setIsGuideDetailsOpen(false);
+    }
+  }, [selectedCancellationGuide]);
+
+  const guideText = (value: { ru: string; en: string }): string => {
+    return getLocalizedGuideText(value, language);
+  };
 
   useEffect(() => {
     const syncOnboardingFlagState = () => {
@@ -819,18 +854,18 @@ function ProfileScenariosContent() {
         {selectedCancellationGuide ? (
           <div className="space-y-2">
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-app-text">{tr("Find service")}</p>
+              <p className="text-xs font-semibold text-app-text">{guideText(guideUiCopy.findService)}</p>
               <input
                 type="search"
                 value={guideSearchQuery}
                 onChange={(event) => setGuideSearchQuery(event.target.value)}
-                placeholder={tr("Search by service name or keyword")}
+                placeholder={guideText(guideUiCopy.searchPlaceholder)}
                 className="pc-input"
               />
             </div>
 
             <div className="space-y-1">
-              <p className="text-xs font-semibold text-app-text">{tr("Categories")}</p>
+              <p className="text-xs font-semibold text-app-text">{guideText(guideUiCopy.categories)}</p>
               <div className="flex flex-wrap gap-1.5">
                 <button
                   type="button"
@@ -840,7 +875,7 @@ function ProfileScenariosContent() {
                     guideCategoryFilter === "all" ? "pc-segment-btn-active" : ""
                   }`}
                 >
-                  {tr("All categories")}
+                  {guideText(guideUiCopy.allCategories)}
                 </button>
                 {subscriptionGuideCategories.map((category) => (
                   <button
@@ -860,7 +895,7 @@ function ProfileScenariosContent() {
 
             {guideCategoryFilter === "all" && guideSearchQuery.trim().length === 0 && (
               <div className="space-y-1">
-                <p className="text-xs font-semibold text-app-text">{tr("Popular services")}</p>
+                <p className="text-xs font-semibold text-app-text">{guideText(guideUiCopy.popularServices)}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {featuredCancellationGuides.map((guide) => (
                     <button
@@ -878,148 +913,189 @@ function ProfileScenariosContent() {
               </div>
             )}
 
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-app-text">{tr("Service")}</p>
-              <select
-                value={selectedCancellationGuide.id}
-                onChange={(event) => setSelectedCancellationGuideId(event.target.value)}
-                className="pc-select"
-              >
-                {filteredCancellationGuides.map((guide) => (
-                  <option key={guide.id} value={guide.id}>
+            <p className="text-[11px] text-app-text-muted">
+              {guideText(guideUiCopy.servicesFound).replace(
+                "{count}",
+                String(filteredCancellationGuides.length),
+              )}
+            </p>
+
+            <div className="space-y-1.5">
+              {filteredCancellationGuides.map((guide) => (
+                <button
+                  key={guide.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedCancellationGuideId(guide.id);
+                    setIsGuideDetailsOpen(true);
+                  }}
+                  className={`pc-state-card w-full px-3 py-2 text-left hover:bg-app-surface-soft ${
+                    selectedCancellationGuide.id === guide.id ? "border-app-accent/40" : ""
+                  }`}
+                >
+                  <p className="text-sm font-semibold text-app-text">
                     {getLocalizedGuideText(guide.displayName, language)}
-                  </option>
-                ))}
-              </select>
-              <p className="text-[11px] text-app-text-muted">
-                {tr("{count} guides found", { count: filteredCancellationGuides.length })}
-              </p>
+                  </p>
+                  <p className="mt-1 text-xs text-app-text-muted">
+                    {getGuideCategoryLabel(guide.categoryId, language)} -{" "}
+                    {getLocalizedGuideText(guide.shortDescription, language)}
+                  </p>
+                  <p className="mt-1 text-[11px] text-app-text-muted">
+                    {guideText(guideUiCopy.checkedOn).replace("{date}", guide.verifiedOn)}
+                  </p>
+                  <span className="pc-btn-quiet mt-2 inline-flex">
+                    <AppIcon name="help" className="h-3.5 w-3.5" />
+                    {guideText(guideUiCopy.openGuide)}
+                  </span>
+                </button>
+              ))}
             </div>
 
-            <div className="pc-state-card px-3 py-2">
-              <p className="text-sm font-semibold text-app-text">
-                {getLocalizedGuideText(selectedCancellationGuide.displayName, language)}
-              </p>
-              <p className="mt-1 text-xs text-app-text-muted">
-                {getGuideCategoryLabel(selectedCancellationGuide.categoryId, language)} -{" "}
-                {getLocalizedGuideText(
-                  selectedCancellationGuide.shortDescription,
-                  language,
-                )}
-              </p>
-              <p className="mt-1 text-[11px] text-app-text-muted">
-                {tr("Verified on {date}", { date: selectedCancellationGuide.verifiedOn })}
-              </p>
-            </div>
+            <p className="text-[11px] text-app-text-muted">{guideText(guideUiCopy.staleNotice)}</p>
 
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                {tr("Steps")}
-              </p>
-              <ol className="mt-1.5 space-y-1.5">
-                {selectedCancellationGuide.steps.map((step, index) => (
-                  <li
-                    key={`${selectedCancellationGuide.id}-step-${index}`}
-                    className="pc-state-card px-3 py-2 text-xs text-app-text"
-                  >
-                    {getLocalizedGuideText(step, language)}
-                  </li>
-                ))}
-              </ol>
-            </div>
+            <ModalSheet
+              open={isGuideDetailsOpen}
+              onClose={() => setIsGuideDetailsOpen(false)}
+              title={getLocalizedGuideText(selectedCancellationGuide.displayName, language)}
+              titleIcon={<AppIcon name="help" className="h-3.5 w-3.5" />}
+              description={getLocalizedGuideText(selectedCancellationGuide.shortDescription, language)}
+              widthClassName="max-w-3xl"
+              overlayClassName="z-[98]"
+            >
+              <div className="space-y-2">
+                <div className="pc-state-card px-3 py-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                    {guideText(guideUiCopy.whatIsDisabled)}
+                  </p>
+                  <p className="mt-1 text-sm text-app-text">
+                    {getLocalizedGuideText(selectedCancellationGuide.cancellationScope, language)}
+                  </p>
+                  <p className="mt-1 text-[11px] text-app-text-muted">
+                    {guideText(guideUiCopy.checkedOn).replace(
+                      "{date}",
+                      selectedCancellationGuide.verifiedOn,
+                    )}
+                  </p>
+                </div>
 
-            {selectedCancellationGuide.notes.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                  {tr("Important notes")}
-                </p>
-                <ul className="mt-1.5 space-y-1.5">
-                  {selectedCancellationGuide.notes.map((note, index) => (
-                    <li
-                      key={`${selectedCancellationGuide.id}-note-${index}`}
-                      className="pc-state-card px-3 py-2 text-xs text-app-text-muted"
-                    >
-                      {getLocalizedGuideText(note, language)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                    {guideText(guideUiCopy.channels)}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedCancellationGuide.cancellationChannels.map((channelId) => (
+                      <span key={`${selectedCancellationGuide.id}-${channelId}`} className="pc-chip">
+                        {getGuideChannelLabel(channelId, language)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
 
-            {selectedCancellationGuide.regionContextNote && (
-              <div className="pc-state-card px-3 py-2 text-xs text-app-text-muted">
-                <p className="font-semibold text-app-text">{tr("Region/context note")}</p>
-                <p className="mt-1">
-                  {getLocalizedGuideText(selectedCancellationGuide.regionContextNote, language)}
-                </p>
-              </div>
-            )}
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                    {guideText(guideUiCopy.steps)}
+                  </p>
+                  <ol className="mt-1.5 space-y-1.5">
+                    {selectedCancellationGuide.steps.map((step, index) => (
+                      <li
+                        key={`${selectedCancellationGuide.id}-step-${index}`}
+                        className="pc-state-card px-3 py-2 text-xs text-app-text"
+                      >
+                        <span className="font-semibold text-app-text-muted">{index + 1}. </span>
+                        {getLocalizedGuideText(step, language)}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
 
-            {selectedCancellationGuide.channelSpecificNotes.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                  {tr("Channel-specific notes")}
-                </p>
-                <div className="mt-1.5 space-y-1.5">
-                  {selectedCancellationGuide.channelSpecificNotes.map((caveat) => (
-                    <div key={caveat.id} className="pc-state-card px-3 py-2 text-xs text-app-text">
-                      <p className="font-semibold">
-                        {getLocalizedGuideText(caveat.title, language)}
-                      </p>
-                      <p className="mt-1 text-app-text-muted">
-                        {getLocalizedGuideText(caveat.note, language)}
-                      </p>
-                      {caveat.sources && caveat.sources.length > 0 && (
-                        <ul className="mt-1.5 space-y-1">
-                          {caveat.sources.map((source) => (
-                            <li key={source.url}>
-                              <a
-                                href={source.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-app-accent underline-offset-2 hover:underline"
-                              >
-                                {getLocalizedGuideText(source.label, language)}
-                              </a>
-                            </li>
-                          ))}
-                        </ul>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                    {guideText(guideUiCopy.checkResult)}
+                  </p>
+                  <ul className="mt-1.5 space-y-1.5">
+                    {selectedCancellationGuide.confirmationChecks.map((check, index) => (
+                      <li
+                        key={`${selectedCancellationGuide.id}-check-${index}`}
+                        className="pc-state-card px-3 py-2 text-xs text-app-text"
+                      >
+                        {getLocalizedGuideText(check, language)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {selectedCancellationGuide.appStoreGooglePlayNote && (
+                  <div className="pc-state-card px-3 py-2 text-xs text-app-text-muted">
+                    <p className="font-semibold text-app-text">
+                      {guideText(guideUiCopy.appStoreGooglePlay)}
+                    </p>
+                    <p className="mt-1">
+                      {getLocalizedGuideText(
+                        selectedCancellationGuide.appStoreGooglePlayNote,
+                        language,
                       )}
-                    </div>
-                  ))}
+                    </p>
+                  </div>
+                )}
+
+                {selectedCancellationGuide.notes.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                      {guideText(guideUiCopy.importantNotes)}
+                    </p>
+                    <ul className="mt-1.5 space-y-1.5">
+                      {selectedCancellationGuide.notes.map((note, index) => (
+                        <li
+                          key={`${selectedCancellationGuide.id}-note-${index}`}
+                          className="pc-state-card px-3 py-2 text-xs text-app-text-muted"
+                        >
+                          {getLocalizedGuideText(note, language)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {selectedCancellationGuide.supportContactNote && (
+                  <div className="pc-state-card px-3 py-2 text-xs text-app-text-muted">
+                    <p className="font-semibold text-app-text">{guideText(guideUiCopy.supportNote)}</p>
+                    <p className="mt-1">
+                      {getLocalizedGuideText(selectedCancellationGuide.supportContactNote, language)}
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
+                    {guideText(guideUiCopy.officialSources)}
+                  </p>
+                  <ul className="mt-1.5 space-y-1.5">
+                    {selectedCancellationGuide.officialSources.map((source) => (
+                      <li key={source.url}>
+                        <a
+                          href={source.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="pc-state-card block px-3 py-2 text-xs text-app-text hover:bg-app-surface-soft"
+                        >
+                          <span className="font-semibold">
+                            {getLocalizedGuideText(source.label, language)}
+                          </span>
+                          <span className="mt-1 block break-all text-app-text-muted">
+                            {source.url}
+                          </span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
-            )}
-
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-app-text-muted">
-                {tr("Official sources")}
-              </p>
-              <ul className="mt-1.5 space-y-1.5">
-                {selectedCancellationGuide.officialSources.map((source) => (
-                  <li key={source.url}>
-                    <a
-                      href={source.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="pc-state-card block px-3 py-2 text-xs text-app-text hover:bg-app-surface-soft"
-                    >
-                      <span className="font-semibold">
-                        {getLocalizedGuideText(source.label, language)}
-                      </span>
-                      <span className="mt-1 block break-all text-app-text-muted">
-                        {source.url}
-                      </span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            </ModalSheet>
           </div>
         ) : (
           <div className="mt-2 space-y-2">
             <p className="text-xs text-app-text-muted">
-              {tr("No guides found for current query.")}
+              {guideText(guideUiCopy.noGuides)}
             </p>
             <button
               type="button"
@@ -1030,7 +1106,7 @@ function ProfileScenariosContent() {
               className="pc-btn-quiet"
             >
               <AppIcon name="undo" className="h-3.5 w-3.5" />
-              {tr("Clear guide search")}
+              {guideText(guideUiCopy.clearSearch)}
             </button>
           </div>
         )}
